@@ -2867,6 +2867,7 @@ function ArticulosStatsSection({contratos}:{contratos:Contrato[]}){
   const [vista,setVista]=useState("renta")
   const [busq,setBusq]=useState("")
   const [topN,setTopN]=useState(20)
+  const [statsTopN,setStatsTopN]=useState(25)
   const fmt=(n:number)=>"$"+Math.round(n).toLocaleString("es-MX")
 
   // Consolidate articles across all contracts
