@@ -23,7 +23,7 @@ export function createToken(payload: any): string {
 }
 
 export function requireAuth(
-  handler: (req: NextApiRequest, res: NextApiResponse, user: TokenPayload) => Promise<void>
+  handler: (req: NextApiRequest, res: NextApiResponse, user: TokenPayload) => Promise<any>
 ) {
   return async (req: NextApiRequest, res: NextApiResponse) => {
     const authHeader = req.headers.authorization
