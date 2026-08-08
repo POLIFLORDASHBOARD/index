@@ -8731,11 +8731,11 @@ th,td{vertical-align:middle}
   <!-- Cliente -->
   <div>
     <div style="font-size:9px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Cliente</div>
-    <div style="font-size:17px;font-weight:800;color:#1a1814">${split.cliente||"—"}</div>
-    ${split.contrato_folio?`<div style="font-size:11px;color:#9a9590;font-family:monospace;font-weight:700">${split.contrato_folio}</div>`:""}
-    <div style="font-size:11px;color:#9a9590;margin-top:4px">📅 Evento: ${fecha}</div>
-    ${mostrarDir&&split.lugar?`<div style="font-size:11px;color:#4a4640;font-weight:600;margin-top:2px">📍 ${split.lugar}</div>`:""}
-    ${(split.tipo==="rutas"||split.tipo==="desmonte")&&split.tel?`<div style="font-size:12px;color:#1a1814;font-weight:700;margin-top:2px">📞 ${split.tel}</div>`:""}
+    <div style="font-size:22px;font-weight:800;color:#1a1814">${split.cliente||"—"}</div>
+    ${split.contrato_folio?`<div style="font-size:13px;color:#9a9590;font-family:monospace;font-weight:700">${split.contrato_folio}</div>`:""}
+    <div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:6px">📅 Evento: ${fecha}</div>
+    ${mostrarDir&&split.lugar?`<div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:4px">📍 ${split.lugar}</div>`:""}
+    ${(split.tipo==="rutas"||split.tipo==="desmonte")&&split.tel?`<div style="font-size:14px;color:#1a1814;font-weight:700;margin-top:4px">📞 ${split.tel}</div>`:""}
   </div>
   <!-- Hoja de Trabajo / Área -->
   <div style="text-align:right">
@@ -8761,12 +8761,7 @@ th,td{vertical-align:middle}
   <tbody>
     ${filas||`<tr><td colspan="10" style="padding:20px;text-align:center;color:#9a9590;font-style:italic">Sin artículos asignados</td></tr>`}
   </tbody>
-  <tfoot>
-    <tr style="background:#f8f6f2;border-top:2px solid ${tipo.color}">
-      <td style="padding:8px 10px;font-weight:800;font-size:13px;text-align:center;color:${tipo.color}">${totalPiezas}</td>
-      <td colspan="3" style="padding:8px 10px;font-weight:700;font-size:12px;color:#4a4640">piezas en total</td>
-    </tr>
-  </tfoot>
+  
 </table>
 
 ${split.notas?`<div style="background:${tipo.bg};border:1px solid ${tipo.color}44;border-radius:7px;padding:8px 12px;margin-bottom:14px;font-size:11px"><span style="font-weight:700;color:${tipo.color}">Notas: </span>${split.notas}</div>`:""}
