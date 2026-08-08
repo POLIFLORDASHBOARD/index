@@ -8918,7 +8918,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
   const abrirModalProv=(g:any)=>{
     const ct=contratos.find((x:any)=>x.id===g.contrato_id)
-    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:g.fecha,lugarContrato:ct?.lugar||""})
+    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:ct?.fecha_evento||g.fecha,lugarContrato:ct?.lugar||""})
     setProvNombre(""); setProvArts([]); setProvBusq(""); setProvMostrarDir(false); setProvDireccion("")
   }
 
