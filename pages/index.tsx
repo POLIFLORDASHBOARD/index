@@ -8692,73 +8692,111 @@ function abrirHojaSplit(split:any,logoSrc:string){
     </tr>`).join("")
   const totalPiezas=arts.reduce((s:number,a:any)=>s+(a.cantidad||0),0)
   const totalImporte=arts.reduce((s:number,a:any)=>s+(a.importe||a.subtotal||0),0)
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${tipo.icono} ${tipo.nombre} — ${split.contrato_folio||split.cliente}</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,Arial,sans-serif;color:#1a1814;background:#fff}
-@media print{.np{display:none!important}@page{margin:12mm 15mm;size:A4}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
-table{border-collapse:collapse;width:100%}</style></head>
-<body style="padding:32px;max-width:820px;margin:0 auto">
-<div class="np" style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:20px">
-  <button onclick="window.print()" style="padding:10px 24px;background:#1a1814;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
-  <button onclick="window.close()" style="padding:10px 20px;background:#f5f4f0;border:1px solid #ccc;border-radius:8px;cursor:pointer">✕</button>
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>${tipo.nombre} — ${split.contrato_folio||split.cliente}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,Arial,sans-serif;color:#1a1814;background:#fff;font-size:13px}
+table{border-collapse:collapse;width:100%}
+th,td{vertical-align:middle}
+.no-print{display:flex}
+@media print{
+  .no-print{display:none!important}
+  @page{margin:12mm 14mm;size:A4}
+  body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
+</style></head>
+<body style="padding:28px 32px;max-width:820px;margin:0 auto">
+
+<!-- Botones solo pantalla -->
+<div class="no-print" style="gap:8px;justify-content:flex-end;margin-bottom:18px">
+  <button onclick="window.print()" style="padding:9px 22px;background:#1a1814;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">🖨️ Imprimir</button>
+  <button onclick="window.close()" style="padding:9px 16px;background:#f5f4f0;border:1px solid #ccc;border-radius:8px;cursor:pointer;font-family:Inter,sans-serif;font-size:13px">✕ Cerrar</button>
 </div>
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid ${tipo.color}">
-  <div><img src="${logoSrc}" alt="Poliflor" style="height:50px;width:auto;object-fit:contain" onerror="this.style.display='none'"></div>
+
+<!-- ══ ENCABEZADO ══ -->
+<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;margin-bottom:14px;border-bottom:3px solid ${tipo.color}">
+  <!-- Logo -->
+  <div style="min-width:120px">
+    <img src="${logoSrc}" alt="Poliflor" style="height:44px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
+  </div>
+  <!-- Tipo de hoja -->
   <div style="text-align:right">
-    <div style="display:inline-flex;align-items:center;gap:8px;background:${tipo.bg};border:2px solid ${tipo.color};border-radius:10px;padding:8px 16px">
-      <span style="font-size:24px">${tipo.icono}</span>
-      <div>
-        <div style="font-size:10px;font-weight:700;color:${tipo.color};text-transform:uppercase;letter-spacing:.08em">Hoja de trabajo</div>
-        <div style="font-size:20px;font-weight:800;color:${tipo.color}">${tipo.nombre}</div>
-      </div>
+    <div style="font-size:9px;font-weight:700;color:${tipo.color};text-transform:uppercase;letter-spacing:.12em;margin-bottom:2px">Hoja de Trabajo</div>
+    <div style="display:inline-flex;align-items:center;gap:8px;background:${tipo.bg};border:2px solid ${tipo.color};border-radius:10px;padding:6px 14px">
+      <span style="font-size:22px">${tipo.icono}</span>
+      <span style="font-size:18px;font-weight:800;color:${tipo.color}">${tipo.nombre}</span>
     </div>
   </div>
 </div>
-<div style="display:grid;grid-template-columns:auto 1fr;gap:14px;margin-bottom:20px;align-items:start">
-  <!-- Bloque día de trabajo -->
-  <div style="background:${tipo.color};border-radius:12px;padding:12px 18px;text-align:center;min-width:120px">
-    <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">${etiquetaTipo}</div>
-    <div style="font-size:32px;font-weight:800;color:#fff;line-height:1;margin-bottom:2px">${diaSemana}</div>
+
+<!-- ══ INFO CLIENTE + FECHA ══ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+  <!-- Cliente -->
+  <div style="background:#f8f6f2;border-radius:10px;padding:12px 14px">
+    <div style="font-size:9px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Cliente</div>
+    <div style="font-size:16px;font-weight:800;color:#1a1814;margin-bottom:2px">${split.cliente||"—"}</div>
+    ${split.contrato_folio?`<div style="font-size:11px;color:#9a9590;font-family:monospace;font-weight:700">${split.contrato_folio}</div>`:""}
+    ${mostrarDir&&split.lugar?`<div style="font-size:12px;color:#4a4640;margin-top:4px;font-weight:600">📍 ${split.lugar}</div>`:""}
+    ${(split.tipo==="rutas"||split.tipo==="desmonte")&&split.tel?`<div style="font-size:12px;color:#1a1814;margin-top:4px;font-weight:700">📞 ${split.tel}</div>`:""}
+  </div>
+  <!-- Fecha de trabajo -->
+  <div style="background:${tipo.color};border-radius:10px;padding:12px 14px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+    <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.1em">${etiquetaTipo}</div>
+    <div style="font-size:34px;font-weight:800;color:#fff;line-height:1">${diaSemana}</div>
     <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.9)">${fechaTrabajoFmt}</div>
-  </div>
-  <!-- Info cliente y evento -->
-  <div style="display:flex;flex-direction:column;gap:6px">
-    <div>
-      <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.06em">Cliente</div>
-      <div style="font-size:16px;font-weight:800;color:#1a1814">${split.cliente||"—"}</div>
-      ${split.contrato_folio?`<div style="font-size:11px;color:#9a9590;font-family:monospace;font-weight:700">${split.contrato_folio}</div>`:""}
-    </div>
-    <div style="font-size:11px;color:#9a9590">📅 Evento: ${fecha}</div>
-    ${(split.tipo==="rutas"||split.tipo==="desmonte")&&split.tel?`<div style="font-size:12px;color:#1a1814;font-weight:700">📞 ${split.tel}</div>`:""}
-    ${mostrarDir&&split.lugar?`<div style="font-size:12px;color:#4a4640;font-weight:600">📍 ${split.lugar}</div>`:""}
-    ${split.responsable?`<div style="font-size:11px;color:#9a9590">👤 ${split.responsable}</div>`:""}
+    ${esPrepArea?`<div style="font-size:9px;color:rgba(255,255,255,.6);margin-top:3px">📅 Evento: ${fecha}</div>`:`<div style="font-size:9px;color:rgba(255,255,255,.6);margin-top:3px">📅 Evento: ${fecha}</div>`}
   </div>
 </div>
-<table style="margin-bottom:20px;border:1px solid #e8e5de;border-radius:8px;overflow:hidden">
-  <thead><tr style="background:${tipo.color};color:#fff">
-    <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
-    <th style="padding:10px;text-align:left;font-size:11px">Artículo / Descripción</th>
-    ${mostrarPrecio?`<th style="padding:10px;text-align:right;font-size:11px;width:110px">P.U.</th>`:""}
-    <th style="padding:10px;text-align:left;font-size:11px">Nota</th>
-  </tr></thead>
-  <tbody>${filas||`<tr><td colspan="10" style="padding:24px;text-align:center;color:#9a9590;font-style:italic">Sin artículos asignados</td></tr>`}</tbody>
-  <tfoot><tr style="background:#f8f6f2;border-top:2px solid ${tipo.color}">
-    <td colspan="2" style="padding:10px;font-weight:700;font-size:12px">Total: ${totalPiezas} piezas</td>
-    <td></td>
-    ${mostrarPrecio?`<td></td><td style="padding:10px;text-align:right;font-weight:800;font-family:monospace;font-size:14px;color:${tipo.color}">$${totalImporte.toLocaleString("es-MX")}</td>`:""}
-    <td></td>
-  </tr></tfoot>
+${split.responsable?`<div style="font-size:11px;color:#9a9590;margin-bottom:10px">👤 Responsable: <strong style="color:#1a1814">${split.responsable}</strong></div>`:""}
+
+<!-- ══ TABLA DE ARTÍCULOS ══ -->
+<table style="margin-bottom:16px;border:1.5px solid #e8e5de;border-radius:8px;overflow:hidden">
+  <thead>
+    <tr style="background:${tipo.color};color:#fff">
+      <th style="padding:9px 10px;text-align:center;font-size:11px;font-weight:700;width:60px;letter-spacing:.04em">Cant.</th>
+      <th style="padding:9px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em">Artículo / Descripción</th>
+      ${mostrarPrecio?`<th style="padding:9px 10px;text-align:right;font-size:11px;font-weight:700;width:100px;letter-spacing:.04em">P.U.</th>`:""}
+      <th style="padding:9px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em">Nota</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${filas||`<tr><td colspan="10" style="padding:24px;text-align:center;color:#9a9590;font-style:italic">Sin artículos asignados</td></tr>`}
+  </tbody>
+  <tfoot>
+    <tr style="background:#f8f6f2;border-top:2px solid ${tipo.color}">
+      <td style="padding:10px;font-weight:800;font-size:13px;text-align:center;color:${tipo.color}">${totalPiezas}</td>
+      <td style="padding:10px;font-weight:700;font-size:12px;color:#4a4640">piezas en total</td>
+      ${mostrarPrecio?`<td style="padding:10px;text-align:right;font-weight:800;font-family:monospace;font-size:14px;color:${tipo.color}">$${totalImporte.toLocaleString("es-MX")}</td>`:""}
+      <td></td>
+    </tr>
+  </tfoot>
 </table>
-${split.notas?`<div style="background:${tipo.bg};border:1px solid ${tipo.color}33;border-radius:8px;padding:12px;margin-bottom:12px">
-  <div style="font-size:10px;font-weight:700;color:${tipo.color};text-transform:uppercase;margin-bottom:4px">Notas del área</div>
-  <div style="font-size:12px">${split.notas}</div></div>`:""}
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:16px;border-top:1px solid #e8e5de">
-  <div style="text-align:center"><div style="border-top:1px solid #1a1814;padding-top:8px;margin-top:50px;font-size:11px;color:#9a9590">Responsable — ${tipo.nombre}</div></div>
-  <div style="text-align:center"><div style="border-top:1px solid #1a1814;padding-top:8px;margin-top:50px;font-size:11px;color:#9a9590">Autorizado por Poliflor</div></div>
+
+<!-- Notas del área -->
+${split.notas?`
+<div style="background:${tipo.bg};border:1.5px solid ${tipo.color}44;border-radius:8px;padding:10px 14px;margin-bottom:16px">
+  <div style="font-size:9px;font-weight:700;color:${tipo.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Notas del área</div>
+  <div style="font-size:12px;color:#1a1814">${split.notas}</div>
+</div>`:""}
+
+<!-- ══ FIRMAS ══ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:48px;padding-top:14px;border-top:1px solid #e8e5de">
+  <div style="text-align:center">
+    <div style="height:44px;border-bottom:1.5px solid #1a1814;margin-bottom:8px"></div>
+    <div style="font-size:11px;color:#9a9590">Responsable — ${tipo.nombre}</div>
+    ${split.responsable?`<div style="font-size:11px;font-weight:700;color:#1a1814;margin-top:2px">${split.responsable}</div>`:""}
+  </div>
+  <div style="text-align:center">
+    <div style="height:44px;border-bottom:1.5px solid #1a1814;margin-bottom:8px"></div>
+    <div style="font-size:11px;color:#9a9590">Autorizado por</div>
+    <div style="font-size:11px;font-weight:700;color:#1a1814;margin-top:2px">Poliflor Eventos</div>
+  </div>
 </div>
+
 </body></html>`
-  const w=window.open("","_blank","width=1000,height=820")
+    const w=window.open("","_blank","width=1000,height=820")
   if(w){w.document.write(html);w.document.close()}
 }
 
