@@ -14,8 +14,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (contrato_id) q = q.eq("contrato_id", contrato_id)
     if (tipo) q = q.eq("tipo", tipo)
     if (estado) q = q.eq("estado", estado)
-    if (fecha_desde) q = q.gte("fecha_evento", fecha_desde)
-    if (fecha_hasta) q = q.lte("fecha_evento", fecha_hasta)
+    // Filter by fecha_evento OR fecha_evento_original to catch all splits in the week
+    if (fecha_desde && fecha_hasta) {
+      q = q.or(`fecha_evento.gte.${fecha_desde},fecha_evento_original.gte.${fecha_desde}`)
+        .or(`fecha_evento.lte.${fecha_hasta},fecha_evento_original.lte.${fecha_hasta}`)
+    } else {
+      if (fecha_desde) q = q.gte("fecha_evento", fecha_desde)
+      if (fecha_hasta) q = q.lte("fecha_evento", fecha_hasta)
+    }
     q = q.order("fecha_evento", { ascending: true }).order("tipo", { ascending: true })
     const { data, error } = await q
     if (error) return res.status(500).json({ error: error.message })
@@ -74,5 +80,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(405).json({ error: "Method not allowed" })
 }
-
-// build: 1786145161.4850833
