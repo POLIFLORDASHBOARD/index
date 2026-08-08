@@ -4687,8 +4687,8 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
       const neto=bruto-descArt
       return `
       <tr style="border-bottom:1px solid #f0ece4;background:${i%2===0?"#fff":"#fafaf8"}">
-        <td style="padding:8px 10px;text-align:center;font-size:13px">${p.cantidad}</td>
         <td style="padding:8px 10px;font-weight:600;font-size:13px">${p.nombre}</td>
+        <td style="padding:8px 10px;text-align:center;font-size:13px">${p.cantidad}</td>
         <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:13px">$${(p.precio_unitario||0).toLocaleString("es-MX")}</td>
         <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:700;font-size:13px;color:#1a3a5c">
           $${neto.toLocaleString("es-MX")}
@@ -4756,8 +4756,8 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
   <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
     <thead>
       <tr style="background:#1a1814;color:#fff">
+        <th style="padding:10px;text-align:left;font-size:11px">Descripción</th>
         <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
-        <th style="padding:10px;text-align:left;font-size:11px">Artículo / Descripción</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:100px">P. Unit.</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:110px">Subtotal</th>
       </tr>
@@ -6059,8 +6059,8 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
       const neto=bruto-descArt
       return `
       <tr style="border-bottom:1px solid #f0ece4;background:${i%2===0?"#fff":"#fafaf8"}">
-        <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:13px;color:#1a3a5c">${a.cantidad||0}</td>
         <td style="padding:8px 10px;font-weight:600;font-size:13px">${a.nombre||"—"}</td>
+        <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:13px;color:#1a3a5c">${a.cantidad||0}</td>
         <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:13px">$${(a.pu||a.precio_unitario||0).toLocaleString("es-MX")}</td>
         <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:700;font-size:13px;color:#1a3a5c">
           $${neto.toLocaleString("es-MX")}
@@ -6117,8 +6117,8 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
   <table style="margin-bottom:24px">
     <thead>
       <tr style="background:#1a1814;color:#fff">
+        <th style="padding:10px;text-align:left;font-size:11px">Artículo</th>
         <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
-        <th style="padding:10px;text-align:left;font-size:11px">Artículo / Descripción</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:100px">P. Unit.</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:110px">Importe</th>
       </tr>
@@ -8685,8 +8685,8 @@ function abrirHojaSplit(split:any,logoSrc:string){
   })()
   const filas=arts.map((a:any,i:number)=>`
     <tr style="border-bottom:1px solid #f0f0f0;background:${i%2===0?"#fff":"#fafafa"}">
-      <td style="padding:8px 10px;font-size:13px;font-weight:600">${a.nombre||"—"}</td>
       <td style="padding:8px 10px;font-size:14px;font-weight:800;text-align:center;color:${tipo.color}">${a.cantidad||0}</td>
+      <td style="padding:8px 10px;font-size:13px;font-weight:600">${a.nombre||"—"}</td>
       ${mostrarPrecio?`<td style="padding:8px 10px;font-size:13px;font-weight:700;text-align:right;font-family:monospace">$${(a.pu||a.precio_unitario||0).toLocaleString("es-MX")}</td>`:""}
       ${a.notas?`<td style="padding:8px 10px;font-size:11px;color:#64748b;font-style:italic">${a.notas}</td>`:"<td></td>"}
     </tr>`).join("")
@@ -8737,8 +8737,8 @@ table{border-collapse:collapse;width:100%}</style></head>
 </div>
 <table style="margin-bottom:20px;border:1px solid #e8e5de;border-radius:8px;overflow:hidden">
   <thead><tr style="background:${tipo.color};color:#fff">
+    <th style="padding:10px;text-align:left;font-size:11px">Artículo</th>
     <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
-    <th style="padding:10px;text-align:left;font-size:11px">Artículo / Descripción</th>
     ${mostrarPrecio?`<th style="padding:10px;text-align:right;font-size:11px;width:110px">P.U.</th>`:""}
     <th style="padding:10px;text-align:left;font-size:11px">Nota</th>
   </tr></thead>
