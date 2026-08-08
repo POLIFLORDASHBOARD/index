@@ -6107,9 +6107,9 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
     </div>
     <div style="background:#f8f6f2;border-radius:10px;padding:16px">
       <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Evento</div>
-      ${x.fecha_evento?`<div style="font-size:13px;font-weight:700;margin-bottom:4px">📅 ${new Date(x.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
+      ${x.fecha_evento?`<div style="font-size:13px;font-weight:700;margin-bottom:4px">📅 ${x.fecha_evento}</div>`:""}
       ${x.lugar?`<div style="font-size:12px;color:#4a4640">📍 ${x.lugar}</div>`:""}
-      ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">🚚 Entrega: ${new Date(x.fecha_entrega+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"})}${x.fecha_desmonte?" · 📦 Desmonte: "+new Date(x.fecha_desmonte+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"}):""}</div>`:""}
+      ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">Entrega: ${x.fecha_entrega}${x.fecha_desmonte?" · Desmonte: "+x.fecha_desmonte:""}</div>`:""}
     </div>
   </div>
 
@@ -9552,7 +9552,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                   {[{l:"Evento",v:ct.fecha_evento,ico:"🎉"},{l:"Entrega",v:ct.fecha_entrega,ico:"🚚"},{l:"Desmonte",v:ct.fecha_desmonte,ico:"📦"}].map((k,i)=>(
                     <div key={i} style={{padding:"10px 8px",textAlign:"center" as const,borderRight:i<2?"1px solid #e8e5de":"none"}}>
                       <div style={{fontSize:15,marginBottom:2}}>{k.ico}</div>
-                      <div style={{fontSize:11,fontWeight:700}}>{k.v||"—"}</div>
+                      <div style={{fontSize:11,fontWeight:700}}>{k.v?new Date(k.v+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):"—"}</div>
                       <div style={{fontSize:8,color:"#9a9590",textTransform:"uppercase" as const}}>{k.l}</div>
                     </div>
                   ))}
