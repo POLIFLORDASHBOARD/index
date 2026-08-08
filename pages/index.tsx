@@ -5884,7 +5884,7 @@ document.getElementById("btn-pdf").onclick=function(){
 }
 
 
-// ─── CONTRATOS CONFIRMADOS ─────────────────────────────────────────n({ token, personal, logoUrl, vendedorActual, esAdmin, contratos: contratosAll = [] }: { token: string, personal: any, logoUrl?: string, vendedorActual?: string, esAdmin?: boolean, contratos?: any[] }) {
+// ─── CONTRATOS CONFIRMADOS ───────────────────────────────────────── CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin, contratos: contratosAll = [] }: { token: string, personal: any, logoUrl?: string, vendedorActual?: string, esAdmin?: boolean, contratos?: any[] }) {
   const [cots, setCots] = useState<Cotizacion[]>([])
   const [cargando, setCargando] = useState(true)
   const [filtroEst, setFiltroEst] = useState("todos")
