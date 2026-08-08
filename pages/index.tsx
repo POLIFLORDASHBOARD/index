@@ -6117,8 +6117,8 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
   <table style="margin-bottom:24px">
     <thead>
       <tr style="background:#1a1814;color:#fff">
-        <th style="padding:10px;text-align:left;font-size:11px">Artículo</th>
         <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
+        <th style="padding:10px;text-align:left;font-size:11px">Artículo / Descripción</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:100px">P. Unit.</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:110px">Importe</th>
       </tr>
@@ -8737,8 +8737,8 @@ table{border-collapse:collapse;width:100%}</style></head>
 </div>
 <table style="margin-bottom:20px;border:1px solid #e8e5de;border-radius:8px;overflow:hidden">
   <thead><tr style="background:${tipo.color};color:#fff">
-    <th style="padding:10px;text-align:left;font-size:11px">Artículo</th>
     <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
+    <th style="padding:10px;text-align:left;font-size:11px">Artículo / Descripción</th>
     ${mostrarPrecio?`<th style="padding:10px;text-align:right;font-size:11px;width:110px">P.U.</th>`:""}
     <th style="padding:10px;text-align:left;font-size:11px">Nota</th>
   </tr></thead>
