@@ -6899,15 +6899,15 @@ document.getElementById("btn-pdfc").onclick=function(){
 // RH SECTION
 // ═══════════════════════════════════════════════════════
 function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
-  const [subTab,setSubTab]=React.useState("empleados")
-  const [empleados,setEmpleados]=React.useState<any[]>([])
-  const [cargando,setCargando]=React.useState(false)
-  const [busq,setBusq]=React.useState("")
-  const [modoForm,setModoForm]=React.useState(false)
-  const [editEmp,setEditEmp]=React.useState<any>(null)
-  const [form,setForm]=React.useState<any>({nombre:"",nss:"",curp:"",puesto:"",departamento:"",fecha_ingreso:"",dias_vacaciones:0,notas:""})
-  const [guardando,setGuardando]=React.useState(false)
-  const [csvMsg,setCsvMsg]=React.useState("")
+  const [subTab,setSubTab]=useState("empleados")
+  const [empleados,setEmpleados]=useState<any[]>([])
+  const [cargando,setCargando]=useState(false)
+  const [busq,setBusq]=useState("")
+  const [modoForm,setModoForm]=useState(false)
+  const [editEmp,setEditEmp]=useState<any>(null)
+  const [form,setForm]=useState<any>({nombre:"",nss:"",curp:"",puesto:"",departamento:"",fecha_ingreso:"",dias_vacaciones:0,notas:""})
+  const [guardando,setGuardando]=useState(false)
+  const [csvMsg,setCsvMsg]=useState("")
 
   const supabaseUrl="https://ohxehnsxfbvdflmqlzxq.supabase.co"
   const supabaseKey="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM"
@@ -6922,7 +6922,7 @@ function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
     setCargando(false)
   }
 
-  React.useEffect(()=>{fetchEmpleados()},[])
+  useEffect(()=>{fetchEmpleados()},[])
 
   const resetForm=()=>setForm({nombre:"",nss:"",curp:"",puesto:"",departamento:"",fecha_ingreso:"",dias_vacaciones:0,notas:""})
 
@@ -7116,10 +7116,10 @@ function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
 }
 
 function VacacionesSection({empleados,supabaseUrl,supabaseKey}:{empleados:any[],supabaseUrl:string,supabaseKey:string}){
-  const [vacs,setVacs]=React.useState<any[]>([])
-  const [modoForm,setModoForm]=React.useState(false)
-  const [form,setForm]=React.useState<any>({empleado_id:"",fecha_inicio:"",fecha_fin:"",notas:""})
-  const [guardando,setGuardando]=React.useState(false)
+  const [vacs,setVacs]=useState<any[]>([])
+  const [modoForm,setModoForm]=useState(false)
+  const [form,setForm]=useState<any>({empleado_id:"",fecha_inicio:"",fecha_fin:"",notas:""})
+  const [guardando,setGuardando]=useState(false)
 
   const fetchVacs=async()=>{
     const r=await fetch(`${supabaseUrl}/rest/v1/vacaciones?select=*,empleados(nombre)&order=fecha_inicio.desc`,{
@@ -7129,7 +7129,7 @@ function VacacionesSection({empleados,supabaseUrl,supabaseKey}:{empleados:any[],
     setVacs(Array.isArray(data)?data:[])
   }
 
-  React.useEffect(()=>{fetchVacs()},[])
+  useEffect(()=>{fetchVacs()},[])
 
   const calcDias=(ini:string,fin:string)=>{
     if(!ini||!fin)return 0
