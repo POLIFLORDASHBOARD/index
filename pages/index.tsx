@@ -8942,8 +8942,8 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
   const imprimirProveedor=()=>{
     if(!provNombre.trim()||!modalProv)return
     abrirHojaSplit({tipo:"proveedor",nombre:provNombre,cliente:modalProv.cliente,contrato_folio:modalProv.folio,
-      lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",fecha_evento:modalProv.fecha,
-      fecha_preparacion:modalProv.fecha,
+      lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",fecha_evento:modalProv.fechaEvento||modalProv.fecha,
+      fecha_preparacion:modalProv.fechaEvento||modalProv.fecha,
       articulos:provArts,notas:"",mostrar_direccion:provMostrarDir,mostrar_precios:false,responsable:""},logoUrl)
   }
 
