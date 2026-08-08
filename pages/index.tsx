@@ -6900,241 +6900,62 @@ document.getElementById("btn-pdfc").onclick=function(){
 
 
 // ─── INICIO DASHBOARD ─────────────────────────────────────────────
+
 // ═══════════════════════════════════════════════════════
-// RH SECTION
+// RH SECTION — Recursos Humanos
 // ═══════════════════════════════════════════════════════
+const RH_PWD = "POLIFLOR_GERENCIA_2026"
+
 function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
-  const [subTab,setSubTab]=useState("empleados")
+  const SB_URL="https://ohxehnsxfbvdflmqlzxq.supabase.co"
+  const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM"
+
+  const [auth,setAuth]=useState(false)
+  const [pwdInput,setPwdInput]=useState("")
+  const [pwdError,setPwdError]=useState("")
+  const [tab,setTab]=useState("empleados")
   const [empleados,setEmpleados]=useState<any[]>([])
+  const [vacaciones,setVacaciones]=useState<any[]>([])
+  const [incidencias,setIncidencias]=useState<any[]>([])
   const [cargando,setCargando]=useState(false)
   const [busq,setBusq]=useState("")
-  const [modoForm,setModoForm]=useState(false)
-  const [editEmp,setEditEmp]=useState<any>(null)
-  const [form,setForm]=useState<any>({nombre:"",nss:"",curp:"",puesto:"",departamento:"",fecha_ingreso:"",dias_vacaciones:0,notas:""})
+  const [selEmp,setSelEmp]=useState<any>(null)
+  const [modoForm,setModoForm]=useState<"emp"|"vac"|"inc"|null>(null)
+  const [form,setForm]=useState<any>({})
   const [guardando,setGuardando]=useState(false)
-  const [csvMsg,setCsvMsg]=useState("")
+  const [filtroVac,setFiltroVac]=useState("todos")
 
-  const supabaseUrl="https://ohxehnsxfbvdflmqlzxq.supabase.co"
-  const supabaseKey="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM"
-
-  const fetchEmpleados=async()=>{
-    setCargando(true)
-    const r=await fetch(`${supabaseUrl}/rest/v1/empleados?select=*&order=nombre.asc`,{
-      headers:{"apikey":supabaseKey,"Authorization":`Bearer ${supabaseKey}`}
+  const sbFetch=async(path:string,opts:any={})=>{
+    const r=await fetch(SB_URL+path,{
+      ...opts,
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json",...(opts.headers||{})}
     })
-    const data=await r.json()
-    setEmpleados(Array.isArray(data)?data:[])
+    return r
+  }
+
+  const cargarEmpleados=async()=>{
+    setCargando(true)
+    const r=await sbFetch("/rest/v1/empleados?select=*&order=nombre.asc")
+    const d=await r.json()
+    setEmpleados(Array.isArray(d)?d:[])
     setCargando(false)
   }
 
-  useEffect(()=>{fetchEmpleados()},[])
-
-  const resetForm=()=>setForm({nombre:"",nss:"",curp:"",puesto:"",departamento:"",fecha_ingreso:"",dias_vacaciones:0,notas:""})
-
-  const guardarEmpleado=async()=>{
-    if(!form.nombre.trim())return
-    setGuardando(true)
-    if(editEmp){
-      await fetch(`${supabaseUrl}/rest/v1/empleados?id=eq.${editEmp.id}`,{
-        method:"PATCH",
-        headers:{"apikey":supabaseKey,"Authorization":`Bearer ${supabaseKey}`,"Content-Type":"application/json","Prefer":"return=minimal"},
-        body:JSON.stringify(form)
-      })
-    } else {
-      await fetch(`${supabaseUrl}/rest/v1/empleados`,{
-        method:"POST",
-        headers:{"apikey":supabaseKey,"Authorization":`Bearer ${supabaseKey}`,"Content-Type":"application/json","Prefer":"return=minimal"},
-        body:JSON.stringify({...form,activo:true})
-      })
-    }
-    setGuardando(false)
-    setModoForm(false)
-    setEditEmp(null)
-    resetForm()
-    fetchEmpleados()
+  const cargarVacaciones=async()=>{
+    const r=await sbFetch("/rest/v1/vacaciones?select=*,empleados(nombre,nss)&order=fecha_inicio.desc")
+    const d=await r.json()
+    setVacaciones(Array.isArray(d)?d:[])
   }
 
-  const eliminarEmpleado=async(id:string)=>{
-    if(!window.confirm("¿Eliminar empleado?"))return
-    await fetch(`${supabaseUrl}/rest/v1/empleados?id=eq.${id}`,{
-      method:"DELETE",
-      headers:{"apikey":supabaseKey,"Authorization":`Bearer ${supabaseKey}`}
-    })
-    fetchEmpleados()
+  const cargarIncidencias=async()=>{
+    const r=await sbFetch("/rest/v1/incidencias?select=*,empleados(nombre)&order=fecha.desc")
+    const d=await r.json()
+    setIncidencias(Array.isArray(d)?d:[])
   }
 
-  const importarCSV=async(e:any)=>{
-    const file=e.target.files[0]
-    if(!file)return
-    const text=await file.text()
-    const lines=text.split("\n").filter(Boolean)
-    const headers=lines[0].split(",").map((h:string)=>h.trim().toLowerCase().replace(/\s+/g,"_"))
-    const rows=lines.slice(1).map((l:string)=>{
-      const vals=l.split(",")
-      const obj:any={}
-      headers.forEach((h:string,i:number)=>{obj[h]=vals[i]?.trim()||""})
-      return {
-        nss:obj.nss||"",
-        nombre:obj.nombre||"",
-        curp:obj.curp||"",
-        dias_vacaciones:parseInt(obj.dias_vacaciones_2026||obj.dias_vacaciones||"0")||0,
-        dias_programados:parseInt(obj.dias_programados_2026||obj.dias_programados||"0")||0,
-        activo:true
-      }
-    }).filter((r:any)=>r.nombre)
-    
-    let ok=0
-    for(const row of rows){
-      const res=await fetch(`${supabaseUrl}/rest/v1/empleados`,{
-        method:"POST",
-        headers:{"apikey":supabaseKey,"Authorization":`Bearer ${supabaseKey}`,"Content-Type":"application/json","Prefer":"return=minimal"},
-        body:JSON.stringify(row)
-      })
-      if(res.ok)ok++
-    }
-    setCsvMsg(`✅ ${ok} empleados importados`)
-    fetchEmpleados()
-  }
-
-  const empFilt=empleados.filter(e=>!busq||(e.nombre||"").toLowerCase().includes(busq.toLowerCase())||(e.nss||"").includes(busq))
-
-  const TABS=[{id:"empleados",label:"👥 Empleados"},{id:"vacaciones",label:"🏖️ Vacaciones"}]
-
-  return(
-    <div style={{maxWidth:1100,margin:"0 auto",padding:isMobile?"10px":"0 0 40px"}}>
-      {/* Header */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap" as const,gap:10}}>
-        <div>
-          <div style={{fontFamily:"Playfair Display,serif",fontSize:22,fontWeight:700}}>👥 Recursos Humanos</div>
-          <div style={{fontSize:12,color:"#9a9590",marginTop:2}}>{empleados.length} empleados registrados</div>
-        </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <label style={{padding:"8px 14px",borderRadius:8,background:"#f0ece4",border:"1px solid #e8e5de",cursor:"pointer",fontSize:12,fontWeight:600}}>
-            📥 Importar CSV
-            <input type="file" accept=".csv" onChange={importarCSV} style={{display:"none"}}/>
-          </label>
-          <button onClick={()=>{setModoForm(true);setEditEmp(null);resetForm()}}
-            style={{padding:"8px 16px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>
-            + Nuevo empleado
-          </button>
-        </div>
-      </div>
-      {csvMsg&&<div style={{padding:"8px 14px",background:"#f0fdf4",borderRadius:8,marginBottom:12,fontSize:12,color:"#2d6a4f"}}>{csvMsg}</div>}
-
-      {/* Tabs */}
-      <div style={{display:"flex",gap:6,marginBottom:16}}>
-        {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setSubTab(t.id)}
-            style={{padding:"6px 14px",borderRadius:8,border:`1.5px solid ${subTab===t.id?"#1a1814":"#e8e5de"}`,
-              background:subTab===t.id?"#1a1814":"#fff",color:subTab===t.id?"#fff":"#4a4640",
-              cursor:"pointer",fontSize:12,fontWeight:600}}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Form Modal */}
-      {modoForm&&(
-        <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div style={{background:"#fff",borderRadius:16,padding:28,width:"min(500px,95vw)",maxHeight:"90vh",overflowY:"auto" as const}}>
-            <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>{editEmp?"Editar empleado":"Nuevo empleado"}</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              {[
-                {k:"nombre",l:"Nombre completo",full:true},
-                {k:"nss",l:"NSS"},
-                {k:"curp",l:"CURP"},
-                {k:"puesto",l:"Puesto"},
-                {k:"departamento",l:"Departamento"},
-                {k:"fecha_ingreso",l:"Fecha ingreso",type:"date"},
-                {k:"dias_vacaciones",l:"Días vacaciones",type:"number"},
-              ].map(f=>(
-                <div key={f.k} style={{gridColumn:f.full?"1/-1":"auto"}}>
-                  <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>{f.l}</label>
-                  <input type={f.type||"text"} value={form[f.k]||""}
-                    onChange={e=>setForm((p:any)=>({...p,[f.k]:e.target.value}))}
-                    style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
-                </div>
-              ))}
-              <div style={{gridColumn:"1/-1"}}>
-                <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Notas</label>
-                <textarea value={form.notas||""} onChange={e=>setForm((p:any)=>({...p,notas:e.target.value}))} rows={2}
-                  style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end" as const}}>
-              <button onClick={()=>{setModoForm(false);setEditEmp(null);resetForm()}}
-                style={{padding:"8px 16px",borderRadius:8,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:13}}>Cancelar</button>
-              <button onClick={guardarEmpleado} disabled={guardando}
-                style={{padding:"8px 20px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>
-                {guardando?"Guardando...":"Guardar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Empleados Tab */}
-      {subTab==="empleados"&&(
-        <div>
-          <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar por nombre o NSS..."
-            style={{width:"100%",padding:"9px 14px",border:"1.5px solid #e8e5de",borderRadius:9,fontSize:13,outline:"none",marginBottom:14,boxSizing:"border-box" as const}}/>
-          {cargando?<div style={{textAlign:"center" as const,padding:40,color:"#9a9590"}}>Cargando...</div>:(
-            <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
-              {/* Header */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 120px 100px 80px 80px 70px",background:"#f8f6f2",padding:"8px 14px",fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const}}>
-                <div>Nombre</div><div>NSS</div><div>Puesto</div><div>Vacaciones</div><div>Programados</div><div></div>
-              </div>
-              {empFilt.length===0?<div style={{padding:30,textAlign:"center" as const,color:"#9a9590"}}>Sin empleados</div>:
-              empFilt.map((e:any)=>(
-                <div key={e.id} style={{display:"grid",gridTemplateColumns:"1fr 120px 100px 80px 80px 70px",padding:"10px 14px",borderTop:"1px solid #f0ece4",alignItems:"center"}}>
-                  <div>
-                    <div style={{fontWeight:600,fontSize:13}}>{e.nombre}</div>
-                    {e.curp&&<div style={{fontSize:10,color:"#9a9590",fontFamily:"monospace"}}>{e.curp}</div>}
-                  </div>
-                  <div style={{fontSize:12,fontFamily:"monospace",color:"#4a4640"}}>{e.nss||"—"}</div>
-                  <div style={{fontSize:12,color:"#4a4640"}}>{e.puesto||"—"}</div>
-                  <div style={{fontSize:12,textAlign:"center" as const}}>
-                    <span style={{background:"#f0fdf4",color:"#2d6a4f",padding:"2px 8px",borderRadius:12,fontWeight:700}}>{e.dias_vacaciones||0}</span>
-                  </div>
-                  <div style={{fontSize:12,textAlign:"center" as const}}>
-                    <span style={{background:"#eff6ff",color:"#1a3a5c",padding:"2px 8px",borderRadius:12,fontWeight:700}}>{e.dias_programados||0}</span>
-                  </div>
-                  <div style={{display:"flex",gap:4,justifyContent:"flex-end" as const}}>
-                    <button onClick={()=>{setEditEmp(e);setForm({nombre:e.nombre||"",nss:e.nss||"",curp:e.curp||"",puesto:e.puesto||"",departamento:e.departamento||"",fecha_ingreso:e.fecha_ingreso||"",dias_vacaciones:e.dias_vacaciones||0,notas:e.notas||""});setModoForm(true)}}
-                      style={{padding:"3px 7px",borderRadius:5,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:11}}>✏️</button>
-                    <button onClick={()=>eliminarEmpleado(e.id)}
-                      style={{padding:"3px 7px",borderRadius:5,border:"1px solid #fca5a5",background:"#fef2f2",color:"#8b2e2e",cursor:"pointer",fontSize:11}}>🗑️</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Vacaciones Tab */}
-      {subTab==="vacaciones"&&(
-        <VacacionesSection empleados={empleados} supabaseUrl={supabaseUrl} supabaseKey={supabaseKey}/>
-      )}
-    </div>
-  )
-}
-
-function VacacionesSection({empleados,supabaseUrl,supabaseKey}:{empleados:any[],supabaseUrl:string,supabaseKey:string}){
-  const [vacs,setVacs]=useState<any[]>([])
-  const [modoForm,setModoForm]=useState(false)
-  const [form,setForm]=useState<any>({empleado_id:"",fecha_inicio:"",fecha_fin:"",notas:""})
-  const [guardando,setGuardando]=useState(false)
-
-  const fetchVacs=async()=>{
-    const r=await fetch(`${supabaseUrl}/rest/v1/vacaciones?select=*,empleados(nombre)&order=fecha_inicio.desc`,{
-      headers:{"apikey":supabaseKey,"Authorization":`Bearer ${supabaseKey}`}
-    })
-    const data=await r.json()
-    setVacs(Array.isArray(data)?data:[])
-  }
-
-  useEffect(()=>{fetchVacs()},[])
+  useEffect(()=>{
+    if(auth){cargarEmpleados();cargarVacaciones();cargarIncidencias()}
+  },[auth])
 
   const calcDias=(ini:string,fin:string)=>{
     if(!ini||!fin)return 0
@@ -7142,71 +6963,236 @@ function VacacionesSection({empleados,supabaseUrl,supabaseKey}:{empleados:any[],
     return Math.max(0,Math.round((d2.getTime()-d1.getTime())/86400000)+1)
   }
 
-  const guardarVac=async()=>{
+  const guardarEmpleado=async()=>{
+    if(!form.nombre?.trim())return
+    setGuardando(true)
+    if(form.id){
+      const {id,...rest}=form
+      await sbFetch(`/rest/v1/empleados?id=eq.${id}`,{method:"PATCH",body:JSON.stringify(rest)})
+    } else {
+      await sbFetch("/rest/v1/empleados",{method:"POST",body:JSON.stringify({...form,activo:true}),headers:{"Prefer":"return=minimal"}})
+    }
+    setGuardando(false);setModoForm(null);setForm({});cargarEmpleados()
+  }
+
+  const guardarVacacion=async()=>{
     if(!form.empleado_id||!form.fecha_inicio||!form.fecha_fin)return
     setGuardando(true)
     const dias=calcDias(form.fecha_inicio,form.fecha_fin)
-    await fetch(`${supabaseUrl}/rest/v1/vacaciones`,{
-      method:"POST",
-      headers:{"apikey":supabaseKey,"Authorization":`Bearer ${supabaseKey}`,"Content-Type":"application/json","Prefer":"return=minimal"},
-      body:JSON.stringify({...form,dias,estado:"pendiente"})
-    })
-    setGuardando(false)
-    setModoForm(false)
-    setForm({empleado_id:"",fecha_inicio:"",fecha_fin:"",notas:""})
-    fetchVacs()
+    if(form.id){
+      const {id,...rest}=form
+      await sbFetch(`/rest/v1/vacaciones?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({...rest,dias})})
+    } else {
+      await sbFetch("/rest/v1/vacaciones",{method:"POST",body:JSON.stringify({...form,dias,estado:"pendiente"}),headers:{"Prefer":"return=minimal"}})
+    }
+    setGuardando(false);setModoForm(null);setForm({});cargarVacaciones()
   }
 
-  return(
-    <div>
-      <div style={{display:"flex",justifyContent:"flex-end" as const,marginBottom:14}}>
-        <button onClick={()=>setModoForm(true)}
-          style={{padding:"8px 16px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>
-          + Registrar vacaciones
+  const guardarIncidencia=async()=>{
+    if(!form.empleado_id||!form.tipo)return
+    setGuardando(true)
+    await sbFetch("/rest/v1/incidencias",{method:"POST",body:JSON.stringify(form),headers:{"Prefer":"return=minimal"}})
+    setGuardando(false);setModoForm(null);setForm({});cargarIncidencias()
+  }
+
+  const eliminar=async(tabla:string,id:string,reload:()=>void)=>{
+    if(!window.confirm("¿Eliminar este registro?"))return
+    await sbFetch(`/rest/v1/${tabla}?id=eq.${id}`,{method:"DELETE"})
+    reload()
+  }
+
+  const actualizarEstadoVac=async(id:string,estado:string)=>{
+    await sbFetch(`/rest/v1/vacaciones?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({estado})})
+    cargarVacaciones()
+  }
+
+  const empFilt=empleados.filter(e=>!busq||(e.nombre||"").toLowerCase().includes(busq.toLowerCase())||(e.nss||"").includes(busq))
+
+  const DIAS_ES=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"]
+  const fmtFecha=(f:string)=>{
+    if(!f)return "—"
+    const d=new Date(f+"T12:00:00")
+    return `${DIAS_ES[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`
+  }
+
+  const vacPend=vacaciones.filter(v=>v.estado==="pendiente")
+  const vacFilt=filtroVac==="todos"?vacaciones:vacaciones.filter(v=>v.estado===filtroVac)
+
+  const TABS=[
+    {id:"empleados",label:"👥 Empleados",badge:empleados.length},
+    {id:"vacaciones",label:"🏖️ Vacaciones",badge:vacPend.length>0?vacPend.length:null,badgeColor:"#8b2e2e"},
+    {id:"incidencias",label:"⚠️ Incidencias",badge:null},
+    {id:"nomina",label:"💰 Nómina",badge:null},
+  ]
+
+  // ── LOGIN ──
+  if(!auth) return(
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:400}}>
+      <div style={{background:"#fff",borderRadius:16,padding:40,width:"min(360px,90vw)",boxShadow:"0 4px 24px rgba(0,0,0,.10)",textAlign:"center" as const}}>
+        <div style={{fontSize:32,marginBottom:8}}>👥</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:20,fontWeight:700,marginBottom:4}}>Recursos Humanos</div>
+        <div style={{fontSize:12,color:"#9a9590",marginBottom:24}}>Módulo restringido — ingresa la contraseña de gerencia</div>
+        <input type="password" value={pwdInput} onChange={e=>setPwdInput(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter"){if(pwdInput===RH_PWD){setAuth(true);setPwdError("")}else setPwdError("Contraseña incorrecta")}}}
+          placeholder="Contraseña..."
+          style={{width:"100%",padding:"10px 14px",border:`1.5px solid ${pwdError?"#fca5a5":"#e8e5de"}`,borderRadius:9,fontSize:14,outline:"none",boxSizing:"border-box" as const,marginBottom:8,textAlign:"center" as const}}/>
+        {pwdError&&<div style={{fontSize:12,color:"#8b2e2e",marginBottom:8}}>❌ {pwdError}</div>}
+        <button onClick={()=>{if(pwdInput===RH_PWD){setAuth(true);setPwdError("")}else setPwdError("Contraseña incorrecta")}}
+          style={{width:"100%",padding:"10px",borderRadius:9,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:14,fontWeight:700}}>
+          Entrar
         </button>
       </div>
+    </div>
+  )
 
+  return(
+    <div style={{maxWidth:1100,margin:"0 auto",padding:isMobile?"10px":"0 0 40px"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap" as const,gap:10}}>
+        <div>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:22,fontWeight:700}}>👥 Recursos Humanos</div>
+          <div style={{fontSize:12,color:"#9a9590",marginTop:2}}>{empleados.length} empleados · {vacPend.length} vacaciones pendientes</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {tab==="empleados"&&<button onClick={()=>{setModoForm("emp");setForm({})}}
+            style={{padding:"8px 16px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>+ Empleado</button>}
+          {tab==="vacaciones"&&<button onClick={()=>{setModoForm("vac");setForm({})}}
+            style={{padding:"8px 16px",borderRadius:8,background:"#1a3a5c",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>+ Vacaciones</button>}
+          {tab==="incidencias"&&<button onClick={()=>{setModoForm("inc");setForm({})}}
+            style={{padding:"8px 16px",borderRadius:8,background:"#92580a",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>+ Incidencia</button>}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:4,marginBottom:16,borderBottom:"2px solid #f0ece4",paddingBottom:0}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{padding:"8px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===t.id?700:400,
+              color:tab===t.id?"#1a1814":"#9a9590",borderBottom:`2px solid ${tab===t.id?"#1a1814":"transparent"}`,
+              marginBottom:-2,position:"relative" as const,display:"flex",alignItems:"center",gap:6}}>
+            {t.label}
+            {t.badge!=null&&<span style={{background:t.badgeColor||"#4a2d6e",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:10,fontWeight:700}}>{t.badge}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Modal Form */}
       {modoForm&&(
-        <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div style={{background:"#fff",borderRadius:16,padding:28,width:"min(420px,95vw)"}}>
-            <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>Registrar vacaciones</div>
-            <div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
-              <div>
-                <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Empleado</label>
-                <select value={form.empleado_id} onChange={e=>setForm((p:any)=>({...p,empleado_id:e.target.value}))}
-                  style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none"}}>
-                  <option value="">Seleccionar...</option>
-                  {empleados.map((e:any)=><option key={e.id} value={e.id}>{e.nombre}</option>)}
-                </select>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                <div>
-                  <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Inicio</label>
-                  <input type="date" value={form.fecha_inicio} onChange={e=>setForm((p:any)=>({...p,fecha_inicio:e.target.value}))}
-                    style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+        <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:"#fff",borderRadius:16,padding:28,width:"min(520px,100%)",maxHeight:"90vh",overflowY:"auto" as const}}>
+
+            {/* Empleado Form */}
+            {modoForm==="emp"&&(
+              <>
+                <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>{form.id?"✏️ Editar empleado":"👤 Nuevo empleado"}</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  {[
+                    {k:"nombre",l:"Nombre completo",full:true},
+                    {k:"nss",l:"NSS"},
+                    {k:"curp",l:"CURP"},
+                    {k:"puesto",l:"Puesto"},
+                    {k:"departamento",l:"Departamento"},
+                    {k:"fecha_ingreso",l:"Fecha ingreso",type:"date"},
+                    {k:"dias_vacaciones",l:"Días vacaciones",type:"number"},
+                    {k:"dias_programados",l:"Días programados",type:"number"},
+                  ].map((f:any)=>(
+                    <div key={f.k} style={{gridColumn:f.full?"1/-1":"auto"}}>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>{f.l}</label>
+                      <input type={f.type||"text"} value={form[f.k]||""}
+                        onChange={e=>setForm((p:any)=>({...p,[f.k]:f.type==="number"?parseInt(e.target.value)||0:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+                    </div>
+                  ))}
+                  <div style={{gridColumn:"1/-1"}}>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Notas</label>
+                    <textarea value={form.notas||""} onChange={e=>setForm((p:any)=>({...p,notas:e.target.value}))} rows={2}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
+                  </div>
                 </div>
-                <div>
-                  <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Fin</label>
-                  <input type="date" value={form.fecha_fin} onChange={e=>setForm((p:any)=>({...p,fecha_fin:e.target.value}))}
-                    style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+              </>
+            )}
+
+            {/* Vacaciones Form */}
+            {modoForm==="vac"&&(
+              <>
+                <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>🏖️ Registrar vacaciones</div>
+                <div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
+                  <div>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Empleado</label>
+                    <select value={form.empleado_id||""} onChange={e=>setForm((p:any)=>({...p,empleado_id:e.target.value}))}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none"}}>
+                      <option value="">Seleccionar empleado...</option>
+                      {empleados.map((e:any)=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Fecha inicio</label>
+                      <input type="date" value={form.fecha_inicio||""} onChange={e=>setForm((p:any)=>({...p,fecha_inicio:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Fecha fin</label>
+                      <input type="date" value={form.fecha_fin||""} onChange={e=>setForm((p:any)=>({...p,fecha_fin:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+                    </div>
+                  </div>
+                  {form.fecha_inicio&&form.fecha_fin&&(
+                    <div style={{padding:"8px 12px",background:"#f0fdf4",borderRadius:8,fontSize:13,color:"#2d6a4f",fontWeight:700}}>
+                      📅 {calcDias(form.fecha_inicio,form.fecha_fin)} días hábiles · {fmtFecha(form.fecha_inicio)} → {fmtFecha(form.fecha_fin)}
+                    </div>
+                  )}
+                  <div>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Notas</label>
+                    <textarea value={form.notas||""} onChange={e=>setForm((p:any)=>({...p,notas:e.target.value}))} rows={2}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
+                  </div>
                 </div>
-              </div>
-              {form.fecha_inicio&&form.fecha_fin&&(
-                <div style={{padding:"6px 12px",background:"#f0fdf4",borderRadius:7,fontSize:12,color:"#2d6a4f",fontWeight:700}}>
-                  📅 {calcDias(form.fecha_inicio,form.fecha_fin)} días
+              </>
+            )}
+
+            {/* Incidencia Form */}
+            {modoForm==="inc"&&(
+              <>
+                <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>⚠️ Registrar incidencia</div>
+                <div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
+                  <div>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Empleado</label>
+                    <select value={form.empleado_id||""} onChange={e=>setForm((p:any)=>({...p,empleado_id:e.target.value}))}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none"}}>
+                      <option value="">Seleccionar empleado...</option>
+                      {empleados.map((e:any)=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Tipo</label>
+                      <select value={form.tipo||""} onChange={e=>setForm((p:any)=>({...p,tipo:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none"}}>
+                        <option value="">Seleccionar...</option>
+                        {["Falta","Retardo","Permiso con goce","Permiso sin goce","Incapacidad","Sanción","Otro"].map(t=><option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Fecha</label>
+                      <input type="date" value={form.fecha||""} onChange={e=>setForm((p:any)=>({...p,fecha:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Descripción</label>
+                    <textarea value={form.descripcion||""} onChange={e=>setForm((p:any)=>({...p,descripcion:e.target.value}))} rows={3}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
+                  </div>
                 </div>
-              )}
-              <div>
-                <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Notas</label>
-                <textarea value={form.notas} onChange={e=>setForm((p:any)=>({...p,notas:e.target.value}))} rows={2}
-                  style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end" as const}}>
-              <button onClick={()=>setModoForm(false)}
-                style={{padding:"8px 16px",borderRadius:8,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:13}}>Cancelar</button>
-              <button onClick={guardarVac} disabled={guardando}
-                style={{padding:"8px 20px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>
+              </>
+            )}
+
+            <div style={{display:"flex",gap:8,marginTop:20,justifyContent:"flex-end" as const}}>
+              <button onClick={()=>{setModoForm(null);setForm({})}}
+                style={{padding:"8px 18px",borderRadius:8,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:13}}>Cancelar</button>
+              <button onClick={modoForm==="emp"?guardarEmpleado:modoForm==="vac"?guardarVacacion:guardarIncidencia} disabled={guardando}
+                style={{padding:"8px 22px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>
                 {guardando?"Guardando...":"Guardar"}
               </button>
             </div>
@@ -7214,27 +7200,147 @@ function VacacionesSection({empleados,supabaseUrl,supabaseKey}:{empleados:any[],
         </div>
       )}
 
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 110px 110px 60px 100px",background:"#f8f6f2",padding:"8px 14px",fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const}}>
-          <div>Empleado</div><div>Inicio</div><div>Fin</div><div>Días</div><div>Estado</div>
-        </div>
-        {vacs.length===0?<div style={{padding:30,textAlign:"center" as const,color:"#9a9590"}}>Sin registros</div>:
-        vacs.map((v:any)=>(
-          <div key={v.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 110px 60px 100px",padding:"10px 14px",borderTop:"1px solid #f0ece4",alignItems:"center",fontSize:12}}>
-            <div style={{fontWeight:600}}>{v.empleados?.nombre||"—"}</div>
-            <div style={{color:"#4a4640"}}>{v.fecha_inicio||"—"}</div>
-            <div style={{color:"#4a4640"}}>{v.fecha_fin||"—"}</div>
-            <div style={{textAlign:"center" as const,fontWeight:700}}>{v.dias||0}</div>
-            <div>
-              <span style={{padding:"2px 8px",borderRadius:12,fontSize:11,fontWeight:700,
-                background:v.estado==="aprobado"?"#f0fdf4":v.estado==="rechazado"?"#fef2f2":"#fffbeb",
-                color:v.estado==="aprobado"?"#2d6a4f":v.estado==="rechazado"?"#8b2e2e":"#92580a"}}>
-                {v.estado||"pendiente"}
-              </span>
+      {/* ── EMPLEADOS TAB ── */}
+      {tab==="empleados"&&(
+        <div>
+          <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar por nombre o NSS..."
+            style={{width:"100%",padding:"9px 14px",border:"1.5px solid #e8e5de",borderRadius:9,fontSize:13,outline:"none",marginBottom:14,boxSizing:"border-box" as const}}/>
+          {cargando?<div style={{textAlign:"center" as const,padding:40,color:"#9a9590"}}>Cargando...</div>:(
+            <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 130px 110px 70px 70px 70px 60px",background:"#f8f6f2",padding:"8px 14px",fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".04em"}}>
+                <div>Nombre / CURP</div><div>NSS</div><div>Puesto</div><div>Vac.</div><div>Prog.</div><div>Pend.</div><div></div>
+              </div>
+              {empFilt.length===0&&<div style={{padding:30,textAlign:"center" as const,color:"#9a9590"}}>Sin empleados</div>}
+              {empFilt.map((e:any)=>{
+                const pend=(e.dias_vacaciones||0)-(e.dias_programados||0)
+                return(
+                  <div key={e.id} style={{display:"grid",gridTemplateColumns:"1fr 130px 110px 70px 70px 70px 60px",padding:"10px 14px",borderTop:"1px solid #f0ece4",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontWeight:600,fontSize:13}}>{e.nombre}</div>
+                      {e.curp&&<div style={{fontSize:10,color:"#9a9590",fontFamily:"monospace"}}>{e.curp}</div>}
+                    </div>
+                    <div style={{fontSize:11,fontFamily:"monospace",color:"#4a4640"}}>{e.nss||"—"}</div>
+                    <div style={{fontSize:11,color:"#4a4640"}}>{e.puesto||"—"}</div>
+                    <div style={{textAlign:"center" as const}}>
+                      <span style={{background:"#f0fdf4",color:"#2d6a4f",padding:"2px 8px",borderRadius:10,fontWeight:700,fontSize:12}}>{e.dias_vacaciones||0}</span>
+                    </div>
+                    <div style={{textAlign:"center" as const}}>
+                      <span style={{background:"#eff6ff",color:"#1a3a5c",padding:"2px 8px",borderRadius:10,fontWeight:700,fontSize:12}}>{e.dias_programados||0}</span>
+                    </div>
+                    <div style={{textAlign:"center" as const}}>
+                      <span style={{background:pend<0?"#fef2f2":pend===0?"#f8f6f2":"#fffbeb",color:pend<0?"#8b2e2e":pend===0?"#9a9590":"#92580a",padding:"2px 8px",borderRadius:10,fontWeight:700,fontSize:12}}>{pend}</span>
+                    </div>
+                    <div style={{display:"flex",gap:4,justifyContent:"flex-end" as const}}>
+                      <button onClick={()=>{setForm({...e});setModoForm("emp")}}
+                        style={{padding:"3px 7px",borderRadius:5,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:11}}>✏️</button>
+                      <button onClick={()=>eliminar("empleados",e.id,cargarEmpleados)}
+                        style={{padding:"3px 7px",borderRadius:5,border:"1px solid #fca5a5",background:"#fef2f2",color:"#8b2e2e",cursor:"pointer",fontSize:11}}>🗑️</button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── VACACIONES TAB ── */}
+      {tab==="vacaciones"&&(
+        <div>
+          {vacPend.length>0&&(
+            <div style={{background:"#fffbeb",border:"1px solid #f59e0b",borderRadius:10,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#92580a",fontWeight:600}}>
+              ⚠️ {vacPend.length} solicitud{vacPend.length>1?"es":""} pendiente{vacPend.length>1?"s":""} de aprobación
+            </div>
+          )}
+          <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap" as const}}>
+            {["todos","pendiente","aprobado","rechazado"].map(f=>(
+              <button key={f} onClick={()=>setFiltroVac(f)}
+                style={{padding:"5px 12px",borderRadius:16,border:`1.5px solid ${filtroVac===f?"#1a1814":"#e8e5de"}`,
+                  background:filtroVac===f?"#1a1814":"#fff",color:filtroVac===f?"#fff":"#4a4640",
+                  cursor:"pointer",fontSize:12,fontWeight:600,textTransform:"capitalize" as const}}>
+                {f==="todos"?"Todos":f.charAt(0).toUpperCase()+f.slice(1)}
+                {f!=="todos"&&<span style={{marginLeft:4,opacity:.7}}>({vacaciones.filter(v=>v.estado===f).length})</span>}
+              </button>
+            ))}
           </div>
-        ))}
-      </div>
+          <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 120px 120px 50px 110px 100px",background:"#f8f6f2",padding:"8px 14px",fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const}}>
+              <div>Empleado</div><div>Inicio</div><div>Fin</div><div>Días</div><div>Estado</div><div>Acciones</div>
+            </div>
+            {vacFilt.length===0&&<div style={{padding:30,textAlign:"center" as const,color:"#9a9590"}}>Sin registros</div>}
+            {vacFilt.map((v:any)=>(
+              <div key={v.id} style={{display:"grid",gridTemplateColumns:"1fr 120px 120px 50px 110px 100px",padding:"10px 14px",borderTop:"1px solid #f0ece4",alignItems:"center",fontSize:12}}>
+                <div>
+                  <div style={{fontWeight:600}}>{v.empleados?.nombre||"—"}</div>
+                  {v.notas&&<div style={{fontSize:10,color:"#9a9590"}}>{v.notas}</div>}
+                </div>
+                <div style={{color:"#4a4640"}}>{fmtFecha(v.fecha_inicio)}</div>
+                <div style={{color:"#4a4640"}}>{fmtFecha(v.fecha_fin)}</div>
+                <div style={{textAlign:"center" as const,fontWeight:700,color:"#1a3a5c"}}>{v.dias||0}</div>
+                <div>
+                  <span style={{padding:"3px 10px",borderRadius:12,fontSize:11,fontWeight:700,
+                    background:v.estado==="aprobado"?"#f0fdf4":v.estado==="rechazado"?"#fef2f2":"#fffbeb",
+                    color:v.estado==="aprobado"?"#2d6a4f":v.estado==="rechazado"?"#8b2e2e":"#92580a"}}>
+                    {v.estado||"pendiente"}
+                  </span>
+                </div>
+                <div style={{display:"flex",gap:4}}>
+                  {v.estado==="pendiente"&&<>
+                    <button onClick={()=>actualizarEstadoVac(v.id,"aprobado")}
+                      style={{padding:"2px 7px",borderRadius:5,border:"1px solid #b7deca",background:"#f0fdf4",color:"#2d6a4f",cursor:"pointer",fontSize:11,fontWeight:700}}>✓</button>
+                    <button onClick={()=>actualizarEstadoVac(v.id,"rechazado")}
+                      style={{padding:"2px 7px",borderRadius:5,border:"1px solid #fca5a5",background:"#fef2f2",color:"#8b2e2e",cursor:"pointer",fontSize:11,fontWeight:700}}>✗</button>
+                  </>}
+                  <button onClick={()=>eliminar("vacaciones",v.id,cargarVacaciones)}
+                    style={{padding:"2px 7px",borderRadius:5,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:10}}>🗑️</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── INCIDENCIAS TAB ── */}
+      {tab==="incidencias"&&(
+        <div>
+          <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 120px 100px 1fr 60px",background:"#f8f6f2",padding:"8px 14px",fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const}}>
+              <div>Empleado</div><div>Fecha</div><div>Tipo</div><div>Descripción</div><div></div>
+            </div>
+            {incidencias.length===0&&<div style={{padding:30,textAlign:"center" as const,color:"#9a9590"}}>Sin incidencias registradas</div>}
+            {incidencias.map((inc:any)=>(
+              <div key={inc.id} style={{display:"grid",gridTemplateColumns:"1fr 120px 100px 1fr 60px",padding:"10px 14px",borderTop:"1px solid #f0ece4",alignItems:"center",fontSize:12}}>
+                <div style={{fontWeight:600}}>{inc.empleados?.nombre||"—"}</div>
+                <div style={{color:"#4a4640"}}>{fmtFecha(inc.fecha)}</div>
+                <div>
+                  <span style={{padding:"2px 8px",borderRadius:10,background:"#fffbeb",color:"#92580a",fontWeight:700,fontSize:11}}>{inc.tipo||"—"}</span>
+                </div>
+                <div style={{color:"#4a4640",fontSize:11}}>{inc.descripcion||"—"}</div>
+                <div>
+                  <button onClick={()=>eliminar("incidencias",inc.id,cargarIncidencias)}
+                    style={{padding:"2px 7px",borderRadius:5,border:"1px solid #fca5a5",background:"#fef2f2",color:"#8b2e2e",cursor:"pointer",fontSize:10}}>🗑️</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── NÓMINA TAB — PLACEHOLDER ── */}
+      {tab==="nomina"&&(
+        <div style={{textAlign:"center" as const,padding:"60px 20px"}}>
+          <div style={{fontSize:48,marginBottom:16}}>💰</div>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:24,fontWeight:700,marginBottom:8}}>Módulo de Nómina</div>
+          <div style={{fontSize:14,color:"#9a9590",maxWidth:400,margin:"0 auto",lineHeight:1.6}}>
+            Este módulo está en construcción. Utilizará el catálogo de empleados de RH como base para el procesamiento de nómina.
+          </div>
+          <div style={{marginTop:24,display:"flex",gap:10,justifyContent:"center" as const,flexWrap:"wrap" as const}}>
+            {["Cálculo de nómina","Percepciones y deducciones","IMSS / INFONAVIT","Recibos de pago","Timbrado CFDI","Reportes fiscales"].map(f=>(
+              <span key={f} style={{padding:"6px 14px",borderRadius:20,background:"#f0ece4",color:"#9a9590",fontSize:12,fontWeight:600}}>{f}</span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
