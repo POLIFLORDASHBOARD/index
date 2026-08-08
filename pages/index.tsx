@@ -840,6 +840,11 @@ export default function Dashboard(){
         {seccion==="splits"&&(
           <SplitsSection token={token} contratos={contratosEnriquecidos} logoUrl={logoUrl}/>
         )}
+        {seccion==="rh"&&esAdmin&&(
+          <div style={{padding:"20px"}}>
+            <RHSection token={token} isMobile={isMobile}/>
+          </div>
+        )}
         {seccion==="config"&&(subTab===""||subTab==="cfg-equipo")&&esAdmin&&(
           <EquipoSection
             personal={personal} contratos={cBase} user={user}
