@@ -2071,7 +2071,7 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
                             <div style={{display:"flex",gap:6,flexWrap:"wrap" as const}}>
                               {x.folio&&<span style={{fontSize:9,fontFamily:"monospace",background:"#f5f4f0",padding:"0 4px",borderRadius:3}}>{x.folio}</span>}
                               {x.vendedor&&<span style={{fontSize:9,color:"#1a3a5c",fontWeight:600}}>👤 {x.vendedor}</span>}
-                              {x.fecha_evento&&<span style={{fontSize:9,color:"#9a9590"}}>📅 {x.fecha_evento}</span>}
+                              {x.fecha_evento&&<span style={{fontSize:9,color:"#9a9590"}}>📅 {x.fecha_evento?new Date(x.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short"}):""}</span>}
                             </div>
                           </div>
                           <div style={{textAlign:"right" as const,flexShrink:0}}>
@@ -9316,7 +9316,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                       <span style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:800,color:"#fff"}}>{g.cliente}</span>
                       <span style={{fontFamily:"monospace",fontSize:11,color:"#60a5fa",background:"rgba(96,165,250,.15)",padding:"2px 8px",borderRadius:6,fontWeight:700}}>{g.folio}</span>
                     </div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,.5)",marginTop:3}}>📅 {g.fecha}</div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,.5)",marginTop:3}}>📅 {g.fecha?new Date(g.fecha+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):""}</div>
                   </div>
                   <button onClick={()=>{
                     const ct=contratos.find((x:any)=>x.id===g.contrato_id)
@@ -9552,7 +9552,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                   {[{l:"Evento",v:ct.fecha_evento,ico:"🎉"},{l:"Entrega",v:ct.fecha_entrega,ico:"🚚"},{l:"Desmonte",v:ct.fecha_desmonte,ico:"📦"}].map((k,i)=>(
                     <div key={i} style={{padding:"10px 8px",textAlign:"center" as const,borderRight:i<2?"1px solid #e8e5de":"none"}}>
                       <div style={{fontSize:15,marginBottom:2}}>{k.ico}</div>
-                      <div style={{fontSize:11,fontWeight:700}}>{k.v?new Date(k.v+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):"—"}</div>
+                      <div style={{fontSize:11,fontWeight:700}}>{k.v||"—"}</div>
                       <div style={{fontSize:8,color:"#9a9590",textTransform:"uppercase" as const}}>{k.l}</div>
                     </div>
                   ))}
