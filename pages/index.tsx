@@ -5549,13 +5549,6 @@ document.getElementById("btn-pdf").onclick=function(){
                         style={{width:18,height:14,background:"none",border:"none",cursor:i>=(cotActual.partidas||[]).length-1?"default":"pointer",fontSize:9,color:i>=(cotActual.partidas||[]).length-1?"#d0cdc8":"#4a4640",padding:0,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>▼</button>
                     </div>
 
-                    {/* Cantidad */}
-                    <div style={{borderRight:"1px solid #ebebeb",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      <input type="number" min="1" value={p.cantidad}
-                        onChange={e=>actualizarPartida(i,"cantidad",Math.max(1,parseInt(e.target.value)||1))}
-                        style={{width:60,padding:"9px 4px",border:"none",background:"transparent",textAlign:"center" as const,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#0f172a",outline:"none"}}/>
-                    </div>
-
                     {/* Nombre con autocomplete inline */}
                     <div style={{position:"relative" as const,borderRight:"1px solid #ebebeb"}}>
                       <input
@@ -5611,6 +5604,13 @@ document.getElementById("btn-pdf").onclick=function(){
                           ))}
                         </div>
                       )}
+                    </div>
+
+                    {/* Cantidad */}
+                    <div style={{borderRight:"1px solid #ebebeb",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <input type="number" min="1" value={p.cantidad}
+                        onChange={e=>actualizarPartida(i,"cantidad",Math.max(1,parseInt(e.target.value)||1))}
+                        style={{width:60,padding:"9px 4px",border:"none",background:"transparent",textAlign:"center" as const,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#0f172a",outline:"none"}}/>
                     </div>
 
                     {/* Precio unitario */}
@@ -6550,8 +6550,8 @@ document.getElementById("btn-pdfc").onclick=function(){
                   {/* Tabla inline */}
                   <div style={{border:"1.5px solid #e8e5de",borderRadius:10,overflow:"hidden",marginBottom:8}}>
                     {/* Header */}
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 58px 90px 58px 60px 24px",background:"#0f172a"}}>
-                      {["Artículo","Cant.","P.U.","Desc%","Subtotal",""].map((h,hi)=>(
+                    <div style={{display:"grid",gridTemplateColumns:"58px 1fr 90px 58px 60px 24px",background:"#0f172a"}}>
+                      {["Cant.","Artículo","P.U.","Desc%","Subtotal",""].map((h,hi)=>(
                         <div key={hi} style={{padding:"7px 6px",fontSize:9,fontWeight:700,color:"#94a3b8",textAlign:hi>=2?"center" as const:"left" as const,textTransform:"uppercase" as const,letterSpacing:".05em",borderRight:hi<6?"1px solid rgba(255,255,255,.07)":"none"}}>{h}</div>
                       ))}
                     </div>
@@ -6563,7 +6563,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                       const descMonto=a.aplica_descuento?Math.round(bruto*(a.descuento_pct_art||0)/100):0
                       const neto=bruto-descMonto
                       return(
-                        <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 58px 90px 58px 60px 24px",borderBottom:i<editArtsContrato.length-1?"1px solid #f0ece4":"none",background:i%2===0?"#fff":"#fafaf8",alignItems:"center"}}>
+                        <div key={i} style={{display:"grid",gridTemplateColumns:"58px 1fr 90px 58px 60px 24px",borderBottom:i<editArtsContrato.length-1?"1px solid #f0ece4":"none",background:i%2===0?"#fff":"#fafaf8",alignItems:"center"}}>
 
                           {/* Nombre editable */}
                           <div style={{borderRight:"1px solid #ebebeb",position:"relative" as const}}>
