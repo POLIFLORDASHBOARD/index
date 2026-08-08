@@ -8764,7 +8764,7 @@ th,td{vertical-align:middle}
   <tfoot>
     <tr style="background:#f8f6f2;border-top:2px solid ${tipo.color}">
       <td style="padding:8px 10px;font-weight:800;font-size:13px;text-align:center;color:${tipo.color}">${totalPiezas}</td>
-      <td colspan="3" style="padding:8px 10px;font-weight:700;font-size:12px;color:#4a4640">piezas en total${mostrarPrecio?` · <span style="font-family:monospace;color:${tipo.color}">$${totalImporte.toLocaleString("es-MX")}</span>`:""}</td>
+      <td colspan="3" style="padding:8px 10px;font-weight:700;font-size:12px;color:#4a4640">piezas en total</td>
     </tr>
   </tfoot>
 </table>
