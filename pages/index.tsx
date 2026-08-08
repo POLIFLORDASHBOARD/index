@@ -9313,7 +9313,17 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                       <span style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:800,color:"#fff"}}>{g.cliente}</span>
                       <span style={{fontFamily:"monospace",fontSize:11,color:"#60a5fa",background:"rgba(96,165,250,.15)",padding:"2px 8px",borderRadius:6,fontWeight:700}}>{g.folio}</span>
                     </div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,.5)",marginTop:3}}>📅 {g.fecha}</div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,.7)",marginTop:4,display:"flex",flexWrap:"wrap" as const,gap:8}}>
+                      {(()=>{
+                        const ct=contratos.find((x:any)=>x.id===g.contrato_id)
+                        const fmt=(f:string)=>f?new Date(f+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):""
+                        return(<>
+                          {ct?.fecha_evento&&<span>🎉 {fmt(ct.fecha_evento)}</span>}
+                          {ct?.fecha_entrega&&<span style={{color:"#93c5fd"}}>🚚 {fmt(ct.fecha_entrega)}</span>}
+                          {ct?.fecha_desmonte&&<span style={{color:"#fca5a5"}}>📦 {fmt(ct.fecha_desmonte)}</span>}
+                        </>)
+                      })()}
+                    </div>
                   </div>
                   <button onClick={()=>{
                     const ct=contratos.find((x:any)=>x.id===g.contrato_id)
