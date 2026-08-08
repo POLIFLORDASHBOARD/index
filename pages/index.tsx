@@ -8659,7 +8659,8 @@ function abrirHojaSplit(split:any,logoSrc:string){
       d.setDate(d.getDate()+1)
       return d.toISOString().slice(0,10)
     }
-    return split.fecha_evento
+    // proveedor: usa fecha_preparacion si existe (= fecha real del evento)
+    return split.fecha_preparacion||split.fecha_evento
   })()
   const fecha=fechaEventoReal
     ?new Date(fechaEventoReal+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})
@@ -8918,7 +8919,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
   const abrirModalProv=(g:any)=>{
     const ct=contratos.find((x:any)=>x.id===g.contrato_id)
-    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:ct?.fecha_evento||g.fecha,lugarContrato:ct?.lugar||""})
+    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:g.fecha,lugarContrato:ct?.lugar||""})
     setProvNombre(""); setProvArts([]); setProvBusq(""); setProvMostrarDir(false); setProvDireccion("")
   }
 
@@ -8942,6 +8943,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
     if(!provNombre.trim()||!modalProv)return
     abrirHojaSplit({tipo:"proveedor",nombre:provNombre,cliente:modalProv.cliente,contrato_folio:modalProv.folio,
       lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",fecha_evento:modalProv.fecha,
+      fecha_preparacion:modalProv.fecha,
       articulos:provArts,notas:"",mostrar_direccion:provMostrarDir,mostrar_precios:false,responsable:""},logoUrl)
   }
 
