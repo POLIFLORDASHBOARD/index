@@ -5549,6 +5549,1547 @@ document.getElementById("btn-pdf").onclick=function(){
                         style={{width:18,height:14,background:"none",border:"none",cursor:i>=(cotActual.partidas||[]).length-1?"default":"pointer",fontSize:9,color:i>=(cotActual.partidas||[]).length-1?"#d0cdc8":"#4a4640",padding:0,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>▼</button>
                     </div>
 
+                    {/* Cantidad */}
+                    <div style={{borderRight:"1px solid #ebebeb",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <input type="number" min="1" value={p.cantidad}
+                        onChange={e=>actualizarPartida(i,"cantidad",Math.max(1,parseInt(e.target.value)||1))}
+                        style={{width:60,padding:"9px 4px",border:"none",background:"transparent",textAlign:"center" as const,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#0f172a",outline:"none"}}/>
+                    </div>
+
+                    {/* Nombre con autocomplete inline */}
+                    <div style={{position:"relative" as const,borderRight:"1px solid #ebebeb"}}>
+                      <input
+                        value={p.nombre}
+                        onChange={async(e)=>{
+                          const v=e.target.value
+                          actualizarPartida(i,"nombre",v)
+                          setActiveRow(i)
+                          if(v.trim().length>=1){
+                            const params=new URLSearchParams({busq:v.trim(),activo:"true"})
+                            if(catFiltroArt!=="TODOS") params.append("categoria",catFiltroArt)
+                            const res=await fetch("/api/catalogo?"+params,{headers:{Authorization:"Bearer "+token}})
+                            const data=await res.json()
+                            setRowSugeridos(Array.isArray(data)?data.slice(0,10):[])
+                          } else {
+                            setRowSugeridos([])
+                          }
+                        }}
+                        onFocus={()=>setActiveRow(i)}
+                        onBlur={()=>setTimeout(()=>{setActiveRow(null);setRowSugeridos([])},200)}
+                        placeholder="Escribe el artículo..."
+                        style={{width:"100%",padding:"9px 10px",border:"none",background:"transparent",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:500,color:"#1a1814",outline:"none"}}
+                      />
+                      {/* Dropdown autocomplete inline */}
+                      {activeRow===i&&rowSugeridos.length>0&&(
+                        <div style={{position:"absolute" as const,top:"100%",left:0,right:0,background:"#fff",border:"2px solid #2563eb",borderRadius:"0 0 8px 8px",boxShadow:"0 8px 24px rgba(37,99,235,.15)",zIndex:500,maxHeight:240,overflowY:"auto" as const}}>
+                          {rowSugeridos.map((a:any,ai:number)=>(
+                            <div key={ai}
+                              onMouseDown={(e)=>{
+                                e.preventDefault()
+                                // Update nombre + precio in one shot to avoid stale closure bug
+                                const newPartidas=[...(cotActual.partidas||[])]
+                                const pu=a.precio_renta||0
+                                const cant=newPartidas[i]?.cantidad||1
+                                newPartidas[i]={...newPartidas[i],nombre:a.nombre,precio_unitario:pu,subtotal:pu*cant}
+                                const tots=calcularTotales(newPartidas,cotActual.descuento_pct||0,cotActual.aplica_iva||false)
+                                setCotActual((prev:any)=>({...prev,partidas:newPartidas,...tots}))
+                                setActiveRow(null)
+                                setRowSugeridos([])
+                              }}
+                              style={{padding:"8px 12px",cursor:"pointer",borderBottom:"1px solid #f1f5f9",display:"flex",alignItems:"center",gap:10,background:"#fff"}}
+                              onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="#eff6ff"}
+                              onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background="#fff"}>
+                              <span style={{fontSize:16,flexShrink:0}}>{a.categoria==="MOBILIARIO"?"🪑":a.categoria==="FLORES"?"🌸":a.categoria==="MANTELERÍA"?"🏮":a.categoria==="VAJILLA"?"🍽️":a.categoria==="CARPAS"?"⛺":"📦"}</span>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{a.nombre}</div>
+                                <div style={{fontSize:10,color:"#9a9590"}}>{a.categoria}{a.subcategoria?" · "+a.subcategoria:""}</div>
+                              </div>
+                              {(a.precio_renta||0)>0&&(
+                                <div style={{fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#1a3a5c",flexShrink:0}}>${(a.precio_renta||0).toLocaleString("es-MX")}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Precio unitario */}
+                    <div style={{borderRight:"1px solid #ebebeb",display:"flex",alignItems:"center",padding:"0 8px",gap:3}}>
+                      <span style={{fontSize:10,color:"#9a9590",flexShrink:0}}>$</span>
+                      <input type="number" min="0" step="1" value={p.precio_unitario||""}
+                        onChange={e=>actualizarPartida(i,"precio_unitario",parseFloat(e.target.value)||0)}
+                        placeholder="0"
+                        style={{width:"100%",padding:"9px 2px",border:"none",background:"transparent",textAlign:"right" as const,fontFamily:"monospace",fontSize:13,fontWeight:600,color:"#1a3a5c",outline:"none"}}/>
+                    </div>
+
+                    {/* Descuento % por artículo */}
+                    <div style={{borderRight:"1px solid #ebebeb",padding:"5px 6px",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column" as const,gap:2,background:i%2===0?"#fff":"#fafafa"}}>
+                      <input type="checkbox" checked={!!(p as any).aplica_descuento}
+                        onChange={e=>{
+                          const checked=e.target.checked
+                          const newP={...p,aplica_descuento:checked,descuento_pct_art:checked?((p as any).descuento_pct_art||0):0} as any
+                          const partidas=(cotActual.partidas||[]).map((x:any,j:number)=>j===i?newP:x)
+                          const tots=calcularTotales(partidas,cotActual.descuento_pct||0,cotActual.aplica_iva||false,descGlobalMonto)
+                          setCotActual((prev:any)=>({...prev,partidas,...tots}))
+                        }}
+                        style={{width:14,height:14,cursor:"pointer",accentColor:"#8b2e2e"}}
+                        title="Aplicar descuento % a este artículo"/>
+                      {(p as any).aplica_descuento&&(
+                        <div style={{display:"flex",alignItems:"center",gap:1}}>
+                          <input type="number" min="0" max="100"
+                            value={(p as any).descuento_pct_art||""}
+                            placeholder="0"
+                            onChange={e=>{
+                              const pct=Math.min(100,parseFloat(e.target.value)||0)
+                              const newP={...p,descuento_pct_art:pct} as any
+                              const partidas=(cotActual.partidas||[]).map((x:any,j:number)=>j===i?newP:x)
+                              const tots=calcularTotales(partidas,cotActual.descuento_pct||0,cotActual.aplica_iva||false,descGlobalMonto)
+                              setCotActual((prev:any)=>({...prev,partidas,...tots}))
+                            }}
+                            style={{width:38,padding:"2px 3px",border:"1.5px solid #8b2e2e",borderRadius:4,textAlign:"center" as const,fontFamily:"monospace",fontSize:11,fontWeight:700,color:"#8b2e2e",outline:"none"}}/>
+                          <span style={{fontSize:9,color:"#8b2e2e",fontWeight:700}}>%</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Subtotal */}
+                    <div style={{borderRight:"1px solid #ebebeb",padding:"9px 10px",display:"flex",alignItems:"center",justifyContent:"flex-end",background:i%2===0?"#eff6ff":"#e8f1fc"}}>
+                      <div>
+                        <span style={{fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#1a3a5c"}}>${((p.precio_unitario||0)*(p.cantidad||0)).toLocaleString("es-MX")}</span>
+                        {(p as any).aplica_descuento&&(p as any).descuento_pct_art>0&&(
+                          <div style={{fontSize:9,color:"#8b2e2e",fontFamily:"monospace",fontWeight:700}}>
+                            -{(p as any).descuento_pct_art}% (-${Math.round((p.precio_unitario||0)*(p.cantidad||0)*(p as any).descuento_pct_art/100).toLocaleString("es-MX")})
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Nota */}
+                    <div style={{borderRight:"1px solid #ebebeb",display:"flex",alignItems:"center"}}>
+                      <input value={p.notas||""} onChange={e=>actualizarPartida(i,"notas",e.target.value)}
+                        placeholder="Nota..."
+                        style={{width:"100%",padding:"9px 8px",border:"none",background:"transparent",fontFamily:"Epilogue,sans-serif",fontSize:11,color:"#64748b",outline:"none"}}/>
+                    </div>
+
+                    {/* Eliminar */}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <button onClick={()=>{
+                        const partidas=(cotActual.partidas||[]).filter((_:any,j:number)=>j!==i)
+                        const tots=calcularTotales(partidas,cotActual.descuento_pct||0,cotActual.aplica_iva||false)
+                        setCotActual((prev:any)=>({...prev,partidas,...tots}))
+                      }} style={{width:24,height:24,borderRadius:4,background:"#fdf0f0",border:"none",cursor:"pointer",color:"#8b2e2e",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+
+            {/* Fila totales */}
+            {(cotActual.partidas||[]).length>0&&(
+              <>
+                <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#f8fafc",borderTop:"2px solid #0f172a"}}>
+                  <div style={{gridColumn:"1/5",padding:"10px 12px",fontSize:11,fontWeight:600,color:"#4a4640"}}>
+                    {(cotActual.partidas||[]).reduce((s:number,p:Partida)=>s+(p.cantidad||0),0)} piezas
+                  </div>
+                  <div style={{padding:"10px 8px",fontSize:11,color:"#9a9590",borderLeft:"1px solid #ddd",display:"flex",alignItems:"center",justifyContent:"flex-end"}}>Subtotal</div>
+                  <div style={{padding:"10px 10px",fontFamily:"monospace",fontSize:14,fontWeight:800,color:"#1a3a5c",borderLeft:"1px solid #ddd",background:"#dbeafe",display:"flex",alignItems:"center",justifyContent:"flex-end"}}>
+                    ${(cotActual.subtotal||0).toLocaleString("es-MX")}
+                  </div>
+                  <div/>
+                </div>
+                {(cotActual.descuento_pct||0)>0&&(
+                  <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#fffbeb",borderTop:"1px solid #fde68a"}}>
+                    <div style={{gridColumn:"1/6",padding:"8px 12px",fontSize:11,color:"#92580a",fontWeight:600}}>Descuento {cotActual.descuento_pct}%</div>
+                    <div style={{padding:"8px 10px",fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#92580a",borderLeft:"1px solid #fde68a",textAlign:"right" as const}}>
+                      −${(cotActual.descuento_monto||0).toLocaleString("es-MX")}
+                    </div>
+                    <div/>
+                  </div>
+                )}
+                {cotActual.aplica_iva&&(
+                  <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#f0fdf4",borderTop:"1px solid #bbf7d0"}}>
+                    <div style={{gridColumn:"1/6",padding:"8px 12px",fontSize:11,color:"#2d6a4f",fontWeight:600}}>IVA 16%</div>
+                    <div style={{padding:"8px 10px",fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#2d6a4f",borderLeft:"1px solid #bbf7d0",textAlign:"right" as const}}>
+                      +${(cotActual.iva_monto||0).toLocaleString("es-MX")}
+                    </div>
+                    <div/>
+                  </div>
+                )}
+                <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#0f172a",borderTop:"2px solid #0f172a"}}>
+                  <div style={{gridColumn:"1/6",padding:"12px",fontSize:13,fontWeight:800,color:"#fff"}}>TOTAL</div>
+                  <div style={{padding:"12px 10px",fontFamily:"monospace",fontSize:16,fontWeight:800,color:"#60a5fa",borderLeft:"1px solid rgba(255,255,255,.15)",textAlign:"right" as const}}>
+                    ${(cotActual.total||0).toLocaleString("es-MX")}
+                  </div>
+                  <div/>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Botón agregar fila */}
+          <button onClick={()=>{
+            const nueva:Partida={articulo_id:"",nombre:"",cantidad:1,precio_unitario:0,subtotal:0,notas:""}
+            const partidas=[...(cotActual.partidas||[]),nueva]
+            const tots=calcularTotales(partidas,cotActual.descuento_pct||0,cotActual.aplica_iva||false)
+            setCotActual((prev:any)=>({...prev,partidas,...tots}))
+          }} style={{width:"100%",padding:"12px",borderRadius:8,background:"#fff",border:"2px dashed #2563eb",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:13,color:"#2563eb",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:12}}>
+            <span style={{fontSize:20,lineHeight:1}}>+</span> Agregar artículo
+          </button>
+
+          {/* Opciones descuento + IVA */}
+          <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap" as const}}>
+            {/* ── DESCUENTO GLOBAL ── */}
+            <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:10,padding:"12px 14px"}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#4a4640",textTransform:"uppercase" as const,letterSpacing:".05em",marginBottom:10}}>🏷️ Descuento global</div>
+              <div style={{display:"flex",gap:6,marginBottom:10}}>
+                <button onClick={()=>{
+                    setDescTipo("pct")
+                    setDescGlobalMonto(0)
+                    const tots=calcularTotales(cotActual.partidas||[],cotActual.descuento_pct||0,cotActual.aplica_iva||false,0)
+                    setCotActual((prev:any)=>({...prev,...tots}))
+                  }}
+                  style={{flex:1,padding:"7px",borderRadius:7,border:`2px solid ${descTipo==="pct"?"#1a3a5c":"#e8e5de"}`,background:descTipo==="pct"?"#1a3a5c":"#fff",color:descTipo==="pct"?"#fff":"#4a4640",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                  % Porcentaje
+                </button>
+                <button onClick={()=>{
+                    setDescTipo("monto")
+                    const tots=calcularTotales(cotActual.partidas||[],0,cotActual.aplica_iva||false,descGlobalMonto)
+                    setCotActual((prev:any)=>({...prev,...tots,descuento_pct:0}))
+                  }}
+                  style={{flex:1,padding:"7px",borderRadius:7,border:`2px solid ${descTipo==="monto"?"#1a3a5c":"#e8e5de"}`,background:descTipo==="monto"?"#1a3a5c":"#fff",color:descTipo==="monto"?"#fff":"#4a4640",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                  $ Monto fijo
+                </button>
+              </div>
+              {descTipo==="pct"?(
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <input type="number" min="0" max="100"
+                      value={cotActual.descuento_pct||""}
+                      placeholder="0"
+                      onChange={e=>{
+                        const pct=Math.min(100,parseFloat(e.target.value)||0)
+                        const tots=calcularTotales(cotActual.partidas||[],pct,cotActual.aplica_iva||false,0)
+                        setCotActual((prev:any)=>({...prev,...tots,descuento_pct:pct}))
+                      }}
+                      style={{flex:1,padding:"10px 12px",border:"2px solid #e8e5de",borderRadius:8,fontFamily:"monospace",fontSize:18,fontWeight:800,outline:"none",textAlign:"center" as const,boxSizing:"border-box" as const}}
+                      onFocus={e=>e.target.style.border="2px solid #1a3a5c"}
+                      onBlur={e=>e.target.style.border="2px solid #e8e5de"}/>
+                    <span style={{fontSize:18,fontWeight:800,color:"#4a4640"}}>%</span>
+                  </div>
+                  {(cotActual.descuento_pct||0)>0&&(
+                    <div style={{marginTop:6,padding:"6px 10px",background:"#f0fdf4",borderRadius:7,fontSize:12,color:"#2d6a4f",fontWeight:700,display:"flex",justifyContent:"space-between" as const}}>
+                      <span>= descuento</span>
+                      <span style={{fontFamily:"monospace"}}>-${Math.round((cotActual.subtotal||0)*(cotActual.descuento_pct||0)/100).toLocaleString("es-MX")}</span>
+                    </div>
+                  )}
+                </div>
+              ):(
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:18,fontWeight:800,color:"#4a4640"}}>$</span>
+                    <input type="number" min="0"
+                      value={descGlobalMonto||""}
+                      placeholder="0"
+                      onChange={e=>{
+                        const monto=parseFloat(e.target.value)||0
+                        setDescGlobalMonto(monto)
+                        const tots=calcularTotales(cotActual.partidas||[],0,cotActual.aplica_iva||false,monto)
+                        setCotActual((prev:any)=>({...prev,...tots,descuento_pct:0}))
+                      }}
+                      style={{flex:1,padding:"10px 12px",border:"2px solid #e8e5de",borderRadius:8,fontFamily:"monospace",fontSize:18,fontWeight:800,outline:"none",textAlign:"center" as const,boxSizing:"border-box" as const}}
+                      onFocus={e=>e.target.style.border="2px solid #1a3a5c"}
+                      onBlur={e=>e.target.style.border="2px solid #e8e5de"}/>
+                  </div>
+                  {descGlobalMonto>0&&(
+                    <div style={{marginTop:6,padding:"6px 10px",background:"#f0fdf4",borderRadius:7,fontSize:12,color:"#2d6a4f",fontWeight:700,display:"flex",justifyContent:"space-between" as const}}>
+                      <span>= descuento</span>
+                      <span style={{fontFamily:"monospace"}}>-${descGlobalMonto.toLocaleString("es-MX")}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,background:"#fff",border:"1px solid #e8e5de",borderRadius:8,padding:"8px 12px"}}>
+              <label style={{fontSize:12,color:"#4a4640",fontWeight:600}}>IVA 16%</label>
+              <input type="checkbox" checked={cotActual.aplica_iva||false}
+                onChange={e=>{
+                  const iva=e.target.checked
+                  const tots=calcularTotales(cotActual.partidas||[],cotActual.descuento_pct||0,iva)
+                  setCotActual(prev=>({...prev,...tots,aplica_iva:iva}))
+                }}
+                style={{width:18,height:18,cursor:"pointer"}}/>
+            </div>
+          </div>
+
+          {/* Navegación */}
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setPaso(1)} style={{flex:1,padding:"10px",borderRadius:8,background:"#f5f4f0",border:"1px solid #e8e5de",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:600}}>← Datos</button>
+            <button onClick={()=>setPaso(3)} style={{flex:2,padding:"10px",borderRadius:8,background:"#0f172a",color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>Resumen →</button>
+          </div>
+        </div>
+      )}
+
+      {/* ─ PASO 3: RESUMEN ─ */}
+      {paso===3&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:14}}>
+          <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:20}}>
+            <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:700,marginBottom:16}}>✅ Resumen final</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16,fontSize:12}}>
+              <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 12px"}}><div style={{color:"#9a9590",fontSize:10,marginBottom:2}}>CLIENTE</div><strong>{cotActual.cliente_nombre}</strong></div>
+              <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 12px"}}><div style={{color:"#9a9590",fontSize:10,marginBottom:2}}>TELÉFONO</div>{cotActual.cliente_tel||"—"}</div>
+              <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 12px"}}><div style={{color:"#9a9590",fontSize:10,marginBottom:2}}>EVENTO</div>{cotActual.fecha_evento||"—"}</div>
+              <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 12px"}}><div style={{color:"#9a9590",fontSize:10,marginBottom:2}}>LUGAR</div>{cotActual.lugar_evento||"—"}</div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Artículos ({(cotActual.partidas||[]).length})</div>
+              {(cotActual.partidas||[]).map((p,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f5f4f0",fontSize:12}}>
+                  <span>{p.cantidad}x {p.nombre}</span>
+                  <span style={{fontFamily:"monospace",fontWeight:700}}>${p.subtotal.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{background:"#fafaf8",borderRadius:10,padding:14}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#9a9590",marginBottom:8}}>CONDICIONES</div>
+              <div style={{fontSize:11,color:"#4a4640",lineHeight:1.6}}>{cotActual.condiciones}</div>
+            </div>
+          </div>
+          <div style={{position:"sticky" as const,top:80,alignSelf:"flex-start" as const}}>
+            <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:16}}>
+              <div style={{fontFamily:"Playfair Display,serif",fontSize:14,fontWeight:700,marginBottom:12}}>💰 Total</div>
+              <div style={{fontSize:13,display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{color:"#9a9590"}}>Subtotal</span><span style={{fontFamily:"monospace",fontWeight:700}}>${(cotActual.subtotal||0).toLocaleString()}</span></div>
+              {(cotActual.descuento_pct||0)>0&&<div style={{fontSize:13,display:"flex",justifyContent:"space-between",marginBottom:6,color:"#2d6a4f"}}><span>Descuento {cotActual.descuento_pct}%</span><span style={{fontFamily:"monospace",fontWeight:700}}>-${(cotActual.descuento_monto||0).toLocaleString()}</span></div>}
+              {cotActual.aplica_iva&&<div style={{fontSize:13,display:"flex",justifyContent:"space-between",marginBottom:6,color:"#4a2d6e"}}><span>IVA 16%</span><span style={{fontFamily:"monospace",fontWeight:700}}>${(cotActual.iva_monto||0).toLocaleString()}</span></div>}
+              <div style={{borderTop:"2px solid #1a1814",paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <span style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:800}}>TOTAL</span>
+                <span style={{fontFamily:"Playfair Display,serif",fontSize:24,fontWeight:800}}>${(cotActual.total||0).toLocaleString()}</span>
+              </div>
+              <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+                <button onClick={()=>guardar("borrador")} disabled={guardando}
+                  style={{padding:"9px",borderRadius:8,background:"#f5f4f0",border:"1px solid #e8e5de",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
+                  💾 Guardar borrador
+                </button>
+                <button onClick={()=>guardar("enviada")} disabled={guardando}
+                  style={{padding:"9px",borderRadius:8,background:"#1a3a5c",color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
+                  📤 Guardar y marcar enviada
+                </button>
+              </div>
+              <button onClick={()=>setPaso(2)} style={{width:"100%",padding:"7px",borderRadius:8,background:"#fff",border:"1px solid #e8e5de",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:11,marginTop:8}}>← Editar artículos</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ─── CONTRATOS CONFIRMADOS ─────────────────────────────────────────n({ token, personal, logoUrl, vendedorActual, esAdmin, contratos: contratosAll = [] }: { token: string, personal: any, logoUrl?: string, vendedorActual?: string, esAdmin?: boolean, contratos?: any[] }) {
+  const [cots, setCots] = useState<Cotizacion[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [filtroEst, setFiltroEst] = useState("todos")
+  const [filtroVendCot, setFiltroVendCot] = useState(vendedorActual||"todos")
+  const [vista, setVista] = useState<"lista"|"form"|"detalle"|"calendario">("lista")
+  const [vistaCalCot, setVistaCalCot] = useState<"semana"|"mes">("semana")
+  const [semOffCot, setSemOffCot] = useState(0)
+  const [cotActual, setCotActual] = useState<Partial<Cotizacion>>({...COT_VACIA})
+  const [descTipo, setDescTipo] = useState<"pct"|"monto">("pct")
+  const [descGlobalMonto, setDescGlobalMonto] = useState(0)
+  const [esNueva, setEsNueva] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [busqArt, setBusqArt] = useState("")
+  const [cantBusq, setCantBusq] = useState(1)
+  const [catFiltroArt, setCatFiltroArt] = useState("TODOS")
+  const [artsSugeridos, setArtsSugeridos] = useState<any[]>([])
+  const [buscandoArt, setBuscandoArt] = useState(false)
+  const [activeRow, setActiveRow] = useState<number|null>(null)
+  const [rowSugeridos, setRowSugeridos] = useState<any[]>([])
+  const [paso, setPaso] = useState(1) // 1=datos, 2=articulos, 3=resumen
+  const [busqCliente, setBusqCliente] = useState("")
+  const [clientesSug, setClientesSug] = useState<{nombre:string,tel:string,lugar:string,email:string}[]>([])
+  const [mostrarSug, setMostrarSug] = useState(false)
+  const [formGuardado, setFormGuardado] = useState(false)
+
+  // Dirty = tiene cliente o artículos y no se ha guardado
+  const formTieneDatos = !!(
+    (cotActual.cliente_nombre && cotActual.cliente_nombre.trim()) ||
+    ((cotActual.partidas||[]).length > 0)
+  )
+  const formDirty = vista === "form" && formTieneDatos && !formGuardado
+
+  // Aviso al cerrar/recargar el navegador + flag global
+  useEffect(()=>{
+    (window as any).__cotFormDirty = formDirty
+    const handler=(e:BeforeUnloadEvent)=>{
+      if(formDirty){e.preventDefault();e.returnValue=""}
+    }
+    window.addEventListener("beforeunload",handler)
+    return ()=>{
+      window.removeEventListener("beforeunload",handler)
+      ;(window as any).__cotFormDirty = false
+    }
+  },[formDirty])
+
+  // Helper: navegar fuera del form con confirmación
+  const salirDelForm = (action:()=>void) => {
+    if(formDirty){
+      const ok=window.confirm("¿Salir sin guardar?\n\nTienes una cotización en progreso. ¿Deseas descartarla o preferes guardarla como borrador?\n\nAcepta para descartar · Cancela para seguir editando")
+      if(!ok) return
+    }
+    setFormGuardado(false)
+    action()
+  }
+
+  // Password-protected delete
+  const eliminarConContrasena = async (tipo: "cotizacion"|"contrato", id: string, onSuccess: ()=>void) => {
+    const pwd = window.prompt(`Ingresa la contraseña para eliminar esta ${tipo}:`)
+    if(pwd === null) return // canceló
+    if(pwd !== DELETE_PWD){
+      alert("❌ Contraseña incorrecta. No se eliminó el registro.")
+      return
+    }
+    const endpoint = tipo === "cotizacion" ? `/api/cotizaciones?id=${id}` : `/api/contratos?id=${id}`
+    const res = await fetch(endpoint, { method: "DELETE", headers: { Authorization: `Bearer ${token}` }})
+    if(res.ok) onSuccess()
+    else alert("Error al eliminar. Intenta de nuevo.")
+  }
+
+  const cargar = async () => {
+    setCargando(true)
+    // Load from cotizaciones table
+    const url = filtroEst !== "todos" ? `/api/cotizaciones?estado=${filtroEst}` : "/api/cotizaciones"
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const fromDB = await res.json()
+    // Also load contratos tipo=cotizacion from Excel system
+    const res2 = await fetch("/api/contratos", { headers: { Authorization: `Bearer ${token}` } })
+    const contratosData = await res2.json()
+    const cotFromExcel: Cotizacion[] = (Array.isArray(contratosData) ? contratosData : [])
+      .filter((x:any) => x.tipo === "cotizacion")
+      .map((x:any) => ({
+        id: "excel_"+x.id,
+        folio: x.folio || x.archivo?.replace(".xlsx","") || "COT-EXCEL",
+        cliente_nombre: x.cliente || x.archivo || "",
+        cliente_tel: x.tel || x.telefono || "",
+        cliente_email: "",
+        lugar_evento: x.lugar || "",
+        fecha_evento: x.fecha_evento || "",
+        fecha_entrega: x.fecha_entrega || "",
+        fecha_desmonte: x.fecha_desmonte || "",
+        fecha_vigencia: "",
+        estado: "enviada",
+        vendedor: x.vendedor || "",
+        subtotal: x.total || 0,
+        descuento_pct: 0,
+        descuento_monto: 0,
+        aplica_iva: false,
+        iva_monto: 0,
+        total: x.total || 0,
+        notas_cliente: x.notas || "",
+        condiciones: "",
+        partidas: (x.articulos||[]).map((a:any) => ({
+          articulo_id: "", nombre: a.nombre, cantidad: a.cantidad,
+          precio_unitario: a.pu||0, subtotal: a.importe||0, notas: ""
+        })),
+        creado_en: x.fecha_evento || "",
+        actualizado_en: x.fecha_evento || "",
+        _fromExcel: true
+      } as any))
+    // Cotizaciones: exclude converted ones (they become contratos)
+    const dbCots = (Array.isArray(fromDB) ? fromDB : []).filter((x:any) => x.estado !== "convertida")
+    const allCots = [...dbCots, ...cotFromExcel]
+      .filter(c => filtroEst === "todos" || (c as any).estado === filtroEst)
+      .sort((a,b) => (b.creado_en||"").localeCompare(a.creado_en||""))
+    setCots(allCots)
+    setCargando(false)
+  }
+
+  useState(() => { cargar() })
+
+  // Buscar artículos del catálogo
+  const buscarArticulos = async (q: string, cat?: string) => {
+    if (!q || q.trim().length < 1) { setArtsSugeridos([]); return }
+    setBuscandoArt(true)
+    try {
+      const params = new URLSearchParams({busq: q.trim(), activo: "true"})
+      if(cat && cat !== "TODOS") params.append("categoria", cat)
+      const res = await fetch(`/api/catalogo?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = await res.json()
+      setArtsSugeridos(Array.isArray(data) ? data.slice(0, 40) : [])
+    } catch { setArtsSugeridos([]) }
+    setBuscandoArt(false)
+  }
+  const CATS_ART = ["TODOS","MOBILIARIO","FLORES","MANTELERÍA","VAJILLA","SERVICIOS","CARPAS"]
+  // Buscar clientes desde contratos existentes
+  const buscarClientes = (q: string) => {
+    if (!q || q.trim().length < 1) { setClientesSug([]); setMostrarSug(false); return }
+    const qLow = q.trim().toLowerCase()
+    const vistos = new Set<string>()
+    const unicos = contratosAll
+      .filter((x:any) => {
+        const nombre = (x.cliente||x.archivo||"").trim()
+        const k = nombre.toLowerCase()
+        if(!k || vistos.has(k)) return false
+        if(!k.includes(qLow)) return false
+        vistos.add(k); return true
+      })
+      .slice(0, 10)
+      .map((x:any) => ({
+        nombre: (x.cliente||x.archivo||"").trim(),
+        tel: (x.tel||x.telefono||"").trim(),
+        lugar: (x.lugar||"").trim(),
+        email: ""
+      }))
+    setClientesSug(unicos)
+    setMostrarSug(unicos.length > 0)
+  }
+
+  const seleccionarCliente = (cli: {nombre:string,tel:string,lugar:string,email:string}) => {
+    setCotActual(prev => ({
+      ...prev,
+      cliente_nombre: cli.nombre,
+      cliente_tel: cli.tel || prev.cliente_tel,
+      cliente_email: cli.email || prev.cliente_email,
+      lugar_evento: prev.lugar_evento || cli.lugar,
+    }))
+    setBusqCliente(cli.nombre)
+    setClientesSug([])
+    setMostrarSug(false)
+  }
+
+  // Generar folio con prefijo del vendedor
+  const prefijoVendedor = (nombre: string) => {
+    const v = VENDEDORES.find(v => v.nombre === nombre)
+    return v ? v.prefijo : "COT"
+  }
+
+  const agregarPartida = (art: any) => {
+    const nueva: Partida = {
+      articulo_id: art.id, nombre: art.nombre,
+      cantidad: 1, precio_unitario: art.precio_renta || 0,
+      subtotal: art.precio_renta || 0, notas: ""
+    }
+    const partidas = [...(cotActual.partidas || []), nueva]
+    const tots = calcularTotales(partidas, cotActual.descuento_pct || 0, cotActual.aplica_iva || false)
+    setCotActual({ ...cotActual, partidas, ...tots })
+    setBusqArt(""); setArtsSugeridos([])
+  }
+
+  const actualizarPartida = (i: number, campo: keyof Partida, valor: any) => {
+    const partidas = [...(cotActual.partidas || [])]
+    partidas[i] = { ...partidas[i], [campo]: valor }
+    if (campo === "cantidad" || campo === "precio_unitario") {
+      partidas[i].subtotal = partidas[i].cantidad * partidas[i].precio_unitario
+    }
+    const tots = calcularTotales(partidas, cotActual.descuento_pct || 0, cotActual.aplica_iva || false)
+    setCotActual({ ...cotActual, partidas, ...tots })
+  }
+
+  const quitarPartida = (i: number) => {
+    const partidas = (cotActual.partidas || []).filter((_,j) => j !== i)
+    const tots = calcularTotales(partidas, cotActual.descuento_pct || 0, cotActual.aplica_iva || false)
+    setCotActual({ ...cotActual, partidas, ...tots })
+  }
+
+  const actualizarDescuento = (pct: number) => {
+    const tots = calcularTotales(cotActual.partidas || [], pct, cotActual.aplica_iva || false)
+    setCotActual({ ...cotActual, descuento_pct: pct, ...tots })
+  }
+
+  const toggleIva = (v: boolean) => {
+    const tots = calcularTotales(cotActual.partidas || [], cotActual.descuento_pct || 0, v)
+    setCotActual({ ...cotActual, aplica_iva: v, ...tots })
+  }
+
+  const guardar = async (estadoNuevo?: string) => {
+    setGuardando(true)
+    setFormGuardado(true)
+    const body = { ...cotActual }
+    if (estadoNuevo) body.estado = estadoNuevo
+    // Add vendedor prefix to body for folio generation
+    if (esNueva && body.vendedor) {
+      body._prefijo = prefijoVendedor(body.vendedor)
+    }
+    let res
+    if (esNueva) {
+      res = await fetch("/api/cotizaciones", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      })
+    } else {
+      res = await fetch(`/api/cotizaciones?id=${cotActual.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      })
+    }
+    const data = await res.json()
+    setGuardando(false)
+    if (data.id) {
+      setCotActual(data)
+      setEsNueva(false)
+      cargar()
+      setVista("detalle")
+    }
+  }
+
+  const cambiarEstado = async (id: string, estado: string) => {
+    await fetch(`/api/cotizaciones?id=${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ estado })
+    })
+    cargar()
+  }
+
+  const duplicar = (cot: Cotizacion) => {
+    const { id, folio, creado_en, actualizado_en, ...resto } = cot
+    setCotActual({ ...resto, estado: "borrador", fecha_vigencia: new Date(Date.now()+15*86400000).toISOString().slice(0,10) })
+    setEsNueva(true); setPaso(1); setVista("form")
+  }
+
+  const convertirAContrato = async (cot: Cotizacion) => {
+    if (!window.confirm(`¿Convertir cotización ${cot.folio} en contrato confirmado?\n\nSe creará un contrato con todos los artículos y datos del evento.`)) return
+
+    const isExcel = (cot as any)._fromExcel
+
+    if(isExcel){
+      // Excel cotizacion: just update tipo in contratos table
+      const realId = cot.id.replace("excel_","")
+      const r = await fetch(`/api/contratos?id=${realId}`, {
+        method:"PATCH",
+        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body: JSON.stringify({tipo:"contrato", estado_entrega:"pend"})
+      })
+      if(!r.ok){
+        const err = await r.json().catch(()=>({}))
+        alert("Error al convertir: " + (err.error || r.status))
+        return
+      }
+    } else {
+      // System cotizacion: create new row in contratos table
+      const contratoBody = {
+        archivo: cot.folio || "",
+        cliente: cot.cliente_nombre || "",
+        lugar: cot.lugar_evento || "",
+        tel: cot.cliente_tel || "",
+        telefono: cot.cliente_tel || "",
+        fecha_evento: cot.fecha_evento || "",
+        fecha_entrega: cot.fecha_entrega || cot.fecha_evento || "",
+        fecha_desmonte: cot.fecha_desmonte || cot.fecha_evento || "",
+        folio: cot.folio || "",
+        vendedor: cot.vendedor || "",
+        tipo: "contrato",
+        total: cot.total || 0,
+        a_cuenta: 0,
+        cobrado: 0,
+        pagos: [],
+        estado_entrega: "pend",
+        estado_desmonte: "pend",
+        asig_entrega: [],
+        asig_desmonte: [],
+        notas: cot.notas_cliente || "",
+        articulos: (cot.partidas || []).map((p:any) => ({
+          nombre: p.nombre || "",
+          cantidad: p.cantidad || 0,
+          pu: p.precio_unitario || 0,
+          importe: p.subtotal || 0,
+          seccion: p.notas || ""
+        }))
+      }
+
+      const res = await fetch("/api/contratos", {
+        method:"POST",
+        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body: JSON.stringify(contratoBody)
+      })
+
+      if(!res.ok){
+        const err = await res.json()
+        alert("Error al crear el contrato: " + (err.error || res.status))
+        return
+      }
+
+      // Mark cotizacion as converted
+      await cambiarEstado(cot.id, "convertida")
+    }
+
+    await cargar(token)
+    alert(`✓ Cotización ${cot.folio} convertida a contrato exitosamente.\nYa puedes verla en el módulo de Contratos.`)
+  }
+
+  // Generar mensaje WhatsApp
+    const imprimirCotizacion = (cot: Cotizacion) => {
+    const logoSrc = logoUrl || (typeof window!=="undefined" ? localStorage.getItem("pf_logo")||"/logo.png" : "/logo.png")
+    const fechaEvento = cot.fecha_evento ? new Date(cot.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}) : "Por confirmar"
+    const fechaVig = cot.fecha_vigencia ? new Date(cot.fecha_vigencia+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"}) : "15 días"
+    const filas = (cot.partidas||[]).map((p,i) => {
+      const bruto=(p.precio_unitario||0)*(p.cantidad||0)
+      const descArt=(p as any).aplica_descuento?Math.round(bruto*((p as any).descuento_pct_art||0)/100):0
+      const neto=bruto-descArt
+      return `
+      <tr style="border-bottom:1px solid #f0ece4;background:${i%2===0?"#fff":"#fafaf8"}">
+        <td style="padding:8px 10px;font-weight:600;font-size:13px">${p.nombre}</td>
+        <td style="padding:8px 10px;text-align:center;font-size:13px">${p.cantidad}</td>
+        <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:13px">$${(p.precio_unitario||0).toLocaleString("es-MX")}</td>
+        <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:700;font-size:13px;color:#1a3a5c">
+          $${neto.toLocaleString("es-MX")}
+          ${descArt>0?`<div style="font-size:9px;color:#8b2e2e">-${(p as any).descuento_pct_art}% (-$${descArt.toLocaleString("es-MX")})</div>`:""}
+        </td>
+      </tr>`
+    }).join("")
+
+    const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>Cotización ${cot.folio}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Inter, Arial, sans-serif; font-size: 13px; color: #1a1814; background: #fff; }
+  @media print {
+    .no-print { display: none !important; }
+    @page { margin: 12mm 15mm; size: A4 portrait; }
+    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  }
+  .page { max-width: 820px; margin: 0 auto; padding: 32px; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #1a1814 !important; color: #fff !important; }
+</style>
+</head><body>
+<div class="page">
+  <!-- Botones -->
+  <div class="no-print" style="text-align:right;margin-bottom:20px;display:flex;gap:10px;justify-content:flex-end">
+    <button onclick="window.print()" style="padding:10px 24px;background:#1a1814;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimir / PDF</button>
+    <button onclick="window.close()" style="padding:10px 24px;background:#f5f4f0;border:1px solid #ccc;border-radius:8px;font-size:14px;cursor:pointer">✕ Cerrar</button>
+  </div>
+
+  <!-- Header con logo -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #1a1814">
+    <div>
+      <img src="${logoSrc}" alt="Poliflor" style="height:60px;width:auto;object-fit:contain;margin-bottom:6px" onerror="this.style.display='none'">
+      <div style="font-size:11px;color:#9a9590;margin-top:4px">Renta de Mobiliario para Eventos</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:24px;font-weight:800;color:#1a1814;letter-spacing:-0.5px">COTIZACIÓN</div>
+      <div style="font-size:20px;font-weight:700;color:#1a3a5c;margin-top:2px">${cot.folio}</div>
+      <div style="font-size:11px;color:#9a9590;margin-top:4px">Vigencia: ${fechaVig}</div>
+      ${cot.vendedor ? `<div style="font-size:11px;color:#9a9590">Vendedor: <strong>${cot.vendedor}</strong></div>` : ""}
+    </div>
+  </div>
+
+  <!-- Datos del cliente y evento -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px">
+    <div style="background:#f8f6f2;border-radius:10px;padding:16px">
+      <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Cliente</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px">${cot.cliente_nombre||"—"}</div>
+      ${cot.cliente_tel ? `<div style="font-size:12px;color:#4a4640;margin-top:3px">📞 ${cot.cliente_tel}</div>` : ""}
+      ${cot.cliente_email ? `<div style="font-size:12px;color:#4a4640;margin-top:3px">✉️ ${cot.cliente_email}</div>` : ""}
+    </div>
+    <div style="background:#f8f6f2;border-radius:10px;padding:16px">
+      <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Evento</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">📅 ${fechaEvento}</div>
+      ${cot.lugar_evento ? `<div style="font-size:12px;color:#4a4640;margin-top:4px">📍 ${cot.lugar_evento}</div>` : ""}
+      ${cot.fecha_entrega ? `<div style="font-size:11px;color:#9a9590;margin-top:4px">Entrega: ${cot.fecha_entrega} · Desmonte: ${cot.fecha_desmonte||"—"}</div>` : ""}
+    </div>
+  </div>
+
+  <!-- Tabla de artículos -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+    <thead>
+      <tr style="background:#1a1814;color:#fff">
+        <th style="padding:10px;text-align:left;font-size:11px">Descripción</th>
+        <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
+        <th style="padding:10px;text-align:right;font-size:11px;width:100px">P. Unit.</th>
+        <th style="padding:10px;text-align:right;font-size:11px;width:110px">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>${filas}</tbody>
+  </table>
+
+  <!-- Totales -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:28px">
+    <div style="width:280px">
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0ece4">
+        <span style="color:#9a9590">Subtotal</span>
+        <span style="font-family:monospace;font-weight:600">$${(cot.subtotal||0).toLocaleString("es-MX")}</span>
+      </div>
+      ${cot.descuento_pct > 0 ? `
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0ece4;color:#2d6a4f">
+        <span>Descuento (${cot.descuento_pct}%)</span>
+        <span style="font-family:monospace;font-weight:600">-$${(cot.descuento_monto||0).toLocaleString("es-MX")}</span>
+      </div>` : ""}
+      ${cot.aplica_iva ? `
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0ece4;color:#4a2d6e">
+        <span>IVA (16%)</span>
+        <span style="font-family:monospace;font-weight:600">$${(cot.iva_monto||0).toLocaleString("es-MX")}</span>
+      </div>` : ""}
+      <div style="display:flex;justify-content:space-between;padding:12px 0;background:#1a1814;color:#fff;border-radius:8px;margin-top:8px;padding:12px 14px">
+        <span style="font-size:15px;font-weight:800">TOTAL</span>
+        <span style="font-family:monospace;font-size:20px;font-weight:800">$${(cot.total||0).toLocaleString("es-MX")}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notas y condiciones -->
+  ${cot.notas_cliente ? `
+  <div style="background:#fdf5e8;border-left:4px solid #92580a;border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:16px">
+    <div style="font-size:10px;font-weight:700;color:#92580a;text-transform:uppercase;margin-bottom:6px">Notas</div>
+    <div style="font-size:12px;color:#4a4640;line-height:1.6">${cot.notas_cliente}</div>
+  </div>` : ""}
+  ${cot.condiciones ? `
+  <div style="background:#f8f6f2;border-radius:8px;padding:14px 16px;margin-bottom:24px">
+    <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;margin-bottom:6px">Términos y condiciones</div>
+    <div style="font-size:11px;color:#4a4640;line-height:1.7">${cot.condiciones}</div>
+  </div>` : ""}
+
+  <!-- Footer firma -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:1px solid #e8e5de">
+    <div style="text-align:center">
+      <div style="border-top:1px solid #1a1814;padding-top:8px;margin-top:50px;font-size:11px;color:#9a9590">Firma del cliente</div>
+      <div style="font-size:11px;color:#9a9590;margin-top:4px">${cot.cliente_nombre||""}</div>
+    </div>
+    <div style="text-align:center">
+      <div style="border-top:1px solid #1a1814;padding-top:8px;margin-top:50px;font-size:11px;color:#9a9590">Autorizado por Poliflor</div>
+      <div style="font-size:11px;color:#9a9590;margin-top:4px">${cot.vendedor||"Poliflor"}</div>
+    </div>
+  </div>
+</div>
+</body></html>`
+
+    // Nombre: FOLIO_CLIENTE_FECHA.html
+    // PDF: COTIZACION_FOLIO_CLIENTE_YYYY-MM-DD
+    const slug=(s:string,n=25)=>s.slice(0,n).trim().replace(/\s+/g,"-").replace(/[^a-zA-Z0-9-]/g,"").toUpperCase()
+    const nombrePDF=`COTIZACION_${slug(cot.folio||"COT",15)}_${slug(cot.cliente_nombre||"CLIENTE")}_${cot.fecha_evento||new Date().toISOString().slice(0,10)}`
+    // Botones PDF: la clave es capturar #doc-main, NO body completo
+    const btns=`
+<div id="pflbtns" style="position:fixed;top:12px;right:12px;z-index:9999;background:#fff;padding:14px 16px;border-radius:12px;box-shadow:0 6px 28px rgba(0,0,0,.22);min-width:220px;font-family:Arial,sans-serif">
+  <div style="font-size:10px;color:#9a9590;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">📄 ${nombrePDF}</div>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <button id="btn-pdf" style="padding:10px 14px;background:#1a3a5c;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">⬇️ Descargar PDF</button>
+    <button onclick="document.getElementById('pflbtns').style.display='none';window.print()" style="padding:10px 14px;background:#f5f4f0;color:#1a1814;border:1px solid #e8e5de;border-radius:8px;font-weight:600;cursor:pointer;font-size:12px">🖨️ Imprimir</button>
+  </div>
+  <div id="pdf-msg" style="font-size:10px;color:#9a9590;margin-top:6px;min-height:14px"></div>
+</div>
+<script>
+document.getElementById("btn-pdf").onclick=function(){
+  var btn=this;
+  var msg=document.getElementById("pdf-msg");
+  btn.textContent="Cargando...";
+  btn.disabled=true;
+  msg.textContent="Preparando PDF...";
+  var s=document.createElement("script");
+  s.src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+  s.onload=function(){
+    var target=document.getElementById("doc-main");
+    if(!target){msg.textContent="Error: contenido no encontrado";btn.textContent="⬇️ Descargar PDF";btn.disabled=false;return}
+    btn.textContent="Generando...";
+    msg.textContent="Esto toma unos segundos...";
+    document.getElementById("pflbtns").style.opacity="0.5";
+    html2pdf().set({
+      margin:[8,8,8,8],filename:"${nombrePDF}.pdf",
+      image:{type:"jpeg",quality:0.98},
+      html2canvas:{scale:2,useCORS:true,logging:false,removeContainer:true},
+      jsPDF:{unit:"mm",format:"a4",orientation:"portrait",compress:true}
+    }).from(target).save().then(function(){
+      btn.textContent="⬇️ Descargar PDF";btn.disabled=false;
+      document.getElementById("pflbtns").style.opacity="1";
+      msg.textContent="✓ PDF guardado";
+    }).catch(function(e){
+      btn.textContent="⬇️ Descargar PDF";btn.disabled=false;
+      document.getElementById("pflbtns").style.opacity="1";
+      msg.textContent="Error: "+e.message;
+    });
+  };
+  s.onerror=function(){msg.textContent="Error cargando librería";btn.textContent="⬇️ Descargar PDF";btn.disabled=false;};
+  document.head.appendChild(s);
+};
+</script>`
+    const htmlFinal=html
+      .replace("</head>",'</head><style>#pflbtns{font-family:Arial,sans-serif}@media print{#pflbtns{display:none!important}}</style>')
+      .replace('<div class="page">','<div class="page" id="doc-main">')
+      .replace("</body>",btns+"</body>")
+      .replace('<button onclick="window.print()"','<button style="display:none"')
+    const blob=new Blob([htmlFinal],{type:"text/html;charset=utf-8"})
+    const url=URL.createObjectURL(blob)
+    const a=document.createElement("a")
+    a.href=url; a.target="_blank"; a.rel="noopener"
+    document.body.appendChild(a); a.click()
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url)},1000)
+  }
+
+
+  const enviarWhatsApp = (cot: Cotizacion) => {
+    const fecha = cot.fecha_evento ? new Date(cot.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"}) : "por confirmar"
+    const nl = "\n"
+    const items = (cot.partidas||[]).slice(0,8).map((p,i)=>"  "+(i+1)+". "+p.cantidad+"x "+p.nombre+" — $"+p.subtotal.toLocaleString()).join(nl)
+    const masItems = (cot.partidas||[]).length > 8 ? nl+"  ...y "+((cot.partidas||[]).length-8)+" artículos más" : ""
+    let msg = "Hola "+cot.cliente_nombre+" 👋"+nl+nl
+    msg += "Te compartimos la cotización *"+cot.folio+"* de *Poliflor* 🌸"+nl+nl
+    msg += "📅 Fecha del evento: *"+fecha+"*"+nl
+    if (cot.lugar_evento) msg += "📍 Lugar: "+cot.lugar_evento+nl
+    msg += nl+"*📦 Artículos cotizados:*"+nl+items+masItems+nl+nl
+    if (cot.descuento_pct > 0) msg += "🏷️ Descuento: "+cot.descuento_pct+"% (-$"+cot.descuento_monto.toLocaleString()+")"+nl
+    if (cot.aplica_iva) msg += "📊 IVA (16%): $"+cot.iva_monto.toLocaleString()+nl
+    msg += nl+"💰 *Total: $"+cot.total.toLocaleString()+"*"+nl
+    msg += nl+"⏰ Vigencia: "+(cot.fecha_vigencia ? new Date(cot.fecha_vigencia+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long"}) : "15 días")+nl
+    if (cot.condiciones) msg += nl+"📋 *Condiciones:*"+nl+cot.condiciones.slice(0,200)+"..."+nl
+    msg += nl+"¿Te gustaría confirmar? Escríbenos para apartar la fecha 😊"+nl+nl+"— *Poliflor* 🌸"
+    const tel = (cot.cliente_tel||"").replace(/[^0-9]/g,"")
+    const url = tel ? "https://wa.me/52"+tel+"?text="+encodeURIComponent(msg) : "https://wa.me/?text="+encodeURIComponent(msg)
+    window.open(url,"_blank")
+    if (cot.estado === "borrador") cambiarEstado(cot.id, "enviada")
+  }
+
+  const fmt = (n:number) => "$"+Math.round(n||0).toLocaleString("es-MX")
+
+  // ── Días hasta vencimiento
+  const diasVigencia = (fecha: string) => {
+    if (!fecha) return null
+    const diff = Math.ceil((new Date(fecha+"T23:59:59").getTime() - Date.now()) / 86400000)
+    return diff
+  }
+
+  // ── LISTA
+  if (vista === "lista" || vista === "calendario") return (
+    <div>
+      <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"14px 18px",marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap" as const}}>
+          <div>
+            <div style={{fontFamily:"Playfair Display,serif",fontSize:18,fontWeight:800}}>📋 Cotizaciones</div>
+            <div style={{fontSize:11,color:"#9a9590"}}>{cots.length} cotizaciones</div>
+          </div>
+          <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+            <button onClick={()=>{setCotActual({...COT_VACIA});setEsNueva(true);setPaso(1);setVista("form")}}
+              style={{padding:"8px 18px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
+              + Nueva cotización
+            </button>
+            <button onClick={()=>setVista(v=>v==="calendario"?"lista":"calendario")}
+              style={{padding:"8px 14px",borderRadius:8,background:vista==="calendario"?"#2563eb":"#f5f4f0",color:vista==="calendario"?"#fff":"#4a4640",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
+              📅 {vista==="calendario"?"Lista":"Calendario"}
+            </button>
+          </div>
+        </div>
+        {/* Filtros estado */}
+        <div style={{display:"flex",gap:6,marginTop:12,flexWrap:"wrap" as const}}>
+          {["todos",...ESTADOS_COT].map(e=>{
+            const n = e==="todos" ? cots.length : cots.filter(c=>c.estado===e).length
+            return(
+              <button key={e} onClick={()=>{setFiltroEst(e);setTimeout(cargar,0)}}
+                style={{padding:"3px 10px",borderRadius:14,border:`1.5px solid ${filtroEst===e?(ESTADO_COL[e]||"#1a1814"):"#e8e5de"}`,background:filtroEst===e?(ESTADO_BG[e]||"#f5f4f0"):"#fff",color:filtroEst===e?(ESTADO_COL[e]||"#1a1814"):"#4a4640",fontSize:10,fontWeight:filtroEst===e?700:400,cursor:"pointer",fontFamily:"Epilogue,sans-serif"}}>
+                {e==="todos"?"Todos":ESTADO_LABEL[e]} ({n})
+              </button>
+            )
+          })}
+        </div>
+        {/* Filtro por vendedor */}
+        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap" as const,alignItems:"center"}}>
+          <span style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".06em"}}>Vendedor:</span>
+          {/* Botón "Solo los míos" — acceso rápido */}
+          {vendedorActual&&(
+            <button onClick={()=>setFiltroVendCot(filtroVendCot===vendedorActual?"todos":vendedorActual)}
+              style={{padding:"3px 12px",borderRadius:14,border:`1.5px solid ${filtroVendCot===vendedorActual?"#2563eb":"#e8e5de"}`,background:filtroVendCot===vendedorActual?"#2563eb":"#eff6ff",color:filtroVendCot===vendedorActual?"#fff":"#2563eb",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Epilogue,sans-serif",display:"flex",alignItems:"center",gap:4}}>
+              {filtroVendCot===vendedorActual?"✓ Solo los míos":"👤 Solo los míos"}
+            </button>
+          )}
+          {(esAdmin?["todos","Karen","Cami","Liliana","Alberto"]:[vendedorActual||""]).filter(Boolean).map(v=>{
+            const n=v==="todos"?cots.length:cots.filter((x:any)=>(x.vendedor||vendedorDesdeFolio(x.folio||""))===v).length
+            return(
+              <button key={v} onClick={()=>setFiltroVendCot(v)}
+                style={{padding:"3px 10px",borderRadius:14,border:`1.5px solid ${filtroVendCot===v?"#0f172a":"#e8e5de"}`,background:filtroVendCot===v?"#0f172a":"#fff",color:filtroVendCot===v?"#fff":"#4a4640",fontSize:10,fontWeight:filtroVendCot===v?700:400,cursor:"pointer",fontFamily:"Epilogue,sans-serif"}}>
+                {v==="todos"?"Todos":v} ({n})
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* KPIs operativos - sin montos */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+        {[
+          {l:"Total",v:cots.length,c:"#1a1814"},
+          {l:"Enviadas",v:cots.filter(c=>c.estado==="enviada").length,c:"#1a3a5c"},
+          {l:"Pendientes",v:cots.filter(c=>c.estado==="pendiente").length,c:"#92580a"},
+          {l:"Por vencer",v:cots.filter(c=>{const d=diasVigencia(c.fecha_vigencia);return d!==null&&d>=0&&d<=7&&(c.estado==="enviada"||c.estado==="pendiente")}).length,c:"#8b2e2e"},
+        ].map((k,i)=>(
+          <div key={i} style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:10,padding:"12px 14px"}}>
+            <div style={{fontSize:9,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:4}}>{k.l}</div>
+            <div style={{fontFamily:"Playfair Display,serif",fontSize:22,fontWeight:800,color:k.c}}>{k.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Lista */}
+      {/* ── VISTA CALENDARIO ── */}
+      {vista==="calendario"&&(()=>{
+        const hoyC=new Date();hoyC.setHours(0,0,0,0)
+        const dowC=hoyC.getDay()===0?6:hoyC.getDay()-1
+        const lunesBase=new Date(hoyC);lunesBase.setDate(hoyC.getDate()-dowC+semOffCot*7)
+        const diasSem=Array.from({length:7},(_,i)=>{const d=new Date(lunesBase);d.setDate(lunesBase.getDate()+i);return d})
+        const DIAS=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"]
+        const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+        const isoD=(d:Date)=>d.toISOString().split("T")[0]
+
+        // Group cots by fecha_evento
+        const cotsByDate:Record<string,any[]>={}
+        cots.forEach(cot=>{
+          if(!cot.fecha_evento) return
+          if(!cotsByDate[cot.fecha_evento]) cotsByDate[cot.fecha_evento]=[]
+          cotsByDate[cot.fecha_evento].push(cot)
+        })
+
+        const ESTADO_COLOR:Record<string,string>={
+          borrador:"#94a3b8",enviada:"#2563eb",pendiente:"#92580a",
+          aceptada:"#2d6a4f",rechazada:"#8b2e2e",convertida:"#4a2d6e",expirada:"#9a9590"
+        }
+
+        return(
+          <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,overflow:"hidden"}}>
+            {/* Toolbar calendario */}
+            <div style={{padding:"12px 16px",borderBottom:"1px solid #f0ece4",display:"flex",alignItems:"center",gap:10}}>
+              <button onClick={()=>setSemOffCot(v=>v-1)}
+                style={{width:32,height:32,borderRadius:8,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+              <button onClick={()=>setSemOffCot(0)}
+                style={{padding:"4px 12px",borderRadius:8,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:11,color:"#4a4640"}}>Hoy</button>
+              <button onClick={()=>setSemOffCot(v=>v+1)}
+                style={{width:32,height:32,borderRadius:8,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+              <span style={{fontFamily:"Playfair Display,serif",fontSize:14,fontWeight:700,flex:1}}>
+                {MESES[lunesBase.getMonth()]} {lunesBase.getFullYear()}
+                {lunesBase.getMonth()!==diasSem[6].getMonth()&&` — ${MESES[diasSem[6].getMonth()]}`}
+              </span>
+              <div style={{display:"flex",gap:4}}>
+                {(["semana","mes"] as const).map(m=>(
+                  <button key={m} onClick={()=>setVistaCalCot(m)}
+                    style={{padding:"4px 10px",borderRadius:7,border:"none",background:vistaCalCot===m?"#0f172a":"#f5f4f0",color:vistaCalCot===m?"#fff":"#4a4640",fontFamily:"Epilogue,sans-serif",fontSize:11,fontWeight:700,cursor:"pointer",textTransform:"capitalize" as const}}>
+                    {m==="semana"?"Semana":"Mes"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Grid semana */}
+            {vistaCalCot==="semana"&&(
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+                {diasSem.map((dia,i)=>{
+                  const key=isoD(dia)
+                  const esHoy=key===isoD(hoyC)
+                  const cotsDelDia=cotsByDate[key]||[]
+                  return(
+                    <div key={key} style={{borderRight:i<6?"1px solid #f0ece4":"none",minHeight:120,padding:6}}>
+                      {/* Header día */}
+                      <div style={{textAlign:"center" as const,marginBottom:6}}>
+                        <div style={{fontSize:10,color:"#9a9590",fontWeight:600,textTransform:"uppercase" as const}}>{DIAS[i]}</div>
+                        <div style={{width:28,height:28,borderRadius:"50%",background:esHoy?"#0f172a":"transparent",color:esHoy?"#fff":"#1a1814",fontWeight:700,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",margin:"2px auto"}}>
+                          {dia.getDate()}
+                        </div>
+                        {cotsDelDia.length>0&&(
+                          <div style={{fontSize:9,background:"#2563eb",color:"#fff",borderRadius:8,padding:"0 5px",display:"inline-block",fontWeight:700}}>{cotsDelDia.length}</div>
+                        )}
+                      </div>
+                      {/* Cotizaciones del día */}
+                      <div style={{display:"flex",flexDirection:"column" as const,gap:3}}>
+                        {cotsDelDia.slice(0,4).map((cot:any,ci:number)=>(
+                          <div key={ci} onClick={()=>{setVista("detalle");/* handled by click */}}
+                            title={cot.cliente_nombre+" — "+cot.estado}
+                            style={{fontSize:9,padding:"2px 5px",borderRadius:4,background:ESTADO_COLOR[cot.estado]||"#64748b",color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,cursor:"pointer",fontWeight:600}}>
+                            {cot.folio||cot.cliente_nombre}
+                          </div>
+                        ))}
+                        {cotsDelDia.length>4&&(
+                          <div style={{fontSize:9,color:"#9a9590",textAlign:"center" as const}}>+{cotsDelDia.length-4} más</div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Vista mes */}
+            {vistaCalCot==="mes"&&(()=>{
+              const primerDia=new Date(lunesBase.getFullYear(),lunesBase.getMonth(),1)
+              const dowPrimer=primerDia.getDay()===0?6:primerDia.getDay()-1
+              const diasMes=new Date(lunesBase.getFullYear(),lunesBase.getMonth()+1,0).getDate()
+              const celdas=Array.from({length:Math.ceil((dowPrimer+diasMes)/7)*7},(_,i)=>{
+                const d=new Date(primerDia);d.setDate(1-dowPrimer+i);return d
+              })
+              return(
+                <div>
+                  {/* Headers días */}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:"1px solid #f0ece4"}}>
+                    {DIAS.map(d=><div key={d} style={{padding:"6px",textAlign:"center" as const,fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const}}>{d}</div>)}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+                    {celdas.map((dia,i)=>{
+                      const key=isoD(dia)
+                      const esHoy=key===isoD(hoyC)
+                      const esMesActual=dia.getMonth()===lunesBase.getMonth()
+                      const cotsDelDia=cotsByDate[key]||[]
+                      return(
+                        <div key={i} style={{borderRight:i%7<6?"1px solid #f0ece4":"none",borderBottom:"1px solid #f0ece4",minHeight:80,padding:4,opacity:esMesActual?1:.35}}>
+                          <div style={{width:22,height:22,borderRadius:"50%",background:esHoy?"#0f172a":"transparent",color:esHoy?"#fff":"#4a4640",fontWeight:esHoy?700:400,fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:2}}>
+                            {dia.getDate()}
+                          </div>
+                          {cotsDelDia.slice(0,2).map((cot:any,ci:number)=>(
+                            <div key={ci}
+                              title={cot.cliente_nombre+" — "+cot.estado}
+                              style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:ESTADO_COLOR[cot.estado]||"#64748b",color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,marginBottom:1,cursor:"pointer",fontWeight:600}}>
+                              {cot.folio||cot.cliente_nombre}
+                            </div>
+                          ))}
+                          {cotsDelDia.length>2&&<div style={{fontSize:8,color:"#9a9590"}}>+{cotsDelDia.length-2}</div>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Leyenda */}
+            <div style={{padding:"10px 16px",borderTop:"1px solid #f0ece4",display:"flex",gap:10,flexWrap:"wrap" as const}}>
+              {Object.entries({borrador:"Borrador",enviada:"Enviada",pendiente:"Pendiente",aceptada:"Aceptada",rechazada:"Rechazada",convertida:"Convertida"}).map(([k,l])=>(
+                <div key={k} style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:"#4a4640"}}>
+                  <div style={{width:10,height:10,borderRadius:2,background:ESTADO_COLOR[k]}}/>
+                  {l}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
+            {vista!=="calendario"&&cargando ? <div style={{padding:48,textAlign:"center" as const,color:"#9a9590"}}>Cargando...</div> : vista!=="calendario"&&(
+        <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+          {cots.length===0 && <div style={{padding:48,textAlign:"center" as const,background:"#fff",border:"1.5px dashed #e8e5de",borderRadius:12,color:"#9a9590"}}>
+            <div style={{fontSize:32,opacity:.2,marginBottom:8}}>📋</div>
+            <div>No hay cotizaciones</div>
+          </div>}
+          {cots.filter((cot:any)=>filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot).map(cot=>{
+            const dias = diasVigencia(cot.fecha_vigencia)
+            const porVencer = dias !== null && dias >= 0 && dias <= 7 && (cot.estado==="enviada"||cot.estado==="pendiente")
+            const vencida = dias !== null && dias < 0 && (cot.estado==="enviada"||cot.estado==="pendiente")
+            return(
+              <div key={cot.id} style={{background:"#fff",border:`1.5px solid ${porVencer?"#e8d4b8":vencida?"#e8b8b8":"#e8e5de"}`,borderRadius:10,padding:"12px 16px"}}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:12,flexWrap:"wrap" as const}}>
+                  <div style={{flex:1,minWidth:200}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap" as const}}>
+                      <span style={{fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#1a1814"}}>{cot.folio}</span>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:8,background:ESTADO_BG[cot.estado]||"#f5f4f0",color:ESTADO_COL[cot.estado]||"#9a9590",fontWeight:700}}>{ESTADO_LABEL[cot.estado]||cot.estado}</span>
+                      {porVencer&&<span style={{fontSize:9,padding:"2px 6px",borderRadius:6,background:"#fdf5e8",color:"#92580a",fontWeight:700}}>⚠️ Vence en {dias}d</span>}
+                      {vencida&&<span style={{fontSize:9,padding:"2px 6px",borderRadius:6,background:"#fdf0f0",color:"#8b2e2e",fontWeight:700}}>⌛ Vencida</span>}
+                    </div>
+                    <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:700}}>{cot.cliente_nombre||"Sin nombre"}</div>
+                    <div style={{fontSize:11,color:"#9a9590",marginTop:2}}>
+                      {cot.lugar_evento&&<span>📍 {cot.lugar_evento.slice(0,40)} · </span>}
+                      {cot.fecha_evento&&<span>📅 {cot.fecha_evento} · </span>}
+                      <span>{(cot.partidas||[]).length} artículos</span>
+                      {cot.vendedor&&<span> · 👤 {cot.vendedor}</span>}
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right" as const,flexShrink:0}}>
+                    {cot.fecha_evento&&<div style={{fontSize:11,color:"#9a9590",fontFamily:"monospace"}}>{cot.fecha_evento}</div>}
+                    {cot.fecha_vigencia&&(()=>{
+                      const d=diasVigencia(cot.fecha_vigencia)
+                      return d!==null&&d<=7&&d>=0?<div style={{fontSize:10,color:d<=3?"#8b2e2e":"#92580a",fontWeight:700}}>Vence {d}d</div>:null
+                    })()}
+                  </div>
+                </div>
+                {/* Acciones */}
+                <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap" as const}}>
+                  <button onClick={async()=>{
+                    // Always fetch fresh full data to avoid state leak
+                    setCotActual({...COT_VACIA})
+                    setEsNueva(false)
+                    setVista("detalle")
+                    try{
+                      const r=await fetch(`/api/cotizaciones?id=${cot.id}`,{headers:{Authorization:`Bearer ${token}`}})
+                      const data=await r.json()
+                      if(data&&data.id) setCotActual(data)
+                      else setCotActual(cot) // fallback
+                    }catch{setCotActual(cot)}
+                  }}
+                    style={{padding:"4px 10px",borderRadius:6,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:11,fontFamily:"Epilogue,sans-serif"}}>
+                    👁️ Ver
+                  </button>
+                  <button onClick={()=>{setCotActual(cot);setEsNueva(false);setPaso(1);setVista("form")}}
+                    style={{padding:"4px 10px",borderRadius:6,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:11,fontFamily:"Epilogue,sans-serif"}}>
+                    ✏️ Editar
+                  </button>
+                  <button onClick={()=>imprimirCotizacion(cot)}
+                    style={{padding:"4px 10px",borderRadius:6,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:11,fontFamily:"Epilogue,sans-serif"}}>
+                    🖨️ PDF
+                  </button>
+                  <button onClick={()=>enviarWhatsApp(cot)}
+                    style={{padding:"4px 10px",borderRadius:6,border:"1px solid #25D366",background:"#25D366",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>
+                    📱 WhatsApp
+                  </button>
+                  {!(cot as any)._fromExcel&&(
+                    <button onClick={()=>{
+                      const url=window.location.origin+"/cot/"+cot.id
+                      navigator.clipboard.writeText(url)
+                        .then(()=>alert("✓ Link copiado: "+url))
+                        .catch(()=>window.open(url,"_blank"))
+                    }} style={{padding:"4px 10px",borderRadius:6,border:"1px solid #4a2d6e",background:"#f5f0fc",color:"#4a2d6e",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>
+                      🔗 Link cliente
+                    </button>
+                  )}
+                  <button onClick={()=>duplicar(cot)}
+                    style={{padding:"4px 10px",borderRadius:6,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:11,fontFamily:"Epilogue,sans-serif"}}>
+                    📋 Duplicar
+                  </button>
+                  {!(cot as any)._fromExcel&&(
+                    <button onClick={()=>eliminarConContrasena("cotizacion",cot.id,()=>{setCots(prev=>prev.filter((x:any)=>x.id!==cot.id));cargar()})}
+                      style={{padding:"4px 10px",borderRadius:6,border:"1px solid #fca5a5",background:"#fef2f2",color:"#8b2e2e",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>
+                      🗑️ Eliminar
+                    </button>
+                  )}
+                  {(cot.estado==="aceptada")&&(
+                    <button onClick={()=>convertirAContrato(cot)}
+                      style={{padding:"4px 10px",borderRadius:6,border:"1px solid #4a2d6e",background:"#f5f0fc",color:"#4a2d6e",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>
+                      📄 → Contrato
+                    </button>
+                  )}
+                  {/* Cambiar estado */}
+                  <select value={cot.estado} onChange={e=>{
+                    if(e.target.value==="convertida"){
+                      convertirAContrato(cot)
+                    } else {
+                      cambiarEstado((cot as any)._fromExcel?cot.id.replace("excel_",""):cot.id, e.target.value)
+                    }
+                  }} style={{padding:"3px 8px",borderRadius:6,border:"1px solid #e8e5de",fontFamily:"Epilogue,sans-serif",fontSize:10,cursor:"pointer",outline:"none"}}>
+                    {ESTADOS_COT.map(e=><option key={e} value={e}>{ESTADO_LABEL[e]||e}</option>)}
+                    <option value="convertida">✅ Convertir a contrato</option>
+                  </select>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+
+  // ── DETALLE
+  if (vista === "detalle" && cotActual) {
+    const cot = cotActual as Cotizacion
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+          <button onClick={()=>salirDelForm(()=>setVista("lista"))} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12}}>← Volver</button>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:18,fontWeight:800,flex:1}}>{cot.folio}</div>
+          <span style={{fontSize:11,padding:"3px 10px",borderRadius:8,background:ESTADO_BG[cot.estado]||"#f5f4f0",color:ESTADO_COL[cot.estado]||"#9a9590",fontWeight:700}}>{ESTADO_LABEL[cot.estado]||cot.estado}</span>
+          <button onClick={()=>imprimirCotizacion(cot)} style={{padding:"7px 14px",borderRadius:8,background:"#f5f4f0",color:"#1a1814",border:"1.5px solid #1a1814",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>🖨️ Ver PDF</button>
+          <button onClick={()=>enviarWhatsApp(cot)} style={{padding:"7px 14px",borderRadius:8,background:"#25D366",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>📱 Enviar WA</button>
+          {!(cot as any)._fromExcel&&(
+            <button onClick={()=>{
+              const url=window.location.origin+"/cot/"+cot.id
+              const msg="Hola "+cot.cliente_nombre+"! Te compartimos tu cotización de Poliflor. Puedes revisarla y aprobarla desde este link: "+url
+              const tel=(cot.cliente_tel||"").replace(/[^0-9]/g,"")
+              window.open("https://wa.me/52"+tel+"?text="+encodeURIComponent(msg),"_blank")
+            }} style={{padding:"7px 14px",borderRadius:8,background:"#4a2d6e",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>
+              🔗 Enviar link
+            </button>
+          )}
+          <button onClick={()=>{setEsNueva(false);setPaso(1);setVista("form")}} style={{padding:"7px 14px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontFamily:"Epilogue,sans-serif"}}>✏️ Editar</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:14}}>
+          <div style={{display:"flex",flexDirection:"column" as const,gap:12}}>
+            {/* Cliente */}
+            <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:16}}>
+              <div style={{fontFamily:"Playfair Display,serif",fontSize:14,fontWeight:700,marginBottom:10}}>Cliente y evento</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:12}}>
+                <div><span style={{color:"#9a9590"}}>Cliente:</span> <strong>{cot.cliente_nombre}</strong></div>
+                <div><span style={{color:"#9a9590"}}>Tel:</span> {cot.cliente_tel||"—"}</div>
+                <div><span style={{color:"#9a9590"}}>Lugar:</span> {cot.lugar_evento||"—"}</div>
+                <div><span style={{color:"#9a9590"}}>Evento:</span> {cot.fecha_evento||"—"}</div>
+                <div><span style={{color:"#9a9590"}}>Entrega:</span> {cot.fecha_entrega||"—"}</div>
+                <div><span style={{color:"#9a9590"}}>Desmonte:</span> {cot.fecha_desmonte||"—"}</div>
+                {cot.vendedor&&<div><span style={{color:"#9a9590"}}>Vendedor:</span> {cot.vendedor}</div>}
+                {cot.fecha_vigencia&&<div><span style={{color:"#9a9590"}}>Vigencia:</span> {cot.fecha_vigencia}</div>}
+              </div>
+            </div>
+            {/* Partidas */}
+            <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",borderBottom:"1px solid #e8e5de",fontFamily:"Playfair Display,serif",fontSize:14,fontWeight:700}}>Artículos ({(cot.partidas||[]).length})</div>
+              <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:12}}>
+                <thead><tr style={{background:"#fafaf8"}}>
+                  {["#","Artículo","Cant.","P. Unitario","Subtotal","Notas"].map((h,i)=>(
+                    <th key={i} style={{padding:"8px 12px",textAlign:i>=2?"center" as const:"left" as const,fontSize:10,fontWeight:700,color:"#9a9590",borderBottom:"1px solid #e8e5de"}}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {(cot.partidas||[]).map((p,i)=>(
+                    <tr key={i} style={{borderBottom:"1px solid #e8e5de",background:i%2===0?"#fff":"#fafaf8"}}>
+                      <td style={{padding:"8px 12px",color:"#9a9590",fontSize:11}}>{i+1}</td>
+                      <td style={{padding:"8px 12px",fontWeight:600}}>{p.nombre}</td>
+                      <td style={{padding:"8px 12px",textAlign:"center" as const,fontFamily:"monospace"}}>{p.cantidad}</td>
+                      <td style={{padding:"8px 12px",textAlign:"center" as const,fontFamily:"monospace"}}>{fmt(p.precio_unitario)}</td>
+                      <td style={{padding:"8px 12px",textAlign:"center" as const,fontFamily:"monospace",fontWeight:700,color:"#1a3a5c"}}>{fmt(p.subtotal)}</td>
+                      <td style={{padding:"8px 12px",fontSize:10,color:"#9a9590"}}>{p.notas||"—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Condiciones */}
+            {cot.condiciones&&(
+              <div style={{background:"#fafaf8",border:"1px solid #e8e5de",borderRadius:10,padding:14}}>
+                <div style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,marginBottom:6}}>Condiciones</div>
+                <div style={{fontSize:11,color:"#4a4640",lineHeight:1.6}}>{cot.condiciones}</div>
+              </div>
+            )}
+            {cot.notas_cliente&&(
+              <div style={{background:"#fdf5e8",border:"1px solid #e8d4b8",borderRadius:10,padding:14}}>
+                <div style={{fontSize:10,fontWeight:700,color:"#92580a",textTransform:"uppercase" as const,marginBottom:6}}>Notas para el cliente</div>
+                <div style={{fontSize:11,color:"#4a4640"}}>{cot.notas_cliente}</div>
+              </div>
+            )}
+          </div>
+          {/* Panel totales */}
+          <div style={{position:"sticky" as const,top:80,alignSelf:"flex-start" as const}}>
+            <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,overflow:"hidden"}}>
+              <div style={{background:"#1a1814",padding:"12px 16px"}}>
+                <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:800,color:"#fff"}}>{cot.folio}</div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,.6)",marginTop:2}}>{cot.cliente_nombre}</div>
+              </div>
+              <div style={{padding:16}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:8}}>
+                  <span style={{color:"#9a9590"}}>Subtotal</span>
+                  <span style={{fontFamily:"monospace",fontWeight:700}}>{fmt(cot.subtotal)}</span>
+                </div>
+                {cot.descuento_pct>0&&(
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:8,color:"#2d6a4f"}}>
+                    <span>Descuento ({cot.descuento_pct}%)</span>
+                    <span style={{fontFamily:"monospace",fontWeight:700}}>-{fmt(cot.descuento_monto)}</span>
+                  </div>
+                )}
+                {cot.aplica_iva&&(
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:8,color:"#4a2d6e"}}>
+                    <span>IVA (16%)</span>
+                    <span style={{fontFamily:"monospace",fontWeight:700}}>{fmt(cot.iva_monto)}</span>
+                  </div>
+                )}
+                <div style={{borderTop:"2px solid #1a1814",paddingTop:10,marginTop:4,display:"flex",justifyContent:"space-between"}}>
+                  <span style={{fontFamily:"Playfair Display,serif",fontSize:16,fontWeight:800}}>TOTAL</span>
+                  <span style={{fontFamily:"Playfair Display,serif",fontSize:20,fontWeight:800,color:"#1a1814"}}>{fmt(cot.total)}</span>
+                </div>
+                <div style={{marginTop:16,display:"flex",flexDirection:"column" as const,gap:6}}>
+                  <button onClick={()=>enviarWhatsApp(cot)}
+                    style={{padding:"9px",borderRadius:8,background:"#25D366",color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
+                    📱 Enviar por WhatsApp
+                  </button>
+                  {cot.estado==="aceptada"&&(
+                    <button onClick={()=>convertirAContrato(cot)}
+                      style={{padding:"9px",borderRadius:8,background:"#4a2d6e",color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
+                      📄 Convertir a contrato
+                    </button>
+                  )}
+                  <div style={{display:"flex",gap:6}}>
+                    {["aceptada","rechazada","pendiente"].map(e=>(
+                      <button key={e} onClick={()=>{cambiarEstado(cot.id,e);setCotActual({...cot,estado:e})}}
+                        style={{flex:1,padding:"6px",borderRadius:6,border:`1px solid ${ESTADO_COL[e]}`,background:cot.estado===e?ESTADO_BG[e]:"#fff",color:ESTADO_COL[e],cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>
+                        {e==="aceptada"?"✅":"e"==="rechazada"?"❌":"⏳"} {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── FORMULARIO
+  return (
+    <div>
+      {/* Header pasos */}
+      <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"14px 18px",marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+          <button onClick={()=>salirDelForm(()=>setVista("lista"))} style={{padding:"6px 12px",borderRadius:8,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12}}>← Volver</button>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:16,fontWeight:800,flex:1}}>{esNueva?"Nueva cotización":`Editar ${cotActual.folio||""}`}</div>
+          <button onClick={()=>guardar()} disabled={guardando}
+            style={{padding:"7px 16px",borderRadius:8,background:guardando?"#9a9590":"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
+            {guardando?"Guardando...":"💾 Guardar"}
+          </button>
+        </div>
+        {/* Pasos */}
+        <div style={{display:"flex",gap:4}}>
+          {[["1","Datos del cliente","👤"],["2","Artículos","📦"],["3","Resumen","💰"]].map(([n,l,ic])=>(
+            <button key={n} onClick={()=>setPaso(Number(n))}
+              style={{flex:1,padding:"8px",borderRadius:8,border:`1.5px solid ${paso===Number(n)?"#1a1814":"#e8e5de"}`,background:paso===Number(n)?"#1a1814":"#fff",color:paso===Number(n)?"#fff":"#4a4640",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:11,fontWeight:paso===Number(n)?700:400}}>
+              {ic} {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ─ PASO 1: DATOS ─ */}
+      {paso===1&&(
+        <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:20}}>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:700,marginBottom:16}}>👤 Datos del cliente y evento</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            {/* AUTOCOMPLETE CLIENTE */}
+            <div style={{gridColumn:"1/-1",position:"relative" as const}}>
+              <label style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,display:"block",marginBottom:4}}>Nombre del cliente *</label>
+              <input
+                value={busqCliente||cotActual.cliente_nombre||""}
+                onChange={e=>{
+                  const v=e.target.value
+                  setBusqCliente(v)
+                  setCotActual(p=>({...p,cliente_nombre:v}))
+                  if(v.trim().length>=1){buscarClientes(v)}
+                  else{setClientesSug([]);setMostrarSug(false)}
+                }}
+                onFocus={()=>{
+                  const v=(busqCliente||cotActual.cliente_nombre||"").trim()
+                  if(v.length>=1) buscarClientes(v)
+                  else { // Show all clients on empty focus
+                    const vistos=new Set<string>()
+                    const all=contratosAll.filter((x:any)=>{
+                      const k=(x.cliente||x.archivo||"").trim().toLowerCase()
+                      if(!k||vistos.has(k))return false
+                      vistos.add(k);return true
+                    }).slice(0,10).map((x:any)=>({nombre:(x.cliente||x.archivo||"").trim(),tel:(x.tel||x.telefono||"").trim(),lugar:(x.lugar||"").trim(),email:""}))
+                    setClientesSug(all)
+                    setMostrarSug(all.length>0)
+                  }
+                }}
+                onBlur={()=>setTimeout(()=>setMostrarSug(false),300)}
+                placeholder="Escribe el nombre del cliente..."
+                autoComplete="off"
+                style={{width:"100%",padding:"10px 12px",border:`2px solid ${mostrarSug&&clientesSug.length>0?"#2563eb":"#e8e5de"}`,borderRadius:8,fontFamily:"Epilogue,sans-serif",fontSize:13,outline:"none",boxSizing:"border-box" as const}}
+              />
+              {mostrarSug&&clientesSug.length>0&&<div style={{fontSize:9,color:"#2563eb",marginTop:3}}>↓ Selecciona un cliente de la lista</div>}
+              {mostrarSug&&clientesSug.length>0&&(
+                <div style={{position:"absolute" as const,top:"calc(100% + 8px)",left:0,right:0,background:"#fff",border:"2px solid #2563eb",borderRadius:12,boxShadow:"0 16px 48px rgba(0,0,0,.2)",zIndex:9999,overflow:"hidden"}}>
+                  <div style={{padding:"6px 12px",background:"#1a1814",fontSize:9,fontWeight:700,color:"rgba(255,255,255,.5)",textTransform:"uppercase" as const,letterSpacing:".08em"}}>
+                    {clientesSug.length} clientes encontrados
+                  </div>
+                  {clientesSug.map((cli,i)=>(
+                    <div key={i} onMouseDown={(e)=>{e.preventDefault();seleccionarCliente(cli)}}
+                      style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f5f4f0",display:"flex",alignItems:"center",gap:10}}
+                      onMouseEnter={e=>(e.currentTarget.style.background="#f5f4f0")}
+                      onMouseLeave={e=>(e.currentTarget.style.background="#fff")}>
+                      <div style={{width:36,height:36,borderRadius:"50%",background:"#0f172a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:14,flexShrink:0}}>
+                        {(cli.nombre||"?").charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:700,fontSize:13,marginBottom:2}}>{cli.nombre}</div>
+                        <div style={{display:"flex",gap:8,flexWrap:"wrap" as const}}>
+                          {cli.tel&&<span style={{fontSize:10,color:"#4a4640"}}>📞 {cli.tel}</span>}
+                          {cli.lugar&&<span style={{fontSize:10,color:"#9a9590"}}>📍 {cli.lugar.slice(0,40)}</span>}
+                        </div>
+                      </div>
+                      <div style={{fontSize:11,color:"#2563eb",fontWeight:700,flexShrink:0,background:"#edf3fa",padding:"3px 8px",borderRadius:6}}>Seleccionar</div>
+                    </div>
+                  ))}
+                  <div onMouseDown={(e)=>{e.preventDefault();setCotActual(p=>({...p,cliente_nombre:busqCliente||""}));setMostrarSug(false);setClientesSug([])}}
+                    style={{padding:"10px 14px",cursor:"pointer",fontSize:12,color:"#9a9590",display:"flex",alignItems:"center",gap:8,background:"#fafaf8",borderTop:"1px solid #e8e5de"}}
+                    onMouseEnter={e=>(e.currentTarget.style.background="#f0ece4")}
+                    onMouseLeave={e=>(e.currentTarget.style.background="#fafaf8")}>
+                    <span style={{fontSize:18,color:"#2d6a4f"}}>＋</span>
+                    <span>Nuevo cliente: <strong>"{busqCliente}"</strong></span>
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* REST OF FIELDS */}
+            {([
+              {l:"Teléfono",k:"cliente_tel",type:"tel"},
+              {l:"Email",k:"cliente_email",type:"email"},
+              {l:"Lugar del evento",k:"lugar_evento",type:"text",col:"1/-1"},
+              {l:"Fecha del evento",k:"fecha_evento",type:"date"},
+              {l:"Fecha de entrega",k:"fecha_entrega",type:"date"},
+              {l:"Fecha de desmonte",k:"fecha_desmonte",type:"date"},
+              {l:"Vigencia cotización",k:"fecha_vigencia",type:"date"},
+            ] as {l:string,k:string,type:string,col?:string}[]).map(f=>(
+              <div key={f.k} style={{gridColumn:f.col||"auto"}}>
+                <label style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,display:"block",marginBottom:4}}>{f.l}</label>
+                <input type={f.type} value={(cotActual as any)[f.k]||""} onChange={e=>setCotActual(p=>({...p,[f.k]:e.target.value}))}
+                  style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:8,fontFamily:"Epilogue,sans-serif",fontSize:12,outline:"none",boxSizing:"border-box" as const}}/>
+              </div>
+            ))}
+            <div>
+              <label style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,display:"block",marginBottom:4}}>Vendedor</label>
+              <select value={cotActual.vendedor||""} onChange={e=>setCotActual({...cotActual,vendedor:e.target.value})}
+                style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:8,fontFamily:"Epilogue,sans-serif",fontSize:12,outline:"none"}}>
+                <option value="">Sin asignar</option>
+                {VENDEDORES.map(v=>(
+                  <option key={v.nombre} value={v.nombre}>{v.nombre} ({v.prefijo})</option>
+                ))}
+              </select>
+              {cotActual.vendedor&&(
+                <div style={{fontSize:10,color:"#9a9590",marginTop:3}}>
+                  Folio: <strong>{prefijoVendedor(cotActual.vendedor)}-XXXXXX</strong>
+                </div>
+              )}
+            </div>
+            <div style={{gridColumn:"1/-1"}}>
+              <label style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,display:"block",marginBottom:4}}>Notas para el cliente</label>
+              <textarea value={cotActual.notas_cliente||""} onChange={e=>setCotActual({...cotActual,notas_cliente:e.target.value})} rows={2}
+                style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:8,fontFamily:"Epilogue,sans-serif",fontSize:12,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
+            </div>
+            <div style={{gridColumn:"1/-1"}}>
+              <label style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,display:"block",marginBottom:4}}>Condiciones</label>
+              <textarea value={cotActual.condiciones||""} onChange={e=>setCotActual({...cotActual,condiciones:e.target.value})} rows={3}
+                style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:8,fontFamily:"Epilogue,sans-serif",fontSize:12,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
+            </div>
+          </div>
+          <div style={{marginTop:16,display:"flex",justifyContent:"flex-end"}}>
+            <button onClick={()=>setPaso(2)} style={{padding:"9px 24px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
+              Siguiente → Artículos
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─ PASO 2: ARTÍCULOS ─ */}
+      {paso===2&&(
+        <div>
+          {/* ── TABLA ESTILO EXCEL ── */}
+          <div style={{background:"#fff",border:"1px solid #c7c7c7",borderRadius:8,overflow:"visible",boxShadow:"0 2px 8px rgba(0,0,0,.06)",marginBottom:8}}>
+            {/* Header */}
+            <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#0f172a"}}>
+              {["","Artículo / Descripción","Cant.","P. Unitario","Descuento","Subtotal","Nota",""].map((h,hi)=>(
+                <div key={hi} style={{padding:"9px 8px",fontSize:10,fontWeight:700,color:"#94a3b8",textAlign:hi>=2&&hi<=4?"center" as const:"left" as const,letterSpacing:".06em",textTransform:"uppercase" as const,borderRight:hi<6?"1px solid rgba(255,255,255,.07)":"none"}}>
+                  {h}
+                </div>
+              ))}
+            </div>
+
+            {/* Filas */}
+            {(cotActual.partidas||[]).length===0?(
+              <div style={{padding:"32px",textAlign:"center" as const,color:"#9a9590"}}>
+                <div style={{fontSize:28,opacity:.2,marginBottom:6}}>📦</div>
+                <div style={{fontSize:12}}>Agrega artículos con el botón de abajo</div>
+              </div>
+            ):(
+              (cotActual.partidas||[]).map((p:Partida,i:number)=>(
+                <div key={i} style={{position:"relative" as const}}>
+                  <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:i%2===0?"#fff":"#fafafa",borderTop:"1px solid #ebebeb"}}>
+                    {/* Mover ▲▼ */}
+                    <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",gap:1,borderRight:"1px solid #ebebeb",minHeight:40,padding:"2px 0",width:22}}>
+                      <button onClick={()=>{
+                        if(i===0)return
+                        const p=[...(cotActual.partidas||[])]
+                        ;[p[i-1],p[i]]=[p[i],p[i-1]]
+                        const tots=calcularTotales(p,cotActual.descuento_pct||0,cotActual.aplica_iva||false)
+                        setCotActual((prev:any)=>({...prev,partidas:p,...tots}))
+                      }} disabled={i===0}
+                        style={{width:18,height:14,background:"none",border:"none",cursor:i===0?"default":"pointer",fontSize:9,color:i===0?"#d0cdc8":"#4a4640",padding:0,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>▲</button>
+                      <button onClick={()=>{
+                        const partidas=cotActual.partidas||[]
+                        if(i>=partidas.length-1)return
+                        const p=[...partidas]
+                        ;[p[i],p[i+1]]=[p[i+1],p[i]]
+                        const tots=calcularTotales(p,cotActual.descuento_pct||0,cotActual.aplica_iva||false)
+                        setCotActual((prev:any)=>({...prev,partidas:p,...tots}))
+                      }} disabled={i>=(cotActual.partidas||[]).length-1}
+                        style={{width:18,height:14,background:"none",border:"none",cursor:i>=(cotActual.partidas||[]).length-1?"default":"pointer",fontSize:9,color:i>=(cotActual.partidas||[]).length-1?"#d0cdc8":"#4a4640",padding:0,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>▼</button>
+                    </div>
+
                     {/* Nombre con autocomplete inline */}
                     <div style={{position:"relative" as const,borderRight:"1px solid #ebebeb"}}>
                       <input
