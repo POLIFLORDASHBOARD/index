@@ -8919,7 +8919,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
   const abrirModalProv=(g:any)=>{
     const ct=contratos.find((x:any)=>x.id===g.contrato_id)
-    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:g.fecha,lugarContrato:ct?.lugar||""})
+    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:g.fecha,fechaEvento:ct?.fecha_evento||g.fecha,lugarContrato:ct?.lugar||""})
     setProvNombre(""); setProvArts([]); setProvBusq(""); setProvMostrarDir(false); setProvDireccion("")
   }
 
@@ -8942,8 +8942,8 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
   const imprimirProveedor=()=>{
     if(!provNombre.trim()||!modalProv)return
     abrirHojaSplit({tipo:"proveedor",nombre:provNombre,cliente:modalProv.cliente,contrato_folio:modalProv.folio,
-      lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",fecha_evento:modalProv.fechaEvento||modalProv.fecha,
-      fecha_preparacion:modalProv.fechaEvento||modalProv.fecha,
+      lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",fecha_evento:modalProv.fecha,
+      fecha_preparacion:modalProv.fecha,
       articulos:provArts,notas:"",mostrar_direccion:provMostrarDir,mostrar_precios:false,responsable:""},logoUrl)
   }
 
