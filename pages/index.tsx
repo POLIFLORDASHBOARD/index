@@ -5510,8 +5510,8 @@ document.getElementById("btn-pdf").onclick=function(){
           {/* ── TABLA ESTILO EXCEL ── */}
           <div style={{background:"#fff",border:"1px solid #c7c7c7",borderRadius:8,overflow:"visible",boxShadow:"0 2px 8px rgba(0,0,0,.06)",marginBottom:8}}>
             {/* Header */}
-            <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#0f172a"}}>
-              {["","Artículo / Descripción","Cant.","P. Unitario","Descuento","Subtotal","Nota",""].map((h,hi)=>(
+            <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#0f172a"}}>
+              {["","Cant.","Artículo / Descripción","P. Unitario","Descuento","Subtotal","Nota",""].map((h,hi)=>(
                 <div key={hi} style={{padding:"9px 8px",fontSize:10,fontWeight:700,color:"#94a3b8",textAlign:hi>=2&&hi<=4?"center" as const:"left" as const,letterSpacing:".06em",textTransform:"uppercase" as const,borderRight:hi<6?"1px solid rgba(255,255,255,.07)":"none"}}>
                   {h}
                 </div>
@@ -5527,7 +5527,7 @@ document.getElementById("btn-pdf").onclick=function(){
             ):(
               (cotActual.partidas||[]).map((p:Partida,i:number)=>(
                 <div key={i} style={{position:"relative" as const}}>
-                  <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:i%2===0?"#fff":"#fafafa",borderTop:"1px solid #ebebeb"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:i%2===0?"#fff":"#fafafa",borderTop:"1px solid #ebebeb"}}>
                     {/* Mover ▲▼ */}
                     <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",gap:1,borderRight:"1px solid #ebebeb",minHeight:40,padding:"2px 0",width:22}}>
                       <button onClick={()=>{
@@ -5547,6 +5547,13 @@ document.getElementById("btn-pdf").onclick=function(){
                         setCotActual((prev:any)=>({...prev,partidas:p,...tots}))
                       }} disabled={i>=(cotActual.partidas||[]).length-1}
                         style={{width:18,height:14,background:"none",border:"none",cursor:i>=(cotActual.partidas||[]).length-1?"default":"pointer",fontSize:9,color:i>=(cotActual.partidas||[]).length-1?"#d0cdc8":"#4a4640",padding:0,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>▼</button>
+                    </div>
+
+                    {/* Cantidad */}
+                    <div style={{borderRight:"1px solid #ebebeb",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <input type="number" min="1" value={p.cantidad}
+                        onChange={e=>actualizarPartida(i,"cantidad",Math.max(1,parseInt(e.target.value)||1))}
+                        style={{width:60,padding:"9px 4px",border:"none",background:"transparent",textAlign:"center" as const,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#0f172a",outline:"none"}}/>
                     </div>
 
                     {/* Nombre con autocomplete inline */}
@@ -5604,13 +5611,6 @@ document.getElementById("btn-pdf").onclick=function(){
                           ))}
                         </div>
                       )}
-                    </div>
-
-                    {/* Cantidad */}
-                    <div style={{borderRight:"1px solid #ebebeb",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      <input type="number" min="1" value={p.cantidad}
-                        onChange={e=>actualizarPartida(i,"cantidad",Math.max(1,parseInt(e.target.value)||1))}
-                        style={{width:60,padding:"9px 4px",border:"none",background:"transparent",textAlign:"center" as const,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#0f172a",outline:"none"}}/>
                     </div>
 
                     {/* Precio unitario */}
@@ -5687,7 +5687,7 @@ document.getElementById("btn-pdf").onclick=function(){
             {/* Fila totales */}
             {(cotActual.partidas||[]).length>0&&(
               <>
-                <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#f8fafc",borderTop:"2px solid #0f172a"}}>
+                <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#f8fafc",borderTop:"2px solid #0f172a"}}>
                   <div style={{gridColumn:"1/5",padding:"10px 12px",fontSize:11,fontWeight:600,color:"#4a4640"}}>
                     {(cotActual.partidas||[]).reduce((s:number,p:Partida)=>s+(p.cantidad||0),0)} piezas
                   </div>
@@ -5698,7 +5698,7 @@ document.getElementById("btn-pdf").onclick=function(){
                   <div/>
                 </div>
                 {(cotActual.descuento_pct||0)>0&&(
-                  <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#fffbeb",borderTop:"1px solid #fde68a"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#fffbeb",borderTop:"1px solid #fde68a"}}>
                     <div style={{gridColumn:"1/6",padding:"8px 12px",fontSize:11,color:"#92580a",fontWeight:600}}>Descuento {cotActual.descuento_pct}%</div>
                     <div style={{padding:"8px 10px",fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#92580a",borderLeft:"1px solid #fde68a",textAlign:"right" as const}}>
                       −${(cotActual.descuento_monto||0).toLocaleString("es-MX")}
@@ -5707,7 +5707,7 @@ document.getElementById("btn-pdf").onclick=function(){
                   </div>
                 )}
                 {cotActual.aplica_iva&&(
-                  <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#f0fdf4",borderTop:"1px solid #bbf7d0"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#f0fdf4",borderTop:"1px solid #bbf7d0"}}>
                     <div style={{gridColumn:"1/6",padding:"8px 12px",fontSize:11,color:"#2d6a4f",fontWeight:600}}>IVA 16%</div>
                     <div style={{padding:"8px 10px",fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#2d6a4f",borderLeft:"1px solid #bbf7d0",textAlign:"right" as const}}>
                       +${(cotActual.iva_monto||0).toLocaleString("es-MX")}
@@ -5715,7 +5715,7 @@ document.getElementById("btn-pdf").onclick=function(){
                     <div/>
                   </div>
                 )}
-                <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#0f172a",borderTop:"2px solid #0f172a"}}>
+                <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#0f172a",borderTop:"2px solid #0f172a"}}>
                   <div style={{gridColumn:"1/6",padding:"12px",fontSize:13,fontWeight:800,color:"#fff"}}>TOTAL</div>
                   <div style={{padding:"12px 10px",fontFamily:"monospace",fontSize:16,fontWeight:800,color:"#60a5fa",borderLeft:"1px solid rgba(255,255,255,.15)",textAlign:"right" as const}}>
                     ${(cotActual.total||0).toLocaleString("es-MX")}
