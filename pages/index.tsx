@@ -8350,7 +8350,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
   const cargar=useCallback(async()=>{
     setCargando(true)
-    const r=await fetch(`/api/splits?fecha_desde=${isoD(lunesBase)}&fecha_hasta=${(()=>{const d=new Date(finBase);d.setDate(d.getDate()+1);return isoD(d)})()} `,{headers:{Authorization:`Bearer ${token}`}})
+    const r=await fetch(`/api/splits?fecha_desde=${isoD(lunesBase)}&fecha_hasta=${isoD(finBase)}`,{headers:{Authorization:`Bearer ${token}`}})
     const data=await r.json()
     setSplits(Array.isArray(data)?data:[])
     setCargando(false)
@@ -8387,10 +8387,10 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
   const gruposPorContrato=splits.reduce((acc:any,s:any)=>{
     const key=s.contrato_id||"sin_contrato"
-    if(!acc[key]) acc[key]={contrato_id:s.contrato_id,folio:s.contrato_folio||"Sin folio",cliente:s.cliente||"—",fecha:s.fecha_evento||"—",splits:[]}
-    // Usar la fecha más temprana (evento, no desmonte) como fecha del grupo
-    if(s.tipo!=="desmonte"&&s.fecha_evento&&s.fecha_evento<acc[key].fecha)
-      acc[key].fecha=s.fecha_evento
+    // Usar fecha_evento_original si existe, sino fecha_evento del split no-desmonte
+    const fechaGrupo=s.fecha_evento_original||(s.tipo!=="desmonte"?s.fecha_evento:null)||s.fecha_evento
+    if(!acc[key]) acc[key]={contrato_id:s.contrato_id,folio:s.contrato_folio||"Sin folio",cliente:s.cliente||"—",fecha:fechaGrupo||"—",splits:[]}
+    if(fechaGrupo&&fechaGrupo<acc[key].fecha) acc[key].fecha=fechaGrupo
     acc[key].splits.push(s)
     return acc
   },{})
