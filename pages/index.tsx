@@ -2071,7 +2071,7 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
                             <div style={{display:"flex",gap:6,flexWrap:"wrap" as const}}>
                               {x.folio&&<span style={{fontSize:9,fontFamily:"monospace",background:"#f5f4f0",padding:"0 4px",borderRadius:3}}>{x.folio}</span>}
                               {x.vendedor&&<span style={{fontSize:9,color:"#1a3a5c",fontWeight:600}}>👤 {x.vendedor}</span>}
-                              {x.fecha_evento&&<span style={{fontSize:9,color:"#9a9590"}}>📅 {x.fecha_evento?new Date(x.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short"}):""}</span>}
+                              {x.fecha_evento&&<span style={{fontSize:9,color:"#9a9590"}}>📅 {x.fecha_evento}</span>}
                             </div>
                           </div>
                           <div style={{textAlign:"right" as const,flexShrink:0}}>
@@ -8763,8 +8763,14 @@ th,td{vertical-align:middle}
   </tbody>
   <tfoot>
     <tr style="background:#f8f6f2;border-top:2px solid ${tipo.color}">
+      ${mostrarPrecio?`
+      <td style="padding:8px 10px;font-weight:700;font-size:12px;color:#4a4640" colspan="2">Total</td>
+      <td style="padding:8px 10px;font-weight:800;font-size:14px;text-align:right;font-family:monospace;color:${tipo.color}">$${totalImporte.toLocaleString("es-MX")}</td>
+      <td></td>
+      `:`
       <td style="padding:8px 10px;font-weight:800;font-size:13px;text-align:center;color:${tipo.color}">${totalPiezas}</td>
-      <td colspan="3" style="padding:8px 10px;font-weight:700;font-size:12px;color:#4a4640">piezas en total${mostrarPrecio?` · <span style="font-family:monospace;color:${tipo.color}">$${totalImporte.toLocaleString("es-MX")}</span>`:""}</td>
+      <td colspan="3" style="padding:8px 10px;font-weight:700;font-size:12px;color:#4a4640">piezas en total</td>
+      `}
     </tr>
   </tfoot>
 </table>
@@ -9316,7 +9322,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                       <span style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:800,color:"#fff"}}>{g.cliente}</span>
                       <span style={{fontFamily:"monospace",fontSize:11,color:"#60a5fa",background:"rgba(96,165,250,.15)",padding:"2px 8px",borderRadius:6,fontWeight:700}}>{g.folio}</span>
                     </div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,.5)",marginTop:3}}>📅 {g.fecha?new Date(g.fecha+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):""}</div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,.5)",marginTop:3}}>📅 {g.fecha}</div>
                   </div>
                   <button onClick={()=>{
                     const ct=contratos.find((x:any)=>x.id===g.contrato_id)
