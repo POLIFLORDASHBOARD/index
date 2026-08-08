@@ -6565,16 +6565,16 @@ document.getElementById("btn-pdfc").onclick=function(){
                       return(
                         <div key={i} style={{display:"grid",gridTemplateColumns:"58px 1fr 90px 58px 60px 24px",borderBottom:i<editArtsContrato.length-1?"1px solid #f0ece4":"none",background:i%2===0?"#fff":"#fafaf8",alignItems:"center"}}>
 
-                          {/* Nombre editable */}
-                          <div style={{borderRight:"1px solid #ebebeb",position:"relative" as const}}>
-                            <input value={a.nombre||""} onChange={e=>setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,nombre:e.target.value}:x))}
-                              style={{width:"100%",padding:"6px 8px",border:"none",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:500,outline:"none",background:"transparent",boxSizing:"border-box" as const}}/>
-                          </div>
                           {/* Cantidad */}
                           <div style={{borderRight:"1px solid #ebebeb",display:"flex",justifyContent:"center"}}>
                             <input type="number" min="1" value={a.cantidad||1}
                               onChange={e=>{const v=Math.max(1,parseInt(e.target.value)||1);setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,cantidad:v}:x))}}
                               style={{width:"100%",padding:"6px 4px",border:"none",textAlign:"center" as const,fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#1a3a5c",outline:"none",background:"transparent"}}/>
+                          </div>
+                          {/* Nombre editable */}
+                          <div style={{borderRight:"1px solid #ebebeb",position:"relative" as const}}>
+                            <input value={a.nombre||""} onChange={e=>setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,nombre:e.target.value}:x))}
+                              style={{width:"100%",padding:"6px 8px",border:"none",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:500,outline:"none",background:"transparent",boxSizing:"border-box" as const}}/>
                           </div>
                           {/* P.U. */}
                           <div style={{borderRight:"1px solid #ebebeb",display:"flex",justifyContent:"flex-end"}}>
