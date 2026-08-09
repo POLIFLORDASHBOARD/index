@@ -6980,12 +6980,29 @@ function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
     setGuardando(true)
     const dias=calcDias(form.fecha_inicio,form.fecha_fin)
     if(form.id){
+      // Edición: calcular diferencia de días para ajustar programados
+      const vacAnterior=vacaciones.find((v:any)=>v.id===form.id)
+      const diasAntes=vacAnterior?.dias||0
+      const diff=dias-diasAntes
       const {id,...rest}=form
       await sbFetch(`/rest/v1/vacaciones?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({...rest,dias})})
+      if(diff!==0){
+        const emp=empleados.find((e:any)=>e.id===form.empleado_id)
+        if(emp){
+          const nuevoProg=Math.max(0,(emp.dias_programados||0)+diff)
+          await sbFetch(`/rest/v1/empleados?id=eq.${form.empleado_id}`,{method:"PATCH",body:JSON.stringify({dias_programados:nuevoProg})})
+        }
+      }
     } else {
+      // Alta: sumar días a programados del empleado
       await sbFetch("/rest/v1/vacaciones",{method:"POST",body:JSON.stringify({...form,dias,estado:"pendiente"}),headers:{"Prefer":"return=minimal"}})
+      const emp=empleados.find((e:any)=>e.id===form.empleado_id)
+      if(emp){
+        const nuevoProg=(emp.dias_programados||0)+dias
+        await sbFetch(`/rest/v1/empleados?id=eq.${form.empleado_id}`,{method:"PATCH",body:JSON.stringify({dias_programados:nuevoProg})})
+      }
     }
-    setGuardando(false);setModoForm(null);setForm({});cargarVacaciones()
+    setGuardando(false);setModoForm(null);setForm({});cargarVacaciones();cargarEmpleados()
   }
 
   const guardarIncidencia=async()=>{
@@ -6997,13 +7014,36 @@ function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
 
   const eliminar=async(tabla:string,id:string,reload:()=>void)=>{
     if(!window.confirm("¿Eliminar este registro?"))return
+    // Si es vacacion, restaurar días al empleado
+    if(tabla==="vacaciones"){
+      const vac=vacaciones.find((v:any)=>v.id===id)
+      if(vac){
+        const emp=empleados.find((e:any)=>e.id===vac.empleado_id)
+        if(emp){
+          const nuevoProg=Math.max(0,(emp.dias_programados||0)-(vac.dias||0))
+          await sbFetch(`/rest/v1/empleados?id=eq.${vac.empleado_id}`,{method:"PATCH",body:JSON.stringify({dias_programados:nuevoProg})})
+        }
+      }
+    }
     await sbFetch(`/rest/v1/${tabla}?id=eq.${id}`,{method:"DELETE"})
     reload()
+    if(tabla==="vacaciones") cargarEmpleados()
   }
 
   const actualizarEstadoVac=async(id:string,estado:string)=>{
+    // Si se rechaza, restaurar días al empleado
+    if(estado==="rechazado"){
+      const vac=vacaciones.find((v:any)=>v.id===id)
+      if(vac){
+        const emp=empleados.find((e:any)=>e.id===vac.empleado_id)
+        if(emp){
+          const nuevoProg=Math.max(0,(emp.dias_programados||0)-(vac.dias||0))
+          await sbFetch(`/rest/v1/empleados?id=eq.${vac.empleado_id}`,{method:"PATCH",body:JSON.stringify({dias_programados:nuevoProg})})
+        }
+      }
+    }
     await sbFetch(`/rest/v1/vacaciones?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({estado})})
-    cargarVacaciones()
+    cargarVacaciones();cargarEmpleados()
   }
 
   const empFilt=empleados.filter(e=>!busq||(e.nombre||"").toLowerCase().includes(busq.toLowerCase())||(e.nss||"").includes(busq))
