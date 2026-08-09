@@ -300,9 +300,11 @@ export default function Dashboard(){
   const [pagoNota,setPagoNota]=useState("")
 
   const cargar=useCallback(async(tk:string)=>{
-    const[cr,pr]=await Promise.all([apiCall("/api/contratos","GET",undefined,tk),apiCall("/api/personal","GET",undefined,tk)])
+    const[cr,pr,sr]=await Promise.all([apiCall("/api/contratos","GET",undefined,tk),apiCall("/api/personal","GET",undefined,tk),
+      fetch(`/api/splits?fecha_desde=${new Date(Date.now()-7*86400000).toISOString().slice(0,10)}&fecha_hasta=${new Date(Date.now()+14*86400000).toISOString().slice(0,10)}`,{headers:{Authorization:`Bearer ${tk}`}}).then(r=>r.json()).catch(()=>[])])
     if(Array.isArray(cr))setContratos(cr)
     if(Array.isArray(pr))setPersonal(pr)
+    if(Array.isArray(sr))setSplitsPend(sr.filter((s:any)=>s.estado==="pendiente").length)
   },[])
 
   useEffect(()=>{
@@ -552,7 +554,7 @@ export default function Dashboard(){
             {id:"planeacion",label:"Planeación",icon:"cal",subs:[["agenda","Agenda"],["carga","🚚 Carga"],["gantt","Gantt"],["dias","Por Día"]]},
             {id:"catalogo",label:"Catálogo",icon:"box",subs:[["cat-articulos","Artículos"],["cat-clientes","Clientes"],["cat-busqueda","Buscar"]]},
             {id:"inventario",label:"Inventario",icon:"inv"},
-            {id:"splits",label:"Splits",icon:"cut"},
+            {id:"splits",label:"Splits",icon:"cut",badge:splitsPend||null},
             ...(esAdmin?[{id:"finanzas",label:"Finanzas",icon:"money"},{id:"rh",label:"RH",icon:"people"}]:[]),
             {id:"config",label:"Config",icon:"cog",subs:[["cfg-equipo","Equipo"],["cfg-rutas","Rutas"],["cfg-misrutas","Mis Rutas"],["cfg-logo","🖼️ Logo"],["cfg-password","🔑 Contraseña"]]},
           ] as {id:string,label:string,icon:string,subs?:string[][]}[]).map(item=>{
@@ -585,7 +587,6 @@ export default function Dashboard(){
                     <path d={ICONS[item.icon]||ICONS.clip}/>
                   </svg>
                   <span style={{flex:1}}>{item.label}</span>
-                  {item.badge&&<span style={{background:"#dc2626",color:"#fff",fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:8,minWidth:16,textAlign:"center" as const}}>{item.badge}</span>}
                   {hasSubs&&<span style={{fontSize:10,opacity:.5,transition:"transform .2s",transform:isActive?"rotate(180deg)":"rotate(0deg)"}}>▾</span>}
                 </button>
                 {hasSubs&&isActive&&(
