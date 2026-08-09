@@ -585,6 +585,7 @@ export default function Dashboard(){
                     <path d={ICONS[item.icon]||ICONS.clip}/>
                   </svg>
                   <span style={{flex:1}}>{item.label}</span>
+                  {item.badge&&<span style={{background:"#dc2626",color:"#fff",fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:8,minWidth:16,textAlign:"center" as const}}>{item.badge}</span>}
                   {hasSubs&&<span style={{fontSize:10,opacity:.5,transition:"transform .2s",transform:isActive?"rotate(180deg)":"rotate(0deg)"}}>▾</span>}
                 </button>
                 {hasSubs&&isActive&&(
@@ -1786,118 +1787,6 @@ function ClientesSection({contratos}: any){
 }
 
 // --- FINANZAS ---------------------------------
-
-// ─── HISTORIAL DE CAMBIOS ────────────────────────────────────────
-function HistorialSection({contratos}:{contratos:any[]}){
-  const [busq,setBusq]=useState("")
-  const [filtroTipo,setFiltroTipo]=useState("todos")
-
-  // Construir log de cambios desde pagos y datos de contratos
-  const eventos:any[]=[]
-  contratos.forEach((c:any)=>{
-    // Pagos registrados
-    ;(c.pagos||[]).forEach((p:any)=>{
-      eventos.push({
-        tipo:"pago",
-        fecha:p.fec||p.fecha||"",
-        contrato_folio:c.folio||c.archivo||"",
-        cliente:c.cliente||"",
-        detalle:`+$${(p.monto||0).toLocaleString("es-MX")} ${p.metodo||"efectivo"}${p.nota?" · "+p.nota:""}`,
-        vendedor:p.vendedor||c.vendedor||"",
-        color:"#2d6a4f",
-        icon:"💰"
-      })
-    })
-    // Descuentos aplicados
-    if((c.descuento_pct||0)>0||(c.descuento_monto_global||0)>0){
-      eventos.push({
-        tipo:"descuento",
-        fecha:c.fecha_creacion||c.fecha_evento||"",
-        contrato_folio:c.folio||c.archivo||"",
-        cliente:c.cliente||"",
-        detalle:c.descuento_pct>0?`Descuento ${c.descuento_pct}%`:`Descuento $${(c.descuento_monto_global||0).toLocaleString("es-MX")}`,
-        vendedor:c.vendedor||"",
-        color:"#92580a",
-        icon:"🏷️"
-      })
-    }
-  })
-
-  // Sort by fecha desc
-  eventos.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""))
-
-  const TIPOS=[
-    {id:"todos",label:"Todos"},
-    {id:"pago",label:"💰 Pagos"},
-    {id:"descuento",label:"🏷️ Descuentos"},
-  ]
-
-  const eventosFilt=eventos.filter(e=>{
-    if(filtroTipo!=="todos"&&e.tipo!==filtroTipo)return false
-    if(busq){
-      const q=busq.toLowerCase()
-      return (e.cliente||"").toLowerCase().includes(q)||(e.contrato_folio||"").toLowerCase().includes(q)||(e.detalle||"").toLowerCase().includes(q)
-    }
-    return true
-  })
-
-  const fmtFecha=(f:string)=>{
-    if(!f)return "—"
-    const d=new Date(f+"T12:00:00")
-    return d.toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",year:"numeric"})
-  }
-
-  return(
-    <div>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap" as const}}>
-        <input value={busq} onChange={e=>setBusq(e.target.value)}
-          placeholder="Buscar por cliente, folio o detalle..."
-          style={{flex:1,minWidth:200,padding:"8px 12px",border:"1.5px solid #e8e5de",borderRadius:8,fontSize:13,outline:"none"}}/>
-        <div style={{display:"flex",gap:6}}>
-          {TIPOS.map(t=>(
-            <button key={t.id} onClick={()=>setFiltroTipo(t.id)}
-              style={{padding:"6px 12px",borderRadius:8,border:`1.5px solid ${filtroTipo===t.id?"#1a1814":"#e8e5de"}`,
-                background:filtroTipo===t.id?"#1a1814":"#fff",color:filtroTipo===t.id?"#fff":"#4a4640",
-                cursor:"pointer",fontSize:12,fontWeight:600}}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"110px 1fr 130px 90px",background:"#f8f6f2",
-          padding:"8px 14px",fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".04em"}}>
-          <div>Fecha</div><div>Cambio</div><div>Contrato</div><div>Vendedor</div>
-        </div>
-        {eventosFilt.length===0&&(
-          <div style={{padding:32,textAlign:"center" as const,color:"#9a9590",fontSize:13}}>
-            Sin registros que coincidan
-          </div>
-        )}
-        {eventosFilt.slice(0,100).map((e:any,i:number)=>(
-          <div key={i} style={{display:"grid",gridTemplateColumns:"110px 1fr 130px 90px",
-            padding:"10px 14px",borderTop:"1px solid #f0ece4",alignItems:"center",fontSize:12}}>
-            <div style={{color:"#9a9590",fontSize:11}}>{fmtFecha(e.fecha)}</div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontSize:14}}>{e.icon}</span>
-              <span style={{color:e.color,fontWeight:600}}>{e.detalle}</span>
-            </div>
-            <div style={{fontFamily:"monospace",fontSize:11,color:"#1a3a5c",fontWeight:700}}>{e.contrato_folio}</div>
-            <div style={{fontSize:11,color:"#9a9590"}}>{e.vendedor||"—"}</div>
-          </div>
-        ))}
-        {eventosFilt.length>100&&(
-          <div style={{padding:"10px 14px",textAlign:"center" as const,fontSize:11,color:"#9a9590",borderTop:"1px solid #f0ece4"}}>
-            Mostrando 100 de {eventosFilt.length} registros
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-
 function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUnlock,pagoModal,setPagoModal,pagoMonto,setPagoMonto,pagoNota,setPagoNota,onAgregarPago}: any){
   const [vista,setVista]=useState("gerencia")
   const [filtroPeriodo,setFiltroPeriodo]=useState("todo")
@@ -7005,9 +6894,6 @@ document.getElementById("btn-pdfc").onclick=function(){
           </div>
         </div>
       )}
-        {vista==="historial"&&(
-          <HistorialSection contratos={contratos}/>
-        )}
 
     </div>
   )
