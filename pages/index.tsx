@@ -8659,11 +8659,8 @@ function abrirHojaSplit(split:any,logoSrc:string){
       d.setDate(d.getDate()+1)
       return d.toISOString().slice(0,10)
     }
-    // proveedor: misma lógica que prep areas, evento = fecha_evento + 1
-    if(!split.fecha_evento) return ""
-    const dp=new Date(split.fecha_evento+"T12:00:00")
-    dp.setDate(dp.getDate()+1)
-    return dp.toISOString().slice(0,10)
+    // proveedor: fecha_evento ya viene del contrato (fecha real del evento)
+    return split.fecha_evento
   })()
   const fecha=fechaEventoReal
     ?new Date(fechaEventoReal+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})
