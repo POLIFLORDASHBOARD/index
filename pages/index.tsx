@@ -8659,8 +8659,11 @@ function abrirHojaSplit(split:any,logoSrc:string){
       d.setDate(d.getDate()+1)
       return d.toISOString().slice(0,10)
     }
-    // proveedor: fecha_evento ya viene del contrato (fecha real del evento)
-    return split.fecha_evento
+    // proveedor: misma lógica que prep areas, evento = fecha_evento + 1
+    if(!split.fecha_evento) return ""
+    const dp=new Date(split.fecha_evento+"T12:00:00")
+    dp.setDate(dp.getDate()+1)
+    return dp.toISOString().slice(0,10)
   })()
   const fecha=fechaEventoReal
     ?new Date(fechaEventoReal+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})
@@ -8942,8 +8945,8 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
   const imprimirProveedor=()=>{
     if(!provNombre.trim()||!modalProv)return
     abrirHojaSplit({tipo:"proveedor",nombre:provNombre,cliente:modalProv.cliente,contrato_folio:modalProv.folio,
-      lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",fecha_evento:modalProv.fechaEvento||modalProv.fecha,
-      fecha_preparacion:modalProv.fechaEvento||modalProv.fecha,
+      lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",fecha_evento:modalProv.fecha,
+      fecha_preparacion:modalProv.fecha,
       articulos:provArts,notas:"",mostrar_direccion:provMostrarDir,mostrar_precios:false,responsable:""},logoUrl)
   }
 
