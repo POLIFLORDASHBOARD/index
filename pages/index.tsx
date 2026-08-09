@@ -1882,7 +1882,7 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap" as const,gap:10,marginBottom:12}}>
           <div style={{fontFamily:"Playfair Display,serif",fontSize:18,fontWeight:800}}>Finanzas</div>
           <div style={S.fset}>
-            {[["gerencia","📊 Gerencia"],["resumen","Resumen"],["contratos","Por contrato"],["pendientes","Pendientes"],["comparativa","Año vs Año"],["stats","📊 Artículos"]].map(([v,l])=>(
+            {[["gerencia","📊 Gerencia"],["resumen","Resumen"],["contratos","Por contrato"],["pendientes","Pendientes"],["comparativa","Año vs Año"],["stats","📊 Artículos"],["historial","📋 Historial"]].map(([v,l])=>(
               <button key={v} style={{...S.fbtn,...(vista===v?S.fbtnActive:{})}} onClick={()=>setVista(v)}>{l}</button>
             ))}
           </div>
