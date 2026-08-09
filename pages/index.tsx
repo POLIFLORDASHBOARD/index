@@ -6926,9 +6926,16 @@ function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
   const [filtroVac,setFiltroVac]=useState("todos")
 
   const sbFetch=async(path:string,opts:any={})=>{
+    const method=(opts.method||"GET").toUpperCase()
     const r=await fetch(SB_URL+path,{
       ...opts,
-      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json",...(opts.headers||{})}
+      headers:{
+        "apikey":SB_KEY,
+        "Authorization":`Bearer ${SB_KEY}`,
+        "Content-Type":"application/json",
+        ...(method==="PATCH"||method==="DELETE"?{"Prefer":"return=minimal"}:{}),
+        ...(opts.headers||{})
+      }
     })
     return r
   }
