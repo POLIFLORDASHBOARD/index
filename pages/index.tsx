@@ -300,11 +300,9 @@ export default function Dashboard(){
   const [pagoNota,setPagoNota]=useState("")
 
   const cargar=useCallback(async(tk:string)=>{
-    const[cr,pr,sr]=await Promise.all([apiCall("/api/contratos","GET",undefined,tk),apiCall("/api/personal","GET",undefined,tk),
-      fetch(`/api/splits?fecha_desde=${new Date(Date.now()-7*86400000).toISOString().slice(0,10)}&fecha_hasta=${new Date(Date.now()+14*86400000).toISOString().slice(0,10)}`,{headers:{Authorization:`Bearer ${tk}`}}).then(r=>r.json()).catch(()=>[])])
+    const[cr,pr]=await Promise.all([apiCall("/api/contratos","GET",undefined,tk),apiCall("/api/personal","GET",undefined,tk)])
     if(Array.isArray(cr))setContratos(cr)
     if(Array.isArray(pr))setPersonal(pr)
-    if(Array.isArray(sr))setSplitsPend(sr.filter((s:any)=>s.estado==="pendiente").length)
   },[])
 
   useEffect(()=>{
@@ -554,7 +552,7 @@ export default function Dashboard(){
             {id:"planeacion",label:"Planeación",icon:"cal",subs:[["agenda","Agenda"],["carga","🚚 Carga"],["gantt","Gantt"],["dias","Por Día"]]},
             {id:"catalogo",label:"Catálogo",icon:"box",subs:[["cat-articulos","Artículos"],["cat-clientes","Clientes"],["cat-busqueda","Buscar"]]},
             {id:"inventario",label:"Inventario",icon:"inv"},
-            {id:"splits",label:"Splits",icon:"cut",badge:splitsPend||null},
+            {id:"splits",label:"Splits",icon:"cut"},
             ...(esAdmin?[{id:"finanzas",label:"Finanzas",icon:"money"},{id:"rh",label:"RH",icon:"people"}]:[]),
             {id:"config",label:"Config",icon:"cog",subs:[["cfg-equipo","Equipo"],["cfg-rutas","Rutas"],["cfg-misrutas","Mis Rutas"],["cfg-logo","🖼️ Logo"],["cfg-password","🔑 Contraseña"]]},
           ] as {id:string,label:string,icon:string,subs?:string[][]}[]).map(item=>{
