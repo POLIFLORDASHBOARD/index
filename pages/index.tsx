@@ -2071,7 +2071,7 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
                             <div style={{display:"flex",gap:6,flexWrap:"wrap" as const}}>
                               {x.folio&&<span style={{fontSize:9,fontFamily:"monospace",background:"#f5f4f0",padding:"0 4px",borderRadius:3}}>{x.folio}</span>}
                               {x.vendedor&&<span style={{fontSize:9,color:"#1a3a5c",fontWeight:600}}>👤 {x.vendedor}</span>}
-                              {x.fecha_evento&&<span style={{fontSize:9,color:"#9a9590"}}>📅 {x.fecha_evento?new Date(x.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"}):""}</span>}
+                              {x.fecha_evento&&<span style={{fontSize:9,color:"#9a9590"}}>📅 {x.fecha_evento}</span>}
                             </div>
                           </div>
                           <div style={{textAlign:"right" as const,flexShrink:0}}>
@@ -6107,7 +6107,7 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
     </div>
     <div style="background:#f8f6f2;border-radius:10px;padding:16px">
       <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Evento</div>
-      ${x.fecha_evento?`<div style="font-size:13px;font-weight:700;margin-bottom:4px">📅 ${x.fecha_evento?new Date(x.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}</div>`:""}
+      ${x.fecha_evento?`<div style="font-size:13px;font-weight:700;margin-bottom:4px">📅 ${x.fecha_evento}</div>`:""}
       ${x.lugar?`<div style="font-size:12px;color:#4a4640">📍 ${x.lugar}</div>`:""}
       ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">Entrega: ${x.fecha_entrega?new Date(x.fecha_entrega+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}${x.fecha_desmonte?" · Desmonte: "+new Date(x.fecha_desmonte+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}</div>`:""}
     </div>
@@ -7984,7 +7984,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
                     </div>
                     <div style={{fontSize:10,marginTop:4,display:"flex",gap:8}}>
                       <span style={{background:urgente?"#fdf0f0":"#fffbeb",color:urgente?"#8b2e2e":"#92580a",padding:"1px 6px",borderRadius:4,fontWeight:700,border:`1px solid ${urgente?"#e8b8b8":"#e8d4b8"}`}}>
-                        📅 Evento: {x.fecha_evento?new Date(x.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}
+                        📅 Evento: {x.fecha_evento}
                       </span>
                       <span style={{background:(x as any)._fromExcel?"#fff8f0":"#f5f4f0",color:(x as any)._fromExcel?"#92580a":"#4a4640",padding:"1px 6px",borderRadius:4,fontWeight:(x as any)._fromExcel?600:400}}>
                         {(x as any)._fromExcel?"📄 Cotización — confirmar":"Estado: "+x.estado}
@@ -8028,8 +8028,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
                             body:JSON.stringify({tipo:"declinado"})
                           })
                           window.location.reload()
-                        }}
-                          style={{fontSize:10,padding:"4px 8px",borderRadius:6,background:"#fff",color:"#8b2e2e",border:"1px solid #8b2e2e",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontWeight:700,whiteSpace:"nowrap" as const}}>
+                        }} style={{fontSize:10,padding:"4px 8px",borderRadius:6,background:"#fff",color:"#8b2e2e",border:"1px solid #8b2e2e",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontWeight:700,whiteSpace:"nowrap" as const}}>
                           ✗ Declinar
                         </button>
                       </div>
