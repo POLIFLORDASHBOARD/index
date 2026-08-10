@@ -6109,7 +6109,7 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
       <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Evento</div>
       ${x.fecha_evento?`<div style="font-size:13px;font-weight:700;margin-bottom:4px">📅 ${x.fecha_evento}</div>`:""}
       ${x.lugar?`<div style="font-size:12px;color:#4a4640">📍 ${x.lugar}</div>`:""}
-      ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">Entrega: ${x.fecha_entrega}${x.fecha_desmonte?" · Desmonte: "+x.fecha_desmonte:""}</div>`:""}
+      ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">Entrega: ${x.fecha_entrega?new Date(x.fecha_entrega+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}${x.fecha_desmonte?" · Desmonte: "+new Date(x.fecha_desmonte+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}</div>`:""}
     </div>
   </div>
 
@@ -8018,6 +8018,9 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
                         </button>
                         <button onClick={async(e)=>{
                           e.stopPropagation()
+                          const pwd=window.prompt("Contraseña para declinar:")
+                          if(!pwd)return
+                          if(pwd!=="LITA2024"){window.alert("❌ Contraseña incorrecta");return}
                           if(!window.confirm("¿Marcar como declinado?\n\n"+x.cliente_nombre+"\n"+x.fecha_evento)) return
                           await fetch("/api/contratos?id="+x.id,{
                             method:"PATCH",
