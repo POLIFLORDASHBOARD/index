@@ -8026,12 +8026,6 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
                           })
                           window.location.reload()
                         }}
-                          onClick={e=>{
-                            e.stopPropagation()
-                            const pwd=window.prompt("Contraseña para declinar cotización:")
-                            if(!pwd)return
-                            if(pwd!=="LITA2024"){window.alert("❌ Contraseña incorrecta");return}
-                          }}
                           style={{fontSize:10,padding:"4px 8px",borderRadius:6,background:"#fff",color:"#8b2e2e",border:"1px solid #8b2e2e",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontWeight:700,whiteSpace:"nowrap" as const}}>
                           ✗ Declinar
                         </button>
