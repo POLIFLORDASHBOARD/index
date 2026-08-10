@@ -6109,7 +6109,7 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
       <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Evento</div>
       ${x.fecha_evento?`<div style="font-size:13px;font-weight:700;margin-bottom:4px">📅 ${x.fecha_evento}</div>`:""}
       ${x.lugar?`<div style="font-size:12px;color:#4a4640">📍 ${x.lugar}</div>`:""}
-      ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">Entrega: ${x.fecha_entrega?new Date(x.fecha_entrega+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}${x.fecha_desmonte?" · Desmonte: "+new Date(x.fecha_desmonte+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}</div>`:""}
+      ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">Entrega: ${x.fecha_entrega}${x.fecha_desmonte?" · Desmonte: "+x.fecha_desmonte:""}</div>`:""}
     </div>
   </div>
 
@@ -8026,6 +8026,12 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
                           })
                           window.location.reload()
                         }}
+                          onClick={e=>{
+                            e.stopPropagation()
+                            const pwd=window.prompt("Contraseña para declinar cotización:")
+                            if(!pwd)return
+                            if(pwd!=="LITA2024"){window.alert("❌ Contraseña incorrecta");return}
+                          }}
                           style={{fontSize:10,padding:"4px 8px",borderRadius:6,background:"#fff",color:"#8b2e2e",border:"1px solid #8b2e2e",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontWeight:700,whiteSpace:"nowrap" as const}}>
                           ✗ Declinar
                         </button>
@@ -9368,7 +9374,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                     <div style={{fontSize:11,color:"rgba(255,255,255,.7)",marginTop:4,display:"flex",flexWrap:"wrap" as const,gap:8}}>
                       {(()=>{
                         const ct=contratos.find((x:any)=>x.id===g.contrato_id)
-                        const fmt=(f:string)=>f?new Date(f+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""
+                        const fmt=(f:string)=>f?new Date(f+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):""
                         return(<>
                           {ct?.fecha_evento&&<span>🎉 {fmt(ct.fecha_evento)}</span>}
                           {ct?.fecha_entrega&&<span style={{color:"#93c5fd"}}>🚚 {fmt(ct.fecha_entrega)}</span>}
