@@ -6414,6 +6414,23 @@ document.getElementById("btn-pdfc").onclick=function(){
                 <button onClick={()=>imprimirContrato(selContrato)}
                   style={{padding:"9px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,background:"rgba(255,255,255,.2)",color:"#fff",fontWeight:700}} title="Imprimir contrato">🖨️ PDF</button>
               </div>
+              {/* Declinar contrato */}
+              <button onClick={async()=>{
+                const pwd=window.prompt("Contraseña para declinar contrato:")
+                if(!pwd)return
+                if(pwd!=="LITA2024"){window.alert("❌ Contraseña incorrecta");return}
+                if(!window.confirm(`¿Declinar contrato de ${selContrato.cliente||selContrato.archivo}?\nEsta acción no se puede deshacer.`))return
+                await fetch(`/api/contratos?id=${selContrato.id}`,{
+                  method:"PATCH",
+                  headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+                  body:JSON.stringify({tipo:"declinado"})
+                })
+                onActualizar&&onActualizar(String(selContrato.id),{tipo:"declinado"})
+                setSelContrato(null)
+              }}
+                style={{width:"100%",marginTop:6,padding:"7px",borderRadius:8,border:"1px solid #fca5a5",background:"transparent",color:"#fca5a5",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>
+                ✗ Declinar contrato
+              </button>
             </div>
                         {/* ── MODO EDICIÓN ── */}
             {modoEdicion?(
