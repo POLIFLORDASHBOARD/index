@@ -12,7 +12,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "GET") {
     const { id, estado } = req.query
     if (id) {
-      const cleanId = String(id).replace(/^excel\s*/i, "").trim()
+      const uuidMatchG = String(id).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
+      const cleanId = uuidMatchG ? uuidMatchG[0] : String(id).trim()
       const { data, error } = await supabase.from("cotizaciones").select("*").eq("id", cleanId).single()
       if (error) return res.status(404).json({ error: error.message })
       return res.status(200).json(data)
@@ -44,7 +45,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "PATCH") {
     // Limpiar id — puede venir con prefijo "excel " cuando viene de importación
     const rawId = String(req.query.id || "")
-    const id = rawId.replace(/^excel\s*/i, "").trim()
+    // Extraer solo el UUID válido (32 hex + guiones)
+    const uuidMatch = rawId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
+    const id = uuidMatch ? uuidMatch[0] : rawId.trim()
     // Whitelist de columnas válidas en Supabase
     const COLS = ["cliente","cliente_nombre","archivo","estado","fecha_evento","fecha_entrega",
       "fecha_desmonte","lugar","tel","vendedor","partidas","articulos","total","subtotal",
