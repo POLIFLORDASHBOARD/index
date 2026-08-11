@@ -4584,11 +4584,14 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
     }
     const data = await res.json()
     setGuardando(false)
-    if (data.id) {
+    if (res.ok && (data.id || data.folio)) {
       setCotActual(data)
       setEsNueva(false)
       cargar()
       setVista("detalle")
+    } else {
+      alert("Error al guardar: " + (data?.error || data?.message || "Error desconocido"))
+      console.error("Error guardando cotización:", data)
     }
   }
 
