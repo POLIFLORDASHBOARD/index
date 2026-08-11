@@ -775,7 +775,7 @@ export default function Dashboard(){
           <CotizacionesSection token={token} personal={personal} logoUrl={logoUrl} vendedorActual={vendedorActual} esAdmin={esAdmin} contratos={cBase}/>
         )}
         {seccion==="ventas"&&subTab==="contratos-conf"&&(
-          <ContratosConfirmadosSection token={token} contratos={cBase} cuentasBancarias={cuentasBancarias} onActualizar={actualizarContrato} isMobile={isMobile} vendedorActual={vendedorActual} esAdmin={esAdmin}/>
+          <ContratosConfirmadosSection token={token} contratos={cBase} onActualizar={actualizarContrato} isMobile={isMobile} vendedorActual={vendedorActual} esAdmin={esAdmin}/>
         )}
 
         {/* ── PLANEACIÓN ── */}
@@ -4343,7 +4343,7 @@ function calcularTotales(
 
 const DELETE_PWD = "LITA2024"
 
-function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin, contratos: contratosAll = [], cuentasBancarias = [] }: { token: string, personal: any, logoUrl?: string, vendedorActual?: string, esAdmin?: boolean, contratos?: any[], cuentasBancarias?: any[] }) {
+function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin, contratos: contratosAll = [] }: { token: string, personal: any, logoUrl?: string, vendedorActual?: string, esAdmin?: boolean, contratos?: any[] }) {
   const [cots, setCots] = useState<Cotizacion[]>([])
   const [cargando, setCargando] = useState(true)
   const [filtroEst, setFiltroEst] = useState("todos")
@@ -5894,7 +5894,7 @@ document.getElementById("btn-pdf").onclick=function(){
 
 
 // ─── CONTRATOS CONFIRMADOS ─────────────────────────────────────────
-function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vendedorActual,cuentasBancarias=[]}:{token:string,contratos:Contrato[],onActualizar?:(id:string,updates:any)=>void,isMobile?:boolean,vendedorActual?:string,esAdmin?:boolean,cuentasBancarias?:any[]}){
+function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vendedorActual}:{token:string,contratos:Contrato[],onActualizar?:(id:string,updates:any)=>void,isMobile?:boolean,vendedorActual?:string,esAdmin?:boolean}){
   const [busq,setBusq]=useState("")
   const [filtroVendedor,setFiltroVendedor]=useState("todos")
   const [filtroMes,setFiltroMes]=useState("")
@@ -6179,12 +6179,6 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
       <span style="font-family:monospace;color:#92580a">$${saldo.toLocaleString("es-MX")}</span>
     </div>`:""}
   </div>`:""}
-
-  <!-- Términos y condiciones -->
-  <div style="margin-top:20px;padding:12px 16px;background:#f8f6f2;border-radius:8px;font-size:10px;color:#9a9590;line-height:1.6">
-    <div style="font-weight:700;color:#4a4640;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Términos y condiciones</div>
-    ${x.condiciones||"El cliente será responsable por cualquier daño, pérdida o faltante de la vajilla durante el evento. La vajilla se entrega sin montaje. Para confirmar y reservar el servicio, se requiere el pago del anticipo correspondiente a esta cotización."}
-  </div>
 
   <!-- Firmas -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:1px solid #e8e5de">
@@ -6805,17 +6799,6 @@ document.getElementById("btn-pdfc").onclick=function(){
             {/* Registrar nuevo pago — deshabilitado */}
           </>
           )}
-          </div>
-
-          {/* ── 💳 CUENTA BANCARIA ── */}
-          <div style={{padding:"10px 14px",borderTop:"1px solid #f0ece4"}}>
-            <CuentaBancariaSelector
-              value={selContrato.cuenta_bancaria}
-              onChange={async(c:any)=>{
-                onActualizar&&onActualizar(String(selContrato.id),{cuenta_bancaria:c,cuenta_bancaria_id:c?.id||null})
-                await apiCall(`/api/contratos?id=${selContrato.id}`,"PATCH",{cuenta_bancaria:c,cuenta_bancaria_id:c?.id||null},token)
-              }}
-            />
           </div>
 
           {/* ── ✂️ SPLITS ── */}
