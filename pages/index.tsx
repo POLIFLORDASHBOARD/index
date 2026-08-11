@@ -4566,6 +4566,10 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
     setFormGuardado(true)
     const body = { ...cotActual }
     if (estadoNuevo) body.estado = estadoNuevo
+    // Mapear campos del formulario a columnas de Supabase
+    if (body.cliente_tel && !body.tel) body.tel = body.cliente_tel
+    if (body.lugar_evento && !body.lugar) body.lugar = body.lugar_evento
+    if (body.cliente_nombre && !body.cliente) body.cliente = body.cliente_nombre
     // Add vendedor prefix to body for folio generation
     if (esNueva && body.vendedor) {
       body._prefijo = prefijoVendedor(body.vendedor)
