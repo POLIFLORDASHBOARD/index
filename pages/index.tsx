@@ -226,7 +226,6 @@ export default function Dashboard(){
   const [loginForm,setLoginForm]=useState({email:"admin@poliflor.com",password:""})
   const [loginError,setLoginError]=useState("")
   const [contratos,setContratos]=useState<Contrato[]>([])
-  const [cuentasBancarias,setCuentasBancarias]=useState<any[]>([])
   const [personal,setPersonal]=useState<Persona[]>([])
   const [seccion,setSeccion]=useState("inicio")
   const [subTab,setSubTab]=useState("")
@@ -301,14 +300,9 @@ export default function Dashboard(){
   const [pagoNota,setPagoNota]=useState("")
 
   const cargar=useCallback(async(tk:string)=>{
-    const[cr,pr,cb]=await Promise.all([
-      apiCall("/api/contratos","GET",undefined,tk),
-      apiCall("/api/personal","GET",undefined,tk),
-      fetch("/api/config/cuentas",{headers:{Authorization:`Bearer ${tk}`}}).then(r=>r.json()).catch(()=>[])
-    ])
+    const[cr,pr]=await Promise.all([apiCall("/api/contratos","GET",undefined,tk),apiCall("/api/personal","GET",undefined,tk)])
     if(Array.isArray(cr))setContratos(cr)
     if(Array.isArray(pr))setPersonal(pr)
-    if(Array.isArray(cb))setCuentasBancarias(cb)
   },[])
 
   useEffect(()=>{
@@ -778,10 +772,10 @@ export default function Dashboard(){
 
         {/* ── VENTAS ── */}
         {seccion==="ventas"&&(subTab===""||subTab==="cotizaciones")&&(
-          <CotizacionesSection token={token} cuentasBancarias={cuentasBancarias} personal={personal} logoUrl={logoUrl} vendedorActual={vendedorActual} esAdmin={esAdmin} contratos={cBase}/>
+          <CotizacionesSection token={token} personal={personal} logoUrl={logoUrl} vendedorActual={vendedorActual} esAdmin={esAdmin} contratos={cBase}/>
         )}
         {seccion==="ventas"&&subTab==="contratos-conf"&&(
-          <ContratosConfirmadosSection token={token} contratos={cBase} cuentasBancarias={cuentasBancarias} onActualizar={actualizarContrato} isMobile={isMobile} vendedorActual={vendedorActual} esAdmin={esAdmin}/>
+          <ContratosConfirmadosSection token={token} contratos={cBase} onActualizar={actualizarContrato} isMobile={isMobile} vendedorActual={vendedorActual} esAdmin={esAdmin}/>
         )}
 
         {/* ── PLANEACIÓN ── */}
