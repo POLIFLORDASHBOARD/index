@@ -5873,6 +5873,28 @@ document.getElementById("btn-pdf").onclick=function(){
                 <span style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:800}}>TOTAL</span>
                 <span style={{fontFamily:"Playfair Display,serif",fontSize:24,fontWeight:800}}>${(cotActual.total||0).toLocaleString()}</span>
               </div>
+              {/* Cuenta bancaria */}
+              {cuentasBancarias&&cuentasBancarias.length>0&&(
+                <div style={{marginBottom:8}}>
+                  <label style={{fontSize:11,fontWeight:700,color:"#4a4640",display:"block",marginBottom:4}}>💳 Datos bancarios para pago</label>
+                  <select value={cotActual.cuenta_bancaria_id||""} onChange={e=>{
+                    const cb=(cuentasBancarias||[]).find((c:any)=>c.id===e.target.value)
+                    setCotActual((p:any)=>({...p,cuenta_bancaria_id:e.target.value,cuenta_bancaria:cb||null}))
+                  }} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:8,fontSize:12,outline:"none"}}>
+                    <option value="">Sin datos bancarios</option>
+                    {(cuentasBancarias||[]).map((c:any)=>(
+                      <option key={c.id} value={c.id}>{c.banco} — {c.titular}</option>
+                    ))}
+                  </select>
+                  {cotActual.cuenta_bancaria&&(
+                    <div style={{marginTop:6,padding:"8px 12px",background:"#f0fdf4",borderRadius:7,fontSize:11,color:"#2d6a4f"}}>
+                      <div><strong>{cotActual.cuenta_bancaria.banco}</strong> · {cotActual.cuenta_bancaria.titular}</div>
+                      {cotActual.cuenta_bancaria.cuenta&&<div>Cuenta: {cotActual.cuenta_bancaria.cuenta}</div>}
+                      {cotActual.cuenta_bancaria.clabe&&<div>CLABE: {cotActual.cuenta_bancaria.clabe}</div>}
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
                 <button onClick={()=>guardar("borrador")} disabled={guardando}
                   style={{padding:"9px",borderRadius:8,background:"#f5f4f0",border:"1px solid #e8e5de",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
@@ -5894,7 +5916,7 @@ document.getElementById("btn-pdf").onclick=function(){
 
 
 // ─── CONTRATOS CONFIRMADOS ─────────────────────────────────────────
-function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vendedorActual}:{token:string,contratos:Contrato[],onActualizar?:(id:string,updates:any)=>void,isMobile?:boolean,vendedorActual?:string,esAdmin?:boolean}){
+function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vendedorActual,cuentasBancarias}:{token:string,contratos:Contrato[],onActualizar?:(id:string,updates:any)=>void,isMobile?:boolean,vendedorActual?:string,esAdmin?:boolean,cuentasBancarias?:any[]}){
   const [busq,setBusq]=useState("")
   const [filtroVendedor,setFiltroVendedor]=useState("todos")
   const [filtroMes,setFiltroMes]=useState("")
@@ -6121,6 +6143,14 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
       ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">Entrega: ${x.fecha_entrega?new Date(x.fecha_entrega+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}${x.fecha_desmonte?" · Desmonte: "+new Date(x.fecha_desmonte+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}</div>`:""}
     </div>
   </div>
+
+  ${x.cuenta_bancaria?`
+  <div style="margin-bottom:16px;padding:10px 14px;background:#f0fdf4;border:1px solid #b7deca;border-radius:8px;font-size:12px">
+    <div style="font-weight:700;color:#2d6a4f;margin-bottom:4px">💳 Datos para transferencia</div>
+    <div><strong>${x.cuenta_bancaria.banco}</strong> · ${x.cuenta_bancaria.titular}</div>
+    ${x.cuenta_bancaria.cuenta?`<div>N° Cuenta: <strong>${x.cuenta_bancaria.cuenta}</strong></div>`:""}
+    ${x.cuenta_bancaria.clabe?`<div>CLABE: <strong>${x.cuenta_bancaria.clabe}</strong></div>`:""}
+  </div>`:""}
 
   <!-- Artículos -->
   <table style="margin-bottom:24px">
