@@ -4571,13 +4571,19 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
       body._prefijo = prefijoVendedor(body.vendedor)
     }
     let res
-    if (esNueva) {
+    // Si viene de Excel (id con prefijo) o es nueva → POST
+    const rawId = String(cotActual.id || "")
+    const uuidClean = (rawId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)||[""])[0]
+    const isExcel = rawId !== uuidClean || rawId.startsWith("_") || rawId.includes("excel")
+    if (esNueva || isExcel) {
+      // Crear nueva — quitar el id del excel para que Supabase genere uno nuevo
+      const { id: _id, fromExcel: _fx, ...bodyClean } = body as any
       res = await fetch("/api/cotizaciones", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body)
+        body: JSON.stringify(bodyClean)
       })
     } else {
-      res = await fetch(`/api/cotizaciones?id=${(String(cotActual.id||'').match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)||[String(cotActual.id||'')])[0]}`, {
+      res = await fetch(`/api/cotizaciones?id=${uuidClean}`, {
         method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(body)
       })
