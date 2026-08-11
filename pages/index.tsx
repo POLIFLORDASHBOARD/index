@@ -4577,7 +4577,7 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
         body: JSON.stringify(body)
       })
     } else {
-      res = await fetch(`/api/cotizaciones?id=${cotActual.id}`, {
+      res = await fetch(`/api/cotizaciones?id=${String(cotActual.id||"").replace(/^excel\s*/i,"").trim()}`, {
         method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(body)
       })
