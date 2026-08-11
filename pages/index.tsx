@@ -4310,7 +4310,7 @@ const COT_VACIA: Omit<Cotizacion,"id"|"folio"|"creado_en"|"actualizado_en"> = {
   fecha_vigencia: new Date(Date.now()+15*86400000).toISOString().slice(0,10),
   estado:"borrador",vendedor:"",subtotal:0,descuento_pct:0,descuento_monto:0,
   aplica_iva:false,iva_monto:0,total:0,notas_cliente:"",
-  condiciones:"El mobiliario debe devolverse en las mismas condiciones en que fue entregado. El cliente es responsable de cualquier daño o pérdida durante el evento. Los precios incluyen montaje y desmontaje. El 50% del total se paga al confirmar y el resto el día del evento.",
+  condiciones:"El mobiliario debe devolverse en las mismas condiciones en que fue entregado. El cliente es responsable de cualquier daño o pérdida durante el evento. La vajilla no se monta. El 50% del total se paga al confirmar y el resto el día del evento.",
   partidas:[]
 }
 
