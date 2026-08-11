@@ -42,8 +42,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // PATCH — actualizar
   if (req.method === "PATCH") {
     const { id } = req.query
+    // Whitelist de columnas válidas en Supabase
+    const COLS = ["cliente","cliente_nombre","archivo","estado","fecha_evento","fecha_entrega",
+      "fecha_desmonte","lugar","tel","vendedor","partidas","articulos","total","subtotal",
+      "descuento_pct","descuento_monto_global","aplica_iva","iva","notas","observaciones",
+      "tipo","folio","a_cuenta","cobrado","pagos","aplica_descuento"]
+    const clean: any = { actualizado_en: new Date().toISOString() }
+    for (const k of COLS) {
+      if (k in req.body) clean[k] = req.body[k]
+    }
     const { data, error } = await supabase
-      .from("cotizaciones").update({ ...req.body, actualizado_en: new Date().toISOString() })
+      .from("cotizaciones").update(clean)
       .eq("id", id).select().single()
     if (error) return res.status(500).json({ error: error.message })
     return res.status(200).json(data)
