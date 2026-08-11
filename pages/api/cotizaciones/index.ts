@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { _prefijo, _fromExcel, fromExcel, id, ...bodyRaw } = req.body
     // Quitar cualquier campo que empiece con _ o no sea columna válida
     const COT_COLS = ["cliente","cliente_nombre","archivo","estado","fecha_evento","fecha_entrega",
-      "fecha_desmonte","lugar","tel","vendedor","partidas","articulos","total","subtotal",
+      "fecha_desmonte","lugar","lugar_evento","tel","cliente_tel","vendedor","partidas","articulos","total","subtotal",
       "descuento_pct","descuento_monto_global","aplica_iva","iva","notas","observaciones",
       "tipo","a_cuenta","cobrado","pagos","aplica_descuento"]
     const body: any = {}
