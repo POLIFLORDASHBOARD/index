@@ -33,7 +33,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // POST — crear cotización con folio automático + prefijo vendedor
   if (req.method === "POST") {
-    const { _prefijo, ...body } = req.body
+    // Quitar todos los campos internos del frontend (prefijos _ o fromExcel)
+    const { _prefijo, _fromExcel, fromExcel, id, ...bodyRaw } = req.body
+    // Quitar cualquier campo que empiece con _ o no sea columna válida
+    const COT_COLS = ["cliente","cliente_nombre","archivo","estado","fecha_evento","fecha_entrega",
+      "fecha_desmonte","lugar","tel","vendedor","partidas","articulos","total","subtotal",
+      "descuento_pct","descuento_monto_global","aplica_iva","iva","notas","observaciones",
+      "tipo","a_cuenta","cobrado","pagos","aplica_descuento"]
+    const body: any = {}
+    for (const k of COT_COLS) {
+      if (k in bodyRaw) body[k] = bodyRaw[k]
+    }
     const { count } = await supabase
       .from("cotizaciones")
       .select("id", { count: "exact", head: true })
