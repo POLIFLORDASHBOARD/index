@@ -4566,6 +4566,9 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
     setFormGuardado(true)
     const body = { ...cotActual }
     if (estadoNuevo) body.estado = estadoNuevo
+    // Mapear campos del formulario a columnas de Supabase
+    if (body.cliente_tel) body.tel = body.cliente_tel
+    if (body.lugar_evento) body.lugar = body.lugar_evento
     // Add vendedor prefix to body for folio generation
     if (esNueva && body.vendedor) {
       body._prefijo = prefijoVendedor(body.vendedor)
@@ -5179,7 +5182,7 @@ document.getElementById("btn-pdf").onclick=function(){
                     style={{padding:"4px 10px",borderRadius:6,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:11,fontFamily:"Epilogue,sans-serif"}}>
                     👁️ Ver
                   </button>
-                  <button onClick={()=>{setCotActual(cot);setEsNueva(false);setPaso(1);setVista("form")}}
+                  <button onClick={()=>{setCotActual({...cot,cliente_tel:cot.tel||cot.cliente_tel||"",lugar_evento:cot.lugar||cot.lugar_evento||""});setEsNueva(false);setPaso(1);setVista("form")}}
                     style={{padding:"4px 10px",borderRadius:6,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:11,fontFamily:"Epilogue,sans-serif"}}>
                     ✏️ Editar
                   </button>
