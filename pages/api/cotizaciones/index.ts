@@ -36,10 +36,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Quitar todos los campos internos del frontend (prefijos _ o fromExcel)
     const { _prefijo, _fromExcel, fromExcel, id, ...bodyRaw } = req.body
     // Quitar cualquier campo que empiece con _ o no sea columna válida
-    const COT_COLS = ["cliente_nombre","archivo","estado","fecha_evento","fecha_entrega",
-      "fecha_desmonte","lugar","lugar_evento","tel","cliente_tel","vendedor","partidas","articulos","total","subtotal",
-      "descuento_pct","descuento_monto_global","aplica_iva","iva","notas","observaciones",
-      "tipo","a_cuenta","cobrado","pagos","aplica_descuento"]
+    const COT_COLS = [
+      "folio","cliente_nombre","cliente_tel","cliente_email","lugar_evento",
+      "fecha_evento","fecha_entrega","fecha_desmonte","fecha_vigencia",
+      "estado","vendedor","subtotal","descuento_pct","descuento_monto",
+      "aplica_iva","iva_monto","total","notas_cliente","condiciones","partidas"
+    ]
     const body: any = {}
     for (const k of COT_COLS) {
       if (k in bodyRaw) body[k] = bodyRaw[k]
@@ -61,10 +63,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const id = cleanUUID(String(req.query.id || ""))
     if (!id) return res.status(400).json({ error: "ID requerido" })
 
-    const COLS = ["cliente","cliente_nombre","archivo","estado","fecha_evento","fecha_entrega",
-      "fecha_desmonte","lugar","tel","vendedor","partidas","articulos","total","subtotal",
-      "descuento_pct","descuento_monto_global","aplica_iva","iva","notas","observaciones",
-      "tipo","folio","a_cuenta","cobrado","pagos","aplica_descuento"]
+    const COLS = [
+      "folio","cliente_nombre","cliente_tel","cliente_email","lugar_evento",
+      "fecha_evento","fecha_entrega","fecha_desmonte","fecha_vigencia",
+      "estado","vendedor","subtotal","descuento_pct","descuento_monto",
+      "aplica_iva","iva_monto","total","notas_cliente","condiciones","partidas"
+    ]
     const clean: any = { actualizado_en: new Date().toISOString() }
     for (const k of COLS) {
       if (k in req.body) clean[k] = req.body[k]
