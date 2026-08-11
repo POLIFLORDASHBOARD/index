@@ -5873,7 +5873,6 @@ document.getElementById("btn-pdf").onclick=function(){
                 <span style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:800}}>TOTAL</span>
                 <span style={{fontFamily:"Playfair Display,serif",fontSize:24,fontWeight:800}}>${(cotActual.total||0).toLocaleString()}</span>
               </div>
-              <CuentaBancariaSelector value={cotActual.cuenta_bancaria} onChange={c=>setCotActual((p:any)=>({...p,cuenta_bancaria:c,cuenta_bancaria_id:c?.id||null}))}/>
               <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
                 <button onClick={()=>guardar("borrador")} disabled={guardando}
                   style={{padding:"9px",borderRadius:8,background:"#f5f4f0",border:"1px solid #e8e5de",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
@@ -6123,6 +6122,7 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
     </div>
   </div>
 
+  ${x.cuenta_bancaria?`<div style="margin:16px 0;padding:12px 16px;background:#f0fdf4;border:1px solid #b7deca;border-radius:8px;font-size:12px"><div style="font-weight:700;color:#2d6a4f;margin-bottom:6px">💳 Datos para transferencia</div><div><strong>${x.cuenta_bancaria.banco}</strong> · ${x.cuenta_bancaria.titular}</div>${x.cuenta_bancaria.cuenta?`<div>N° Cuenta: <strong>${x.cuenta_bancaria.cuenta}</strong></div>`:""}${x.cuenta_bancaria.clabe?`<div>CLABE: <strong>${x.cuenta_bancaria.clabe}</strong></div>`:""}</div>`:""}
   <!-- Artículos -->
   <table style="margin-bottom:24px">
     <thead>
@@ -6178,14 +6178,6 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
       <span style="color:#92580a">Saldo pendiente</span>
       <span style="font-family:monospace;color:#92580a">$${saldo.toLocaleString("es-MX")}</span>
     </div>`:""}
-  </div>`:""}
-
-  ${x.cuenta_bancaria?`
-  <div style="margin:16px 0;padding:12px 16px;background:#f0fdf4;border:1px solid #b7deca;border-radius:8px;font-size:12px">
-    <div style="font-weight:700;color:#2d6a4f;margin-bottom:6px">💳 Datos para transferencia</div>
-    <div><strong>${x.cuenta_bancaria.banco}</strong> · ${x.cuenta_bancaria.titular}</div>
-    ${x.cuenta_bancaria.cuenta?`<div style="margin-top:2px">N° Cuenta: <strong>${x.cuenta_bancaria.cuenta}</strong></div>`:""}
-    ${x.cuenta_bancaria.clabe?`<div style="margin-top:2px">CLABE: <strong>${x.cuenta_bancaria.clabe}</strong></div>`:""}
   </div>`:""}
 
   <!-- Firmas -->
@@ -6809,17 +6801,6 @@ document.getElementById("btn-pdfc").onclick=function(){
           )}
           </div>
 
-          {/* ── 💳 CUENTA BANCARIA ── */}
-          <div style={{padding:"10px 14px",borderTop:"1px solid #f0ece4"}}>
-            <CuentaBancariaSelector
-              value={selContrato.cuenta_bancaria}
-              onChange={async c=>{
-                onActualizar&&onActualizar(String(selContrato.id),{cuenta_bancaria:c,cuenta_bancaria_id:c?.id||null})
-                await apiCall(`/api/contratos?id=${selContrato.id}`,"PATCH",{cuenta_bancaria:c,cuenta_bancaria_id:c?.id||null},token)
-              }}
-            />
-          </div>
-
           {/* ── ✂️ SPLITS ── */}
           <div style={{padding:"12px 14px",borderTop:"2px solid #f0ece4"}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
@@ -7432,40 +7413,6 @@ function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
               <span key={f} style={{padding:"6px 14px",borderRadius:20,background:"#f0ece4",color:"#9a9590",fontSize:12,fontWeight:600}}>{f}</span>
             ))}
           </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-
-
-// ── Selector de cuenta bancaria (se usa en COT y CONT) ──
-function CuentaBancariaSelector({value,onChange}:{value?:any,onChange:(c:any)=>void}){
-  const [cuentas,setCuentas]=useState<any[]>([])
-  useEffect(()=>{
-    fetch("https://ohxehnsxfbvdflmqlzxq.supabase.co/rest/v1/cuentas_bancarias?activo=eq.true&order=banco",{
-      headers:{"apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM"}
-    }).then(r=>r.json()).then(d=>{if(Array.isArray(d))setCuentas(d)}).catch(()=>{})
-  },[])
-  if(cuentas.length===0) return null
-  return(
-    <div style={{marginBottom:10}}>
-      <label style={{fontSize:11,fontWeight:700,color:"#4a4640",display:"block",marginBottom:4}}>💳 Datos bancarios para pago</label>
-      <select value={value?.id||""} onChange={e=>{
-        const c=cuentas.find(x=>x.id===e.target.value)||null
-        onChange(c)
-      }} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:8,fontSize:12,outline:"none",background:"#fff"}}>
-        <option value="">Sin datos bancarios</option>
-        {cuentas.map((c:any)=>(
-          <option key={c.id} value={c.id}>{c.banco} — {c.titular}</option>
-        ))}
-      </select>
-      {value&&(
-        <div style={{marginTop:6,padding:"8px 12px",background:"#f0fdf4",borderRadius:7,fontSize:11,color:"#2d6a4f",lineHeight:1.6}}>
-          <div><strong>{value.banco}</strong> · {value.titular}</div>
-          {value.cuenta&&<div>N° Cuenta: <strong>{value.cuenta}</strong></div>}
-          {value.clabe&&<div>CLABE: <strong>{value.clabe}</strong></div>}
         </div>
       )}
     </div>
