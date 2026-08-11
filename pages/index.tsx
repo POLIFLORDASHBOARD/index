@@ -772,10 +772,10 @@ export default function Dashboard(){
 
         {/* ── VENTAS ── */}
         {seccion==="ventas"&&(subTab===""||subTab==="cotizaciones")&&(
-          <CotizacionesSection token={token} personal={personal} logoUrl={logoUrl} vendedorActual={vendedorActual} esAdmin={esAdmin} contratos={cBase}/>
+          <CotizacionesSection token={token} cuentasBancarias={cuentasBancarias} personal={personal} logoUrl={logoUrl} vendedorActual={vendedorActual} esAdmin={esAdmin} contratos={cBase}/>
         )}
         {seccion==="ventas"&&subTab==="contratos-conf"&&(
-          <ContratosConfirmadosSection token={token} contratos={cBase} onActualizar={actualizarContrato} isMobile={isMobile} vendedorActual={vendedorActual} esAdmin={esAdmin}/>
+          <ContratosConfirmadosSection token={token} contratos={cBase} cuentasBancarias={cuentasBancarias} onActualizar={actualizarContrato} isMobile={isMobile} vendedorActual={vendedorActual} esAdmin={esAdmin}/>
         )}
 
         {/* ── PLANEACIÓN ── */}
@@ -4343,7 +4343,7 @@ function calcularTotales(
 
 const DELETE_PWD = "LITA2024"
 
-function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin, contratos: contratosAll = [] }: { token: string, personal: any, logoUrl?: string, vendedorActual?: string, esAdmin?: boolean, contratos?: any[] }) {
+function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin, contratos: contratosAll = [], cuentasBancarias = [] }: { token: string, personal: any, logoUrl?: string, vendedorActual?: string, esAdmin?: boolean, contratos?: any[], cuentasBancarias?: any[] }) {
   const [cots, setCots] = useState<Cotizacion[]>([])
   const [cargando, setCargando] = useState(true)
   const [filtroEst, setFiltroEst] = useState("todos")
@@ -5894,7 +5894,7 @@ document.getElementById("btn-pdf").onclick=function(){
 
 
 // ─── CONTRATOS CONFIRMADOS ─────────────────────────────────────────
-function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vendedorActual}:{token:string,contratos:Contrato[],onActualizar?:(id:string,updates:any)=>void,isMobile?:boolean,vendedorActual?:string,esAdmin?:boolean}){
+function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vendedorActual,cuentasBancarias=[]}:{token:string,contratos:Contrato[],onActualizar?:(id:string,updates:any)=>void,isMobile?:boolean,vendedorActual?:string,esAdmin?:boolean,cuentasBancarias?:any[]}){
   const [busq,setBusq]=useState("")
   const [filtroVendedor,setFiltroVendedor]=useState("todos")
   const [filtroMes,setFiltroMes]=useState("")
@@ -6122,7 +6122,6 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
     </div>
   </div>
 
-  ${x.cuenta_bancaria?`<div style="margin-bottom:16px;padding:10px 14px;background:#f0fdf4;border:1px solid #b7deca;border-radius:8px;font-size:12px"><div style="font-weight:700;color:#2d6a4f;margin-bottom:4px">💳 Datos para transferencia</div><div><strong>${x.cuenta_bancaria.banco}</strong> · ${x.cuenta_bancaria.titular}</div>${x.cuenta_bancaria.cuenta?`<div>N° Cuenta: <strong>${x.cuenta_bancaria.cuenta}</strong></div>`:""} ${x.cuenta_bancaria.clabe?`<div>CLABE: <strong>${x.cuenta_bancaria.clabe}</strong></div>`:""}</div>`:""}
   <!-- Artículos -->
   <table style="margin-bottom:24px">
     <thead>
@@ -6800,29 +6799,6 @@ document.getElementById("btn-pdfc").onclick=function(){
           </>
           )}
           </div>
-
-          {/* ── 💳 CUENTA BANCARIA ── */}
-          {(cuentasBancarias||[]).length>0&&(
-            <div style={{padding:"10px 14px",borderTop:"1px solid #f0ece4"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#4a4640",marginBottom:6}}>💳 Datos bancarios</div>
-              <select value={selContrato.cuenta_bancaria_id||""} onChange={async e=>{
-                const cb=(cuentasBancarias||[]).find((c:any)=>c.id===e.target.value)
-                onActualizar&&onActualizar(String(selContrato.id),{cuenta_bancaria_id:e.target.value||null,cuenta_bancaria:cb||null})
-              }} style={{width:"100%",padding:"7px 10px",border:"1px solid #e8e5de",borderRadius:7,fontSize:12,outline:"none"}}>
-                <option value="">Sin datos bancarios</option>
-                {(cuentasBancarias||[]).map((c:any)=>(
-                  <option key={c.id} value={c.id}>{c.banco} — {c.titular}</option>
-                ))}
-              </select>
-              {selContrato.cuenta_bancaria&&(
-                <div style={{marginTop:6,fontSize:11,color:"#2d6a4f",lineHeight:1.5}}>
-                  <div><strong>{selContrato.cuenta_bancaria.banco}</strong> · {selContrato.cuenta_bancaria.titular}</div>
-                  {selContrato.cuenta_bancaria.cuenta&&<div>Cuenta: {selContrato.cuenta_bancaria.cuenta}</div>}
-                  {selContrato.cuenta_bancaria.clabe&&<div>CLABE: {selContrato.cuenta_bancaria.clabe}</div>}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* ── ✂️ SPLITS ── */}
           <div style={{padding:"12px 14px",borderTop:"2px solid #f0ece4"}}>
