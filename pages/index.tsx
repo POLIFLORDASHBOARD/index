@@ -6179,6 +6179,12 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
     </div>`:""}
   </div>`:""}
 
+  <!-- Términos y condiciones -->
+  <div style="margin-top:20px;padding:12px 16px;background:#f8f6f2;border-radius:8px;font-size:10px;color:#9a9590;line-height:1.6">
+    <div style="font-weight:700;color:#4a4640;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Términos y condiciones</div>
+    ${x.condiciones||"El mobiliario debe devolverse en las mismas condiciones en que fue entregado. El cliente es responsable de cualquier daño o pérdida durante el evento. La vajilla no se monta."}
+  </div>
+
   <!-- Firmas -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:1px solid #e8e5de">
     <div style="text-align:center">
