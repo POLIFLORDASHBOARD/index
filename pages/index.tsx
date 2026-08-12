@@ -8685,10 +8685,12 @@ function generarSplitsDesdeContrato(contrato:any):any[]{
   }
   return SPLIT_TIPOS.filter(t=>t.id!=="proveedor").map(tipo=>({
     ...base,
-    // Desmonte usa fecha_desmonte (o evento+1), resto usa fecha_evento del contrato
-    fecha_evento:tipo.id==="desmonte"?fechaDesmonteFinal:fechaEvento,
-    // Para desmonte: guardar fecha REAL del evento en fecha_preparacion (columna existente)
-    fecha_preparacion:tipo.id==="desmonte"?fechaEvento:(tipo.id==="rutas"?fechaEvento:fechaPrep),
+    // prep areas: fecha_evento = día de prep (antes), rutas: evento, desmonte: fecha desmonte
+    fecha_evento:tipo.id==="desmonte"?fechaDesmonteFinal:tipo.id==="rutas"?fechaEvento:fechaPrep,
+    fecha_preparacion:tipo.id==="desmonte"?fechaEvento:tipo.id==="rutas"?fechaEvento:fechaEvento,
+    // Fechas del contrato (inmodificables) para mostrar en hoja
+    fecha_entrega_contrato:contrato.fecha_entrega||addDaysStr(fechaEvento,-1),
+    fecha_desmonte_contrato:contrato.fecha_desmonte||addDaysStr(fechaEvento,1),
     tipo:tipo.id,nombre:tipo.nombre,
     mostrar_precios:tipo.mostrarPrecio,mostrar_direccion:tipo.mostrarDir,
     proveedor_nombre:"",
