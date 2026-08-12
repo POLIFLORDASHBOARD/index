@@ -8820,7 +8820,7 @@ th,td{vertical-align:middle}
     <div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:6px">📅 Evento: ${fecha}</div>
     ${mostrarDir&&split.lugar?`<div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:4px">📍 ${split.lugar}</div>`:""}
     ${(split.tipo==="rutas"||split.tipo==="desmonte")&&split.tel?`<div style="font-size:14px;color:#1a1814;font-weight:700;margin-top:4px">📞 ${split.tel}</div>`:""}
-    ${split.fecha_entrega_contrato?`<div style="font-size:11px;color:#9a9590;margin-top:3px">🚚 Entrega: ${new Date(split.fecha_entrega_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
+    ${["vajilla","carpinteria","bases","flores"].includes(split.tipo)&&split.fecha_entrega_contrato?`<div style="font-size:11px;color:#9a9590;margin-top:3px">🚚 Entrega: ${new Date(split.fecha_entrega_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}\n    ${["vajilla","carpinteria","bases","flores"].includes(split.tipo)&&split.fecha_desmonte_contrato&&split.tipo!=="desmonte"?`<div style="font-size:11px;color:#9a9590;margin-top:2px">📦 Desmonte: ${new Date(split.fecha_desmonte_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
     ${split.fecha_desmonte_contrato&&split.tipo!=="desmonte"?`<div style="font-size:11px;color:#9a9590;margin-top:2px">📦 Desmonte: ${new Date(split.fecha_desmonte_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
   </div>
   <!-- Hoja de Trabajo / Área -->
