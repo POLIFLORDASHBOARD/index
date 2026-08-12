@@ -8944,11 +8944,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
     const key=s.contrato_id||"sin_contrato"
     // Usar fecha_evento_original si existe, sino fecha_evento del split no-desmonte
     const fechaGrupo=s.fecha_evento_original||(s.tipo!=="desmonte"?s.fecha_evento:null)||s.fecha_evento
-    if(!acc[key]){
-        const ct=contratos.find((c:any)=>c.id===s.contrato_id)
-        acc[key]={contrato_id:s.contrato_id,folio:s.contrato_folio||"Sin folio",cliente:s.cliente||"—",fecha:fechaGrupo||"—",
-          _fec:ct?.fecha_evento||"",_ent:ct?.fecha_entrega||"",_des:ct?.fecha_desmonte||"",splits:[]}
-      }
+    if(!acc[key]) acc[key]={contrato_id:s.contrato_id,folio:s.contrato_folio||"Sin folio",cliente:s.cliente||"—",fecha:fechaGrupo||"—",splits:[]}
     if(fechaGrupo&&fechaGrupo<acc[key].fecha) acc[key].fecha=fechaGrupo
     acc[key].splits.push(s)
     return acc
@@ -9463,7 +9459,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                             )}
                             {s.notas&&<div style={{fontSize:10,color:"#4a4640",background:"#f8f6f2",borderRadius:5,padding:"4px 8px",marginBottom:6,fontStyle:"italic"}}>"{s.notas.slice(0,60)}{s.notas.length>60?"...":""}"</div>}
                             <div style={{display:"flex",gap:5,marginTop:6}}>
-                              <button onClick={e=>{e.stopPropagation();abrirHojaSplit({...s,_fec:g._fec||"",_ent:g._ent||"",_des:g._des||""},logoUrl)}} style={{flex:1,padding:"5px",borderRadius:6,background:tipo.color,color:"#fff",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>🖨️ Imprimir</button>
+                              <button onClick={e=>{e.stopPropagation();abrirHojaSplit({...s,_fec:selContrato?.fecha_evento||"",_ent:selContrato?.fecha_entrega||"",_des:selContrato?.fecha_desmonte||""},logoUrl)}} style={{flex:1,padding:"5px",borderRadius:6,background:tipo.color,color:"#fff",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>🖨️ Imprimir</button>
                               <button onClick={e=>{e.stopPropagation();isActive?setSplitEdit(null):abrirEdicion(s)}} style={{flex:1,padding:"5px",borderRadius:6,background:isActive?"#0f172a":"#f5f4f0",color:isActive?"#fff":"#4a4640",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>{isActive?"✕ Cerrar":"✏️ Editar"}</button>
                               <button onClick={async e=>{e.stopPropagation();if(!window.confirm("¿Eliminar esta hoja?"))return;await fetch(`/api/splits?id=${s.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});setSplits(prev=>prev.filter((x:any)=>x.id!==s.id));if(splitEdit?.id===s.id)setSplitEdit(null)}} style={{padding:"5px 7px",borderRadius:6,background:"#fdf0f0",color:"#8b2e2e",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}} title="Eliminar">×</button>
                               <button onClick={async e=>{e.stopPropagation();if(!window.confirm("¿Eliminar esta hoja?"))return;await fetch(`/api/splits?id=${s.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});setSplits(prev=>prev.filter((x:any)=>x.id!==s.id));if(isActive)setSplitEdit(null)}}
@@ -9614,7 +9610,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                   style={{padding:"11px",borderRadius:8,background:saving?"#9a9590":tipo.color,color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:13,fontWeight:700}}>
                   {saving?"Guardando...":"💾 Guardar cambios"}
                 </button>
-                <button onClick={()=>abrirHojaSplit({...splitEdit,_fec:selContrato?.fecha_evento||"",_ent:selContrato?.fecha_entrega||"",_des:selContrato?.fecha_desmonte||""},logoUrl)}
+                <button onClick={()=>abrirHojaSplit(splitEdit,logoUrl)}
                   style={{padding:"10px",borderRadius:8,background:"#f5f4f0",color:"#1a1814",border:"1px solid #e8e5de",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700}}>
                   🖨️ Imprimir hoja de {tipo.nombre}
                 </button>
