@@ -8692,6 +8692,8 @@ function generarSplitsDesdeContrato(contrato:any):any[]{
     tipo:tipo.id,nombre:tipo.nombre,
     mostrar_precios:tipo.mostrarPrecio,mostrar_direccion:tipo.mostrarDir,
     proveedor_nombre:"",
+    fecha_entrega_contrato:fechaEntrega||"",
+    fecha_desmonte_contrato:fechaDesmonteFinal||"",
     articulos:arts.filter((a:any)=>{
       // Excluir TRASLADO, MONTAJE, ENVÍO de TODAS las hojas
       const nom=(a.nombre||"").toUpperCase()
