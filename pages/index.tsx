@@ -6856,7 +6856,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                             style={{padding:"2px 6px",borderRadius:6,border:"none",background:est.bg,color:est.color,fontFamily:"Epilogue,sans-serif",fontSize:10,fontWeight:700,cursor:"pointer",outline:"none"}}>
                             {SPLIT_ESTADOS.map((e:any)=><option key={e.id} value={e.id}>{e.label}</option>)}
                           </select>
-                          <button onClick={()=>abrirHojaSplit(s,logoUrl)}
+                          <button onClick={()=>abrirHojaSplit({...s,fecha_evento_contrato:selContrato?.fecha_evento||"",fecha_desmonte_contrato:selContrato?.fecha_desmonte||""},logoUrl)}
                             style={{padding:"3px 8px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap" as const}}>
                             🖨️
                           </button>
@@ -8720,9 +8720,6 @@ function abrirHojaSplit(split:any,logoSrc:string){
   // Para rutas: fecha_preparacion tiene el evento real, o entrega + 1
   // Para desmonte: fecha_preparacion tiene el evento real, o desmonte - 1
   const fechaEventoReal=(()=>{
-    // PRIORIDAD 1: fecha_evento_contrato = fecha REAL del contrato (inmodificable)
-    if(split.fecha_evento_contrato) return split.fecha_evento_contrato
-    // PRIORIDAD 2: lógica existente como fallback
     if(split.tipo==="rutas"||split.tipo==="desmonte"){
       if(split.fecha_preparacion) return split.fecha_preparacion
       if(!split.fecha_evento) return ""
@@ -8730,10 +8727,19 @@ function abrirHojaSplit(split:any,logoSrc:string){
       d.setDate(d.getDate()+(split.tipo==="rutas"?1:-1))
       return d.toISOString().slice(0,10)
     }
+    // Prep areas: split.fecha_evento = fecha de prep (día antes del evento)
+    // Evento real = fecha_evento + 1 día
+    if(split.tipo!=="proveedor"){
+      if(!split.fecha_evento) return ""
+      const d=new Date(split.fecha_evento+"T12:00:00")
+      d.setDate(d.getDate()+1)
+      return d.toISOString().slice(0,10)
+    }
+    // proveedor: misma lógica que prep areas, evento = fecha_evento + 1
     if(!split.fecha_evento) return ""
-    const d=new Date(split.fecha_evento+"T12:00:00")
-    d.setDate(d.getDate()+1)
-    return d.toISOString().slice(0,10)
+    const dp=new Date(split.fecha_evento+"T12:00:00")
+    dp.setDate(dp.getDate()+1)
+    return dp.toISOString().slice(0,10)
   })()
   const fecha=fechaEventoReal
     ?new Date(fechaEventoReal+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})
@@ -8812,7 +8818,6 @@ th,td{vertical-align:middle}
     <div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:6px">📅 Evento: ${fecha}</div>
     ${mostrarDir&&split.lugar?`<div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:4px">📍 ${split.lugar}</div>`:""}
     ${(split.tipo==="rutas"||split.tipo==="desmonte")&&split.tel?`<div style="font-size:14px;color:#1a1814;font-weight:700;margin-top:4px">📞 ${split.tel}</div>`:""}
-    ${split.fecha_desmonte_contrato&&split.tipo!=="desmonte"?`<div style="font-size:11px;color:#9a9590;margin-top:4px">📦 Desmonte: ${new Date(split.fecha_desmonte_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}`
   </div>
   <!-- Hoja de Trabajo / Área -->
   <div style="text-align:right">
@@ -8939,11 +8944,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
     const key=s.contrato_id||"sin_contrato"
     // Usar fecha_evento_original si existe, sino fecha_evento del split no-desmonte
     const fechaGrupo=s.fecha_evento_original||(s.tipo!=="desmonte"?s.fecha_evento:null)||s.fecha_evento
-    if(!acc[key]){
-        const ct=contratos.find((c:any)=>c.id===s.contrato_id)
-        acc[key]={contrato_id:s.contrato_id,folio:s.contrato_folio||"Sin folio",cliente:s.cliente||"—",fecha:fechaGrupo||"—",
-          fecha_evento_contrato:ct?.fecha_evento||"",fecha_desmonte_contrato:ct?.fecha_desmonte||"",splits:[]}
-      }
+    if(!acc[key]) acc[key]={contrato_id:s.contrato_id,folio:s.contrato_folio||"Sin folio",cliente:s.cliente||"—",fecha:fechaGrupo||"—",splits:[]}
     if(fechaGrupo&&fechaGrupo<acc[key].fecha) acc[key].fecha=fechaGrupo
     acc[key].splits.push(s)
     return acc
@@ -9458,7 +9459,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                             )}
                             {s.notas&&<div style={{fontSize:10,color:"#4a4640",background:"#f8f6f2",borderRadius:5,padding:"4px 8px",marginBottom:6,fontStyle:"italic"}}>"{s.notas.slice(0,60)}{s.notas.length>60?"...":""}"</div>}
                             <div style={{display:"flex",gap:5,marginTop:6}}>
-                              <button onClick={e=>{e.stopPropagation();abrirHojaSplit({...s,fecha_evento_contrato:g.fecha_evento_contrato||"",fecha_desmonte_contrato:g.fecha_desmonte_contrato||""},logoUrl)}} style={{flex:1,padding:"5px",borderRadius:6,background:tipo.color,color:"#fff",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>🖨️ Imprimir</button>
+                              <button onClick={e=>{e.stopPropagation();abrirHojaSplit({...s,fecha_evento_contrato:selContrato?.fecha_evento||"",fecha_desmonte_contrato:selContrato?.fecha_desmonte||""},logoUrl)}} style={{flex:1,padding:"5px",borderRadius:6,background:tipo.color,color:"#fff",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>🖨️ Imprimir</button>
                               <button onClick={e=>{e.stopPropagation();isActive?setSplitEdit(null):abrirEdicion(s)}} style={{flex:1,padding:"5px",borderRadius:6,background:isActive?"#0f172a":"#f5f4f0",color:isActive?"#fff":"#4a4640",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>{isActive?"✕ Cerrar":"✏️ Editar"}</button>
                               <button onClick={async e=>{e.stopPropagation();if(!window.confirm("¿Eliminar esta hoja?"))return;await fetch(`/api/splits?id=${s.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});setSplits(prev=>prev.filter((x:any)=>x.id!==s.id));if(splitEdit?.id===s.id)setSplitEdit(null)}} style={{padding:"5px 7px",borderRadius:6,background:"#fdf0f0",color:"#8b2e2e",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}} title="Eliminar">×</button>
                               <button onClick={async e=>{e.stopPropagation();if(!window.confirm("¿Eliminar esta hoja?"))return;await fetch(`/api/splits?id=${s.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});setSplits(prev=>prev.filter((x:any)=>x.id!==s.id));if(isActive)setSplitEdit(null)}}
