@@ -8823,7 +8823,7 @@ th,td{vertical-align:middle}
     ${split.fecha_entrega_contrato?`<div style="font-size:11px;color:#9a9590;margin-top:3px">🚚 Entrega: ${new Date(split.fecha_entrega_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
     ${split.fecha_desmonte_contrato&&split.tipo!=="desmonte"?`<div style="font-size:11px;color:#9a9590;margin-top:2px">📦 Desmonte: ${new Date(split.fecha_desmonte_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
   </div>
-  <!-- Hoja de Trabajo / Área --> -->
+  <!-- Hoja de Trabajo / Área -->
   <div style="text-align:right">
     <div style="font-size:9px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Hoja de Trabajo</div>
     <div style="display:inline-flex;align-items:center;gap:6px;background:${tipo.bg};border:2px solid ${tipo.color};border-radius:8px;padding:5px 12px">
