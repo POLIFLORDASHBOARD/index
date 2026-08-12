@@ -8759,7 +8759,7 @@ function abrirHojaSplit(split:any,logoSrc:string){
     ?DIAS_ES[new Date(fechaTrabajo+"T12:00:00").getDay()]
     :"—"
   // Etiqueta del tipo de actividad
-  const etiquetaTipo=split.tipo==="rutas"?"Entrega":split.tipo==="desmonte"?"Desmontaje":"Preparación"
+  const etiquetaTipo=split.tipo==="rutas"?"Entrega":split.tipo==="desmonte"?"Desmontaje":split.tipo==="carpinteria"?"Cargan":"Preparación"
   // Fecha de preparación = día antes del evento
   const fechaPrep=(()=>{
     const base=split.fecha_preparacion||(split.fecha_evento?new Date(new Date(split.fecha_evento+"T12:00:00").getTime()-86400000).toISOString().slice(0,10):"")
