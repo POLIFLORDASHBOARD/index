@@ -8721,6 +8721,8 @@ function abrirHojaSplit(split:any,logoSrc:string){
   // Para prep areas: split.fecha_evento es la fecha de preparación (día antes), entonces evento = fecha_evento + 1
   // Para rutas: fecha_preparacion tiene el evento real, o entrega + 1
   // Para desmonte: fecha_preparacion tiene el evento real, o desmonte - 1
+  // Para prep areas: si tiene fecha_entrega_contrato, el evento = entrega + 1 día
+  // Si no, calcular desde fecha_evento del split
   const fechaEventoReal=(()=>{
     if(split.tipo==="rutas"||split.tipo==="desmonte"){
       if(split.fecha_preparacion) return split.fecha_preparacion
@@ -8729,19 +8731,17 @@ function abrirHojaSplit(split:any,logoSrc:string){
       d.setDate(d.getDate()+(split.tipo==="rutas"?1:-1))
       return d.toISOString().slice(0,10)
     }
-    // Prep areas: split.fecha_evento = fecha de prep (día antes del evento)
-    // Evento real = fecha_evento + 1 día
-    if(split.tipo!=="proveedor"){
-      if(!split.fecha_evento) return ""
-      const d=new Date(split.fecha_evento+"T12:00:00")
+    // Prep areas: si tiene fecha_entrega_contrato, evento = entrega + 1 día (infalible)
+    if(split.fecha_entrega_contrato){
+      const d=new Date(split.fecha_entrega_contrato+"T12:00:00")
       d.setDate(d.getDate()+1)
       return d.toISOString().slice(0,10)
     }
-    // proveedor: misma lógica que prep areas, evento = fecha_evento + 1
+    // Fallback: fecha_evento + 1
     if(!split.fecha_evento) return ""
-    const dp=new Date(split.fecha_evento+"T12:00:00")
-    dp.setDate(dp.getDate()+1)
-    return dp.toISOString().slice(0,10)
+    const d=new Date(split.fecha_evento+"T12:00:00")
+    d.setDate(d.getDate()+1)
+    return d.toISOString().slice(0,10)
   })()
   const fecha=fechaEventoReal
     ?new Date(fechaEventoReal+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})
