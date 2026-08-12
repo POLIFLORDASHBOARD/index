@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Whitelist de columnas que existen en la tabla splits
     const COLS = ["contrato_id","contrato_folio","cliente","lugar","tel","fecha_evento","fecha_evento_original",
                   "fecha_preparacion","tipo","nombre","estado","notas","observaciones",
-                  "responsable","articulos","mostrar_precios","mostrar_direccion","proveedor_nombre"]
+                  "responsable","articulos","mostrar_precios","mostrar_direccion","proveedor_nombre","fecha_entrega_contrato","fecha_desmonte_contrato"]
     const clean = splits.map((s:any) => {
       const obj:any = {}
       COLS.forEach(k => { if (s[k] !== undefined) obj[k] = s[k] })
