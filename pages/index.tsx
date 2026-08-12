@@ -5840,7 +5840,7 @@ document.getElementById("btn-pdf").onclick=function(){
 
       {/* ─ PASO 3: RESUMEN ─ */}
       {paso===3&&(
-        <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr",gap:14}}>
           <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:20}}>
             <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:700,marginBottom:16}}>✅ Resumen final</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16,fontSize:12}}>
