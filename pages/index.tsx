@@ -8818,8 +8818,10 @@ th,td{vertical-align:middle}
     <div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:6px">📅 Evento: ${fecha}</div>
     ${mostrarDir&&split.lugar?`<div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:4px">📍 ${split.lugar}</div>`:""}
     ${(split.tipo==="rutas"||split.tipo==="desmonte")&&split.tel?`<div style="font-size:14px;color:#1a1814;font-weight:700;margin-top:4px">📞 ${split.tel}</div>`:""}
+    ${split._ent?`<div style="font-size:11px;color:#9a9590;margin-top:3px">🚚 Entrega: ${new Date(split._ent+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
+    ${split._des&&split.tipo!=="desmonte"?`<div style="font-size:11px;color:#9a9590;margin-top:2px">📦 Desmonte: ${new Date(split._des+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
   </div>
-  <!-- Hoja de Trabajo / Área -->
+  <!-- Hoja de Trabajo / Área --> -->
   <div style="text-align:right">
     <div style="font-size:9px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Hoja de Trabajo</div>
     <div style="display:inline-flex;align-items:center;gap:6px;background:${tipo.bg};border:2px solid ${tipo.color};border-radius:8px;padding:5px 12px">
@@ -9459,7 +9461,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                             )}
                             {s.notas&&<div style={{fontSize:10,color:"#4a4640",background:"#f8f6f2",borderRadius:5,padding:"4px 8px",marginBottom:6,fontStyle:"italic"}}>"{s.notas.slice(0,60)}{s.notas.length>60?"...":""}"</div>}
                             <div style={{display:"flex",gap:5,marginTop:6}}>
-                              <button onClick={e=>{e.stopPropagation();abrirHojaSplit({...s,_fec:selContrato?.fecha_evento||"",_ent:selContrato?.fecha_entrega||"",_des:selContrato?.fecha_desmonte||""},logoUrl)}} style={{flex:1,padding:"5px",borderRadius:6,background:tipo.color,color:"#fff",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>🖨️ Imprimir</button>
+                              <button onClick={e=>{e.stopPropagation();abrirHojaSplit(s,logoUrl)}} style={{flex:1,padding:"5px",borderRadius:6,background:tipo.color,color:"#fff",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>🖨️ Imprimir</button>
                               <button onClick={e=>{e.stopPropagation();isActive?setSplitEdit(null):abrirEdicion(s)}} style={{flex:1,padding:"5px",borderRadius:6,background:isActive?"#0f172a":"#f5f4f0",color:isActive?"#fff":"#4a4640",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>{isActive?"✕ Cerrar":"✏️ Editar"}</button>
                               <button onClick={async e=>{e.stopPropagation();if(!window.confirm("¿Eliminar esta hoja?"))return;await fetch(`/api/splits?id=${s.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});setSplits(prev=>prev.filter((x:any)=>x.id!==s.id));if(splitEdit?.id===s.id)setSplitEdit(null)}} style={{padding:"5px 7px",borderRadius:6,background:"#fdf0f0",color:"#8b2e2e",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}} title="Eliminar">×</button>
                               <button onClick={async e=>{e.stopPropagation();if(!window.confirm("¿Eliminar esta hoja?"))return;await fetch(`/api/splits?id=${s.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});setSplits(prev=>prev.filter((x:any)=>x.id!==s.id));if(isActive)setSplitEdit(null)}}
