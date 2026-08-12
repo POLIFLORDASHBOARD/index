@@ -6856,7 +6856,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                             style={{padding:"2px 6px",borderRadius:6,border:"none",background:est.bg,color:est.color,fontFamily:"Epilogue,sans-serif",fontSize:10,fontWeight:700,cursor:"pointer",outline:"none"}}>
                             {SPLIT_ESTADOS.map((e:any)=><option key={e.id} value={e.id}>{e.label}</option>)}
                           </select>
-                          <button onClick={()=>abrirHojaSplit({...s,fecha_evento_contrato:selContrato?.fecha_evento||"",fecha_desmonte_contrato:selContrato?.fecha_desmonte||""},logoUrl)}
+                          <button onClick={()=>abrirHojaSplit(s,logoUrl)}
                             style={{padding:"3px 8px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap" as const}}>
                             🖨️
                           </button>
@@ -9459,7 +9459,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                             )}
                             {s.notas&&<div style={{fontSize:10,color:"#4a4640",background:"#f8f6f2",borderRadius:5,padding:"4px 8px",marginBottom:6,fontStyle:"italic"}}>"{s.notas.slice(0,60)}{s.notas.length>60?"...":""}"</div>}
                             <div style={{display:"flex",gap:5,marginTop:6}}>
-                              <button onClick={e=>{e.stopPropagation();abrirHojaSplit({...s,fecha_evento_contrato:selContrato?.fecha_evento||"",fecha_desmonte_contrato:selContrato?.fecha_desmonte||""},logoUrl)}} style={{flex:1,padding:"5px",borderRadius:6,background:tipo.color,color:"#fff",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>🖨️ Imprimir</button>
+                              <button onClick={e=>{e.stopPropagation();abrirHojaSplit(s,logoUrl)}} style={{flex:1,padding:"5px",borderRadius:6,background:tipo.color,color:"#fff",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>🖨️ Imprimir</button>
                               <button onClick={e=>{e.stopPropagation();isActive?setSplitEdit(null):abrirEdicion(s)}} style={{flex:1,padding:"5px",borderRadius:6,background:isActive?"#0f172a":"#f5f4f0",color:isActive?"#fff":"#4a4640",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>{isActive?"✕ Cerrar":"✏️ Editar"}</button>
                               <button onClick={async e=>{e.stopPropagation();if(!window.confirm("¿Eliminar esta hoja?"))return;await fetch(`/api/splits?id=${s.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});setSplits(prev=>prev.filter((x:any)=>x.id!==s.id));if(splitEdit?.id===s.id)setSplitEdit(null)}} style={{padding:"5px 7px",borderRadius:6,background:"#fdf0f0",color:"#8b2e2e",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}} title="Eliminar">×</button>
                               <button onClick={async e=>{e.stopPropagation();if(!window.confirm("¿Eliminar esta hoja?"))return;await fetch(`/api/splits?id=${s.id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});setSplits(prev=>prev.filter((x:any)=>x.id!==s.id));if(isActive)setSplitEdit(null)}}
