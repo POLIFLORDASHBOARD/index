@@ -7554,30 +7554,24 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
     const totalArts=(x.articulos||[]).reduce((s:number,a:Articulo)=>s+(a.cantidad||0),0)
     const saldo=(x.total||0)-(x.cobrado||0)
     const CHOFERES_LIST=["PILLO","JORDAN","ISRAEL","MARCOS"]
-    const [choferEnt,setChoferEnt]=useState<string>((x.asig_entrega||[])[0]||"")
-    const [choferDes,setChoferDes]=useState<string>((x.asig_desmonte||[])[0]||"")
+    const [choferEnt,setChoferEnt]=useState<string>((x as any).chofer_entrega||(x.asig_entrega||[])[0]||"")
+    const [choferDes,setChoferDes]=useState<string>((x as any).chofer_desmonte||(x.asig_desmonte||[])[0]||"")
     const [guardandoChofer,setGuardandoChofer]=useState(false)
     const [choferOk,setChoferOk]=useState(false)
     const guardarChofer=async()=>{
       if(!token)return
-      // Strip excel_ prefix if present
-      const contratoId=String(x.id).replace(/^excel_/,"")
       setGuardandoChofer(true)
-      try{
-        const res=await fetch(`/api/contratos?id=${contratoId}`,{
-          method:"PATCH",
-          headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
-          body:JSON.stringify({
-            asig_entrega:choferEnt?[choferEnt]:[],
-            asig_desmonte:choferDes?[choferDes]:[]
-          })
+      await fetch(`/api/contratos?id=${x.id}`,{
+        method:"PATCH",
+        headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+        body:JSON.stringify({
+          asig_entrega:choferEnt?[choferEnt]:[],
+          asig_desmonte:choferDes?[choferDes]:[]
         })
-        const data=await res.json()
-        if(data.error){alert("Error: "+data.error);setGuardandoChofer(false);return}
-        setChoferOk(true)
-        setTimeout(()=>setChoferOk(false),2500)
-      }catch(e){alert("Error al guardar: "+e)}
+      })
       setGuardandoChofer(false)
+      setChoferOk(true)
+      setTimeout(()=>setChoferOk(false),2000)
     }
     return(
       <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.6)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
@@ -7723,8 +7717,8 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
               {x.folio&&<span style={{fontSize:9,background:"#f5f4f0",color:"#9a9590",padding:"1px 5px",borderRadius:4,fontFamily:"monospace"}}>{x.folio}</span>}
               {vendedor&&<span style={{fontSize:9,background:"#fafaf8",color:"#4a4640",padding:"1px 5px",borderRadius:4}}>👤 {vendedor}</span>}
               {totalArts>0&&<span style={{fontSize:9,background:col.bg,color:col.borde,padding:"1px 5px",borderRadius:4,fontWeight:600}}>📦 {totalArts} pzas</span>}
-              {(x.asig_entrega||[]).length>0&&tipo==="entrega"&&<span style={{fontSize:9,background:"#edf7f2",color:"#2d6a4f",padding:"1px 5px",borderRadius:4}}>🚛 {(x.asig_entrega||[]).join(", ")}</span>}
-              {!(x.asig_entrega||[]).length&&tipo==="entrega"&&<span style={{fontSize:9,background:"#fdf0f0",color:"#8b2e2e",padding:"1px 5px",borderRadius:4,fontWeight:700}}>⚠️ Sin asignar</span>}
+              {((x as any).chofer_entrega||(x.asig_entrega||[]).length>0)&&tipo==="entrega"&&<span style={{fontSize:9,background:"#edf7f2",color:"#2d6a4f",padding:"1px 5px",borderRadius:4}}>🚛 {(x as any).chofer_entrega||(x.asig_entrega||[]).join(", ")}</span>}
+              {!(x as any).chofer_entrega&&!(x.asig_entrega||[]).length&&tipo==="entrega"&&<span style={{fontSize:9,background:"#fdf0f0",color:"#8b2e2e",padding:"1px 5px",borderRadius:4,fontWeight:700}}>⚠️ Sin asignar</span>}
             </div>
           </div>
           <div style={{textAlign:"right" as const,flexShrink:0}}>
