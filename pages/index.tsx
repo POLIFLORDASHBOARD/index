@@ -7575,10 +7575,8 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
         const data=await res.json()
         if(data&&data.error){alert("Error: "+data.error);setGuardandoChofer(false);return}
         setChoferOk(true)
-        setTimeout(()=>{
-          if(onUpdate) onUpdate()
-          onClose()
-        },1200)
+        if(onUpdate) onUpdate()
+        setTimeout(()=>{ onClose() },2000)
       }catch(e){alert("Error: "+e)}
       setGuardandoChofer(false)
     }
