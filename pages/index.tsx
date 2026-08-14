@@ -8753,7 +8753,7 @@ function generarSplitsDesdeContrato(contrato:any):any[]{
   }))
 }
 
-function abrirHojaSplit(split:any,logoSrc:string){
+function abrirHojaSplit(split:any,logoSrc:string){console.log("HOJA SPLIT:",JSON.stringify({tipo:split.tipo,fe:split.fecha_evento,fp:split.fecha_preparacion,fec:split.fecha_entrega_contrato,fdc:split.fecha_desmonte_contrato}))
   const tipo=SPLIT_TIPOS.find(t=>t.id===split.tipo)||SPLIT_TIPOS[0]
   const arts=split.articulos||[]
   // Usar la definición de SPLIT_TIPOS como fuente de verdad para dirección y precio
