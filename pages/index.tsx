@@ -6357,8 +6357,8 @@ document.getElementById("btn-pdfc").onclick=function(){
                       {x.tel&&<div style={{fontSize:10,color:"#4a4640",marginTop:1}}>📞 {x.tel}</div>}
                       <div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap" as const}}>
                         {nArts>0&&<span style={{fontSize:9,background:"#f5f4f0",color:"#4a4640",padding:"1px 6px",borderRadius:4}}>📦 {nArts} pzas</span>}
-                        {(x.asig_entrega||[]).length>0&&<span style={{fontSize:9,background:"#edf3fa",color:"#1a3a5c",padding:"1px 6px",borderRadius:4}}>🚛 {(x as any).chofer_entrega||(x.asig_entrega||[]).join(", ")}</span>}
-                        {!(x as any).chofer_entrega&&!(x.asig_entrega||[]).length&&tipo==="entrega"&&<span style={{fontSize:9,background:"#fdf0f0",color:"#8b2e2e",padding:"1px 6px",borderRadius:4,fontWeight:700}}>⚠️ Sin asignar</span>}
+                        {(x.asig_entrega||[]).length>0&&<span style={{fontSize:9,background:"#edf3fa",color:"#1a3a5c",padding:"1px 6px",borderRadius:4}}>🚚 {(x.asig_entrega||[]).join(", ")}</span>}
+                        {!(x.asig_entrega||[]).length&&x.fecha_entrega&&new Date(x.fecha_entrega)>=new Date()&&<span style={{fontSize:9,background:"#fdf0f0",color:"#8b2e2e",padding:"1px 6px",borderRadius:4,fontWeight:700}}>⚠️ Sin asignar</span>}
                       </div>
                     </div>
                     {/* Monto */}
