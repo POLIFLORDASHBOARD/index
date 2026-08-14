@@ -6903,10 +6903,12 @@ document.getElementById("btn-pdfc").onclick=function(){
                         cliente:selContrato.cliente||selContrato.archivo||"",
                         lugar:selContrato.lugar||"",
                         fecha_evento:selContrato.fecha_evento||"",
+                        fecha_entrega_contrato:selContrato.fecha_entrega||"",
+                        fecha_desmonte_contrato:selContrato.fecha_desmonte||"",
                         tipo:"proveedor",nombre:`Proveedor: ${nombre}`,
                         proveedor_nombre:nombre,estado:"pendiente",
                         articulos:[],notas:"",observaciones:"",
-                        mostrar_precios:false,mostrar_direccion:false,
+                        mostrar_precios:false,mostrar_direccion:true,
                       }])
                     })
                     const data=await r.json()
