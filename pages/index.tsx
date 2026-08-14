@@ -7550,7 +7550,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
   }
 
   // ── FICHA CONTRATO MODAL ──────────────────────────────────────────
-  const FichaModal=({x,onClose,token}:{x:Contrato,onClose:()=>void,token?:string})=>{
+  const FichaModal=({x,onClose,token,onUpdate}:{x:Contrato,onClose:()=>void,token?:string,onUpdate?:()=>void})=>{
     const totalArts=(x.articulos||[]).reduce((s:number,a:Articulo)=>s+(a.cantidad||0),0)
     const saldo=(x.total||0)-(x.cobrado||0)
     const CHOFERES_LIST=["PILLO","JORDAN","ISRAEL","MARCOS"]
@@ -7571,12 +7571,14 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
             chofer_desmonte:choferDes||""
           })
         })
-        const data=await res.json()
-        if(data&&data.error){alert("Error: "+data.error);setGuardandoChofer(false);return}
+        const txt=await res.text()
+        alert("ID:"+contratoId+" STATUS:"+res.status+" BODY:"+txt.slice(0,300))
+        const data=JSON.parse(txt||"{}")
+        if(data&&data.error){setGuardandoChofer(false);return}
         setChoferOk(true)
         if(onUpdate) onUpdate()
         setTimeout(()=>setChoferOk(false),2500)
-      }catch(e){alert("Error al guardar: "+e)}
+      }catch(e){alert("catch: "+e)}
       setGuardandoChofer(false)
     }
     return(
