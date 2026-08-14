@@ -8793,7 +8793,7 @@ function abrirHojaSplit(split:any,logoSrc:string){
   // - resto: fechaPrep (día antes del evento)
   const esPrepArea=split.tipo!=="rutas"&&split.tipo!=="desmonte"
   const fechaTrabajo=esPrepArea
-    ?(split.fecha_entrega_contrato||split.fecha_preparacion||split.fecha_evento)
+    ?(split.fecha_evento||split.fecha_entrega_contrato||split.fecha_preparacion)
     :split.fecha_evento
   const fechaTrabajoFmt=fechaTrabajo
     ?new Date(fechaTrabajo+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})
