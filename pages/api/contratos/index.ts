@@ -112,7 +112,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Only send known contrato columns to Supabase (NOT articulos — separate table)
     const ALLOWED = ["cliente","lugar","telefono","fecha_evento","fecha_entrega","fecha_desmonte",
       "dia_evento","dia_entrega","dia_desmonte","tipo","folio","total","a_cuenta","cobrado",
-      "asig_entrega","asig_desmonte","estado_entrega","estado_desmonte","checklist","notas",
+      "asig_entrega","asig_desmonte","estado_entrega","estado_desmonte","chofer_entrega","chofer_desmonte","checklist","notas",
       "pagos","es_duplicado","carpeta","archivo",
       "descuento_pct","descuento_monto_global","aplica_iva"]
     const updates: any = {}
