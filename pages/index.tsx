@@ -7571,14 +7571,12 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
             chofer_desmonte:choferDes||""
           })
         })
-        const txt=await res.text()
-        alert("ID:"+contratoId+" STATUS:"+res.status+" BODY:"+txt.slice(0,300))
-        const data=JSON.parse(txt||"{}")
-        if(data&&data.error){setGuardandoChofer(false);return}
+        const data=await res.json()
+        if(data&&data.error){alert("Error: "+data.error);setGuardandoChofer(false);return}
         setChoferOk(true)
         if(onUpdate) onUpdate()
         setTimeout(()=>setChoferOk(false),2500)
-      }catch(e){alert("catch: "+e)}
+      }catch(e){alert("Error: "+e)}
       setGuardandoChofer(false)
     }
     return(
