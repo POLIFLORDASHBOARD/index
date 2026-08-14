@@ -13,8 +13,8 @@ interface Contrato {
   dia_evento: string; dia_entrega: string; dia_desmonte: string
   estado_entrega: string; estado_desmonte: string
   asig_entrega: string[]; asig_desmonte: string[]
-  checklist: { txt: string; done: boolean }[]
   chofer_entrega: string; chofer_desmonte: string
+  checklist: { txt: string; done: boolean }[]
   notas: string; es_duplicado: boolean; carpeta: string
   articulos: Articulo[]
   folio: string
@@ -7572,14 +7572,12 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
             chofer_desmonte:choferDes||""
           })
         })
-        const txt=await res.text()
-        alert("ID:"+contratoId+" STATUS:"+res.status+" BODY:"+txt.slice(0,300))
-        const data=JSON.parse(txt||"{}")
-        if(data&&data.error){setGuardandoChofer(false);return}
+        const data=await res.json()
+        if(data&&data.error){alert("Error: "+data.error);setGuardandoChofer(false);return}
         setChoferOk(true)
         if(onUpdate) onUpdate()
         setTimeout(()=>setChoferOk(false),2500)
-      }catch(e){alert("catch: "+e)}
+      }catch(e){alert("Error: "+e)}
       setGuardandoChofer(false)
     }
     return(
@@ -7710,7 +7708,23 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
     const col=cols[tipo]
     const vendedor=x.vendedor||vendedorDesdeFolio(x.folio||"")
     return(
-      <div onClick={()=>setFichaContrato(x)} style={{background:"#fff",border:`1px solid #e8e5de`,borderLeft:`4px solid ${(x.chofer_entrega||(x.asig_entrega||[]).length>0)&&tipo==="entrega"&&<span style={{fontSize:9,background:"#edf7f2",color:"#2d6a4f",padding:"1px 5px",borderRadius:4}}>🚛 {x.chofer_entrega||(x.asig_entrega||[]).join(", ")}</span>}
+      <div onClick={()=>setFichaContrato(x)} style={{background:"#fff",border:`1px solid #e8e5de`,borderLeft:`4px solid ${col.borde}`,borderRadius:8,padding:"10px 12px",marginBottom:6,cursor:"pointer",transition:"box-shadow .15s"}}
+        onMouseEnter={e=>(e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.1)")}
+        onMouseLeave={e=>(e.currentTarget.style.boxShadow="none")}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+          <div style={{width:32,height:32,borderRadius:8,background:col.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{col.ico}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap" as const}}>
+              <span style={{fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{x.cliente||x.archivo}</span>
+              <span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:col.bg,color:col.borde,fontWeight:700,flexShrink:0}}>{col.tag}</span>
+            </div>
+            <div style={{fontSize:10,color:"#9a9590",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>📍 {x.lugar?.slice(0,45)||"Sin dirección"}</div>
+            {x.tel&&<div style={{fontSize:10,color:"#4a4640",marginTop:1}}>📞 {x.tel}</div>}
+            <div style={{display:"flex",gap:6,marginTop:5,flexWrap:"wrap" as const}}>
+              {x.folio&&<span style={{fontSize:9,background:"#f5f4f0",color:"#9a9590",padding:"1px 5px",borderRadius:4,fontFamily:"monospace"}}>{x.folio}</span>}
+              {vendedor&&<span style={{fontSize:9,background:"#fafaf8",color:"#4a4640",padding:"1px 5px",borderRadius:4}}>👤 {vendedor}</span>}
+              {totalArts>0&&<span style={{fontSize:9,background:col.bg,color:col.borde,padding:"1px 5px",borderRadius:4,fontWeight:600}}>📦 {totalArts} pzas</span>}
+              {(x.chofer_entrega||(x.asig_entrega||[]).length>0)&&tipo==="entrega"&&<span style={{fontSize:9,background:"#edf7f2",color:"#2d6a4f",padding:"1px 5px",borderRadius:4}}>🚛 {x.chofer_entrega||(x.asig_entrega||[]).join(", ")}</span>}
               {!x.chofer_entrega&&!(x.asig_entrega||[]).length&&tipo==="entrega"&&<span style={{fontSize:9,background:"#fdf0f0",color:"#8b2e2e",padding:"1px 5px",borderRadius:4,fontWeight:700}}>⚠️ Sin asignar</span>}
             </div>
           </div>
