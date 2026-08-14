@@ -7560,18 +7560,24 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
     const [choferOk,setChoferOk]=useState(false)
     const guardarChofer=async()=>{
       if(!token)return
+      // Strip excel_ prefix if present
+      const contratoId=String(x.id).replace(/^excel_/,"")
       setGuardandoChofer(true)
-      await fetch(`/api/contratos?id=${x.id}`,{
-        method:"PATCH",
-        headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
-        body:JSON.stringify({
-          asig_entrega:choferEnt?[choferEnt]:[],
-          asig_desmonte:choferDes?[choferDes]:[]
+      try{
+        const res=await fetch(`/api/contratos?id=${contratoId}`,{
+          method:"PATCH",
+          headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+          body:JSON.stringify({
+            asig_entrega:choferEnt?[choferEnt]:[],
+            asig_desmonte:choferDes?[choferDes]:[]
+          })
         })
-      })
+        const data=await res.json()
+        if(data.error){alert("Error: "+data.error);setGuardandoChofer(false);return}
+        setChoferOk(true)
+        setTimeout(()=>setChoferOk(false),2500)
+      }catch(e){alert("Error al guardar: "+e)}
       setGuardandoChofer(false)
-      setChoferOk(true)
-      setTimeout(()=>setChoferOk(false),2000)
     }
     return(
       <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.6)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
