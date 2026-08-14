@@ -6894,6 +6894,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                   <button onClick={async()=>{
                     const nombre=prompt("Nombre del proveedor:")
                     if(!nombre)return
+                    alert("selContrato: "+JSON.stringify({id:selContrato.id,fe:selContrato.fecha_evento,ent:selContrato.fecha_entrega,des:selContrato.fecha_desmonte}))
                     // Leer fechas directo de Supabase para tener datos frescos
                     const cRes=await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL||"https://ohxehnsxfbvdflmqlzxq.supabase.co"}/rest/v1/contratos?id=eq.${selContrato.id}&select=fecha_evento,fecha_entrega,fecha_desmonte`,{
                       headers:{"apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM"}
