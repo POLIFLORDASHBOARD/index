@@ -7456,14 +7456,16 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
   const rangoFin=vistaMode==="semana"?isoDomSem:isoDate(new Date(mesRef.getFullYear(),mesRef.getMonth()+1,0))
 
   const eventosDia=(f:string)=>contratos.filter(x=>x.fecha_entrega===f||x.fecha_evento===f||x.fecha_desmonte===f)
-  const entregasDia=contratos.filter(x=>x.fecha_entrega===diaActivo)
-  const eventosDiaAct=contratos.filter(x=>x.fecha_evento===diaActivo)
-  const desmontesDia=contratos.filter(x=>x.fecha_desmonte===diaActivo)
+  const noDeclinado=(x:any)=>x.tipo!=="declinado"&&x.tipo!=="cotizacion"
+  const entregasDia=contratos.filter(x=>x.fecha_entrega===diaActivo&&noDeclinado(x))
+  const eventosDiaAct=contratos.filter(x=>x.fecha_evento===diaActivo&&noDeclinado(x))
+  const desmontesDia=contratos.filter(x=>x.fecha_desmonte===diaActivo&&noDeclinado(x))
 
   const contratosRango=contratos.filter(x=>
+    noDeclinado(x)&&(
     (x.fecha_evento>=rangoInicio&&x.fecha_evento<=rangoFin)||
     (x.fecha_entrega>=rangoInicio&&x.fecha_entrega<=rangoFin)||
-    (x.fecha_desmonte>=rangoInicio&&x.fecha_desmonte<=rangoFin)
+    (x.fecha_desmonte>=rangoInicio&&x.fecha_desmonte<=rangoFin))
   )
 
   const [cotsPend,setCotsPend]=useState<any[]>([])
@@ -7548,9 +7550,29 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
   }
 
   // ── FICHA CONTRATO MODAL ──────────────────────────────────────────
-  const FichaModal=({x,onClose}:{x:Contrato,onClose:()=>void})=>{
+  const FichaModal=({x,onClose,token}:{x:Contrato,onClose:()=>void,token?:string})=>{
     const totalArts=(x.articulos||[]).reduce((s:number,a:Articulo)=>s+(a.cantidad||0),0)
     const saldo=(x.total||0)-(x.cobrado||0)
+    const CHOFERES_LIST=["PILLO","JORDAN","ISRAEL","MARCOS"]
+    const [choferEnt,setChoferEnt]=useState<string>((x.asig_entrega||[])[0]||"")
+    const [choferDes,setChoferDes]=useState<string>((x.asig_desmonte||[])[0]||"")
+    const [guardandoChofer,setGuardandoChofer]=useState(false)
+    const [choferOk,setChoferOk]=useState(false)
+    const guardarChofer=async()=>{
+      if(!token)return
+      setGuardandoChofer(true)
+      await fetch(`/api/contratos?id=${x.id}`,{
+        method:"PATCH",
+        headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+        body:JSON.stringify({
+          asig_entrega:choferEnt?[choferEnt]:[],
+          asig_desmonte:choferDes?[choferDes]:[]
+        })
+      })
+      setGuardandoChofer(false)
+      setChoferOk(true)
+      setTimeout(()=>setChoferOk(false),2000)
+    }
     return(
       <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.6)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
         onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
@@ -7587,23 +7609,31 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
               {x.lugar&&<div style={{fontSize:12,color:"#4a4640"}}>📍 {x.lugar}</div>}
               {x.tel&&<div style={{fontSize:12,color:"#4a4640"}}>📞 {x.tel}</div>}
             </div>
-            {/* Piezas asignadas */}
-            {((x.asig_entrega||[]).length>0||(x.asig_desmonte||[]).length>0)&&(
-              <div style={{display:"flex",gap:8,marginBottom:14}}>
-                {(x.asig_entrega||[]).length>0&&(
-                  <div style={{background:"#edf3fa",borderRadius:8,padding:"6px 10px",fontSize:11}}>
-                    <span style={{fontWeight:700,color:"#1a3a5c"}}>🚚 Entrega: </span>
-                    <span style={{color:"#1a3a5c"}}>{(x.asig_entrega||[]).join(", ")}</span>
+            {/* Chofer / Asignación */}
+            <div style={{background:"#fafaf8",border:"1px solid #e8e5de",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:10}}>🚛 Asignación de chofer</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                {[{label:"Entrega",val:choferEnt,set:setChoferEnt,col:"#1a3a5c",bg:"#edf3fa"},{label:"Desmonte",val:choferDes,set:setChoferDes,col:"#4a2d6e",bg:"#f5f0fc"}].map(({label,val,set,col,bg})=>(
+                  <div key={label}>
+                    <div style={{fontSize:10,fontWeight:700,color:col,marginBottom:5}}>{label==="Entrega"?"🚚":"📦"} {label}</div>
+                    <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginBottom:5}}>
+                      {CHOFERES_LIST.map(c=>(
+                        <button key={c} onClick={()=>set(val===c?"":c)}
+                          style={{padding:"3px 8px",borderRadius:6,border:`1.5px solid ${val===c?col:"#e8e5de"}`,background:val===c?col:"#fff",color:val===c?"#fff":"#4a4640",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Epilogue,sans-serif"}}>
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    <input value={val} onChange={e=>set(e.target.value)} placeholder="Otro chofer..."
+                      style={{width:"100%",padding:"5px 8px",border:"1px solid #e8e5de",borderRadius:6,fontFamily:"Epilogue,sans-serif",fontSize:11,outline:"none",boxSizing:"border-box" as const,background:"#fff"}}/>
                   </div>
-                )}
-                {(x.asig_desmonte||[]).length>0&&(
-                  <div style={{background:"#f5f0fc",borderRadius:8,padding:"6px 10px",fontSize:11}}>
-                    <span style={{fontWeight:700,color:"#4a2d6e"}}>📦 Desmonte: </span>
-                    <span style={{color:"#4a2d6e"}}>{(x.asig_desmonte||[]).join(", ")}</span>
-                  </div>
-                )}
+                ))}
               </div>
-            )}
+              <button onClick={guardarChofer} disabled={guardandoChofer}
+                style={{width:"100%",padding:"7px",borderRadius:8,background:choferOk?"#2d6a4f":guardandoChofer?"#9a9590":"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700,transition:"background .3s"}}>
+                {choferOk?"✓ Guardado":guardandoChofer?"Guardando...":"💾 Guardar asignación"}
+              </button>
+            </div>
             {/* Artículos */}
             <div style={{marginBottom:14}}>
               <div style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:8}}>
@@ -7748,7 +7778,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
     <div style={{display:"flex",flexDirection:"column" as const,gap:14}}>
 
       {/* ── MODAL FICHA ── */}
-      {fichaContrato&&<FichaModal x={fichaContrato} onClose={()=>setFichaContrato(null)}/>}
+      {fichaContrato&&<FichaModal x={fichaContrato} onClose={()=>setFichaContrato(null)} token={token}/>}
 
       {/* ── HEADER NAV ── */}
       <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap" as const}}>
