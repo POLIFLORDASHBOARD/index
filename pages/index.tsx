@@ -6897,21 +6897,21 @@ document.getElementById("btn-pdfc").onclick=function(){
                     const r=await fetch("/api/splits",{
                       method:"POST",
                       headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
-                      body:JSON.stringify([{
+                      body:(()=>{const payload=[{
                         contrato_id:selContrato.id,
                         contrato_folio:selContrato.folio||selContrato.archivo||"",
                         cliente:selContrato.cliente||selContrato.archivo||"",
                         lugar:selContrato.lugar||"",
                         tel:selContrato.tel||selContrato.telefono||"",
-                        fecha_evento:selContrato.fecha_entrega||"",
-                        fecha_preparacion:selContrato.fecha_evento||"",
-                        fecha_entrega_contrato:selContrato.fecha_entrega||"",
-                        fecha_desmonte_contrato:selContrato.fecha_desmonte||"",
+                        fecha_evento:selContrato.fecha_entrega||null,
+                        fecha_preparacion:selContrato.fecha_evento||null,
+                        fecha_entrega_contrato:selContrato.fecha_entrega||null,
+                        fecha_desmonte_contrato:selContrato.fecha_desmonte||null,
                         tipo:"proveedor",nombre:`Proveedor: ${nombre}`,
                         proveedor_nombre:nombre,estado:"pendiente",
                         articulos:[],notas:"",observaciones:"",
                         mostrar_precios:false,mostrar_direccion:false,
-                      }])
+                      }];alert("PAYLOAD: "+JSON.stringify(payload[0]).slice(0,300));return JSON.stringify(payload)})()
                     })
                     const data=await r.json()
                     if(Array.isArray(data))setSplitsDelContrato(prev=>[...prev,...data])
