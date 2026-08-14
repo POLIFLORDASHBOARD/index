@@ -6894,6 +6894,10 @@ document.getElementById("btn-pdfc").onclick=function(){
                   <button onClick={async()=>{
                     const nombre=prompt("Nombre del proveedor:")
                     if(!nombre)return
+                    // Fetch contrato fresco para tener fechas actualizadas
+                    const cRes=await fetch(`/api/contratos?id=${selContrato.id}`,{headers:{Authorization:`Bearer ${token}`}})
+                    const cData=await cRes.json()
+                    const cFresh=Array.isArray(cData)?cData[0]:cData
                     const r=await fetch("/api/splits",{
                       method:"POST",
                       headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
@@ -6903,10 +6907,10 @@ document.getElementById("btn-pdfc").onclick=function(){
                         cliente:selContrato.cliente||selContrato.archivo||"",
                         lugar:selContrato.lugar||"",
                         tel:selContrato.tel||selContrato.telefono||"",
-                        fecha_evento:selContrato.fecha_entrega||selContrato.fecha_evento||null,
-                        fecha_preparacion:selContrato.fecha_evento||null,
-                        fecha_entrega_contrato:selContrato.fecha_entrega||selContrato.fecha_evento||null,
-                        fecha_desmonte_contrato:selContrato.fecha_desmonte||null,
+                        fecha_evento:cFresh.fecha_entrega||cFresh.fecha_evento||null,
+                        fecha_preparacion:cFresh.fecha_evento||null,
+                        fecha_entrega_contrato:cFresh.fecha_entrega||cFresh.fecha_evento||null,
+                        fecha_desmonte_contrato:cFresh.fecha_desmonte||null,
                         tipo:"proveedor",nombre:`Proveedor: ${nombre}`,
                         proveedor_nombre:nombre,estado:"pendiente",
                         articulos:[],notas:"",observaciones:"",
