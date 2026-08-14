@@ -8750,7 +8750,7 @@ function abrirHojaSplit(split:any,logoSrc:string){
   const arts=split.articulos||[]
   // Usar la definición de SPLIT_TIPOS como fuente de verdad para dirección y precio
   const tipoConfig=SPLIT_TIPOS.find((t:any)=>t.id===split.tipo)
-  const mostrarDir=split.tipo==="proveedor" ? true : (tipoConfig ? tipoConfig.mostrarDir : split.mostrar_direccion!==false)
+  const mostrarDir=tipoConfig ? tipoConfig.mostrarDir : split.mostrar_direccion!==false
   const mostrarPrecio=tipoConfig ? tipoConfig.mostrarPrecio : split.mostrar_precios===true
   const DIAS_ES=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"]
   // Para desmonte: el evento es el día ANTES de la fecha de desmonte (split.fecha_evento)
