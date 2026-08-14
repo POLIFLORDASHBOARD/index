@@ -8800,7 +8800,7 @@ function abrirHojaSplit(split:any,logoSrc:string){
     ?DIAS_ES[new Date(fechaTrabajo+"T12:00:00").getDay()]
     :"—"
   // Etiqueta del tipo de actividad
-  const etiquetaTipo=split.tipo==="rutas"?"Entrega":split.tipo==="desmonte"?"Desmontaje":split.tipo==="carpinteria"?"Cargan":"Preparación"
+  const etiquetaTipo=split.tipo==="rutas"?"Entrega":split.tipo==="desmonte"?"Desmontaje":split.tipo==="carpinteria"?"Cargan":split.tipo==="proveedor"?"Proveedor":"Preparación"
   // Fecha de preparación = día antes del evento
   const fechaPrep=(()=>{
     const base=split.fecha_preparacion||(split.fecha_evento?new Date(new Date(split.fecha_evento+"T12:00:00").getTime()-86400000).toISOString().slice(0,10):"")
@@ -8858,7 +8858,7 @@ th,td{vertical-align:middle}
     ${split.contrato_folio?`<div style="font-size:13px;color:#9a9590;font-family:monospace;font-weight:700">${split.contrato_folio}</div>`:""}
     <div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:6px">📅 Evento: ${fecha}</div>
     ${mostrarDir&&split.lugar?`<div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:4px">📍 ${split.lugar}</div>`:""}
-    ${(split.tipo==="rutas"||split.tipo==="desmonte")&&split.tel?`<div style="font-size:14px;color:#1a1814;font-weight:700;margin-top:4px">📞 ${split.tel}</div>`:""}
+    ${(split.tipo==="rutas"||split.tipo==="desmonte"||split.tipo==="proveedor")&&split.tel?`<div style="font-size:14px;color:#1a1814;font-weight:700;margin-top:4px">📞 ${split.tel}</div>`:""}
     ${["vajilla","carpinteria","bases","flores","proveedor"].includes(split.tipo)&&split.fecha_entrega_contrato?`<div style="font-size:11px;color:#9a9590;margin-top:3px">🚚 Entrega: ${new Date(split.fecha_entrega_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}\n    ${["vajilla","carpinteria","bases","flores","proveedor"].includes(split.tipo)&&split.fecha_desmonte_contrato?`<div style="font-size:11px;color:#9a9590;margin-top:2px">📦 Desmonte: ${new Date(split.fecha_desmonte_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
   </div>
   <!-- Hoja de Trabajo / Área -->
