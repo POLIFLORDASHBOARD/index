@@ -6857,7 +6857,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                             style={{padding:"2px 6px",borderRadius:6,border:"none",background:est.bg,color:est.color,fontFamily:"Epilogue,sans-serif",fontSize:10,fontWeight:700,cursor:"pointer",outline:"none"}}>
                             {SPLIT_ESTADOS.map((e:any)=><option key={e.id} value={e.id}>{e.label}</option>)}
                           </select>
-                          <button onClick={()=>abrirHojaSplit(s.tipo==="proveedor"?{...s,fecha_entrega_contrato:s.fecha_entrega_contrato||selContrato?.fecha_entrega||"",fecha_desmonte_contrato:s.fecha_desmonte_contrato||selContrato?.fecha_desmonte||"",fecha_preparacion:s.fecha_preparacion||selContrato?.fecha_evento||""}:s,logoUrl)}
+                          <button onClick={()=>abrirHojaSplit(s.tipo==="proveedor"?{...s,fecha_preparacion:s.fecha_preparacion||s.fecha_evento||"",fecha_entrega_contrato:s.fecha_entrega_contrato||s.fecha_evento||"",fecha_desmonte_contrato:s.fecha_desmonte_contrato||""}:s,logoUrl)}
                             style={{padding:"3px 8px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap" as const}}>
                             🖨️
                           </button>
@@ -6894,7 +6894,6 @@ document.getElementById("btn-pdfc").onclick=function(){
                   <button onClick={async()=>{
                     const nombre=prompt("Nombre del proveedor:")
                     if(!nombre)return
-                    alert("selContrato: "+JSON.stringify({id:selContrato.id,fe:selContrato.fecha_evento,ent:selContrato.fecha_entrega,des:selContrato.fecha_desmonte}))
                     // Leer fechas directo de Supabase para tener datos frescos
                     const cRes=await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL||"https://ohxehnsxfbvdflmqlzxq.supabase.co"}/rest/v1/contratos?id=eq.${selContrato.id}&select=fecha_evento,fecha_entrega,fecha_desmonte`,{
                       headers:{"apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM"}
