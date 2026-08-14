@@ -36,9 +36,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const COLS = ["contrato_id","contrato_folio","cliente","lugar","tel","fecha_evento","fecha_evento_original",
                   "fecha_preparacion","tipo","nombre","estado","notas","observaciones",
                   "responsable","articulos","mostrar_precios","mostrar_direccion","proveedor_nombre","fecha_entrega_contrato","fecha_desmonte_contrato"]
+    const DATE_COLS = ["fecha_evento","fecha_evento_original","fecha_preparacion","fecha_entrega_contrato","fecha_desmonte_contrato"]
     const clean = splits.map((s:any) => {
       const obj:any = {}
-      COLS.forEach(k => { if (s[k] !== undefined) obj[k] = s[k] })
+      COLS.forEach(k => {
+        if (s[k] !== undefined) {
+          // Convert empty string to null for date fields
+          obj[k] = (DATE_COLS.includes(k) && s[k] === "") ? null : s[k]
+        }
+      })
       return obj
     })
     // Insert individually so one failure doesn't block others
