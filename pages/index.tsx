@@ -6857,7 +6857,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                             style={{padding:"2px 6px",borderRadius:6,border:"none",background:est.bg,color:est.color,fontFamily:"Epilogue,sans-serif",fontSize:10,fontWeight:700,cursor:"pointer",outline:"none"}}>
                             {SPLIT_ESTADOS.map((e:any)=><option key={e.id} value={e.id}>{e.label}</option>)}
                           </select>
-                          <button onClick={()=>abrirHojaSplit(s.tipo==="proveedor"?{...s,fecha_preparacion:s.fecha_preparacion||s.fecha_evento,fecha_entrega_contrato:s.fecha_entrega_contrato||s.fecha_evento,fecha_desmonte_contrato:s.fecha_desmonte_contrato||undefined}:s,logoUrl)}
+                          <button onClick={()=>abrirHojaSplit(s.tipo==="proveedor"?{...s,fecha_preparacion:selContrato?.fecha_evento||s.fecha_preparacion,fecha_entrega_contrato:selContrato?.fecha_entrega||s.fecha_entrega_contrato||s.fecha_evento,fecha_desmonte_contrato:selContrato?.fecha_desmonte||s.fecha_desmonte_contrato}:s,logoUrl)}
                             style={{padding:"3px 8px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap" as const}}>
                             🖨️
                           </button>
@@ -8778,8 +8778,8 @@ function abrirHojaSplit(split:any,logoSrc:string){
       d.setDate(d.getDate()+(split.tipo==="rutas"?1:-1))
       return d.toISOString().slice(0,10)
     }
-    // Proveedor: fecha_evento es el evento real directamente
-    if(split.tipo==="proveedor") return split.fecha_evento||""
+    // Proveedor: fecha_preparacion = evento real, fecha_evento = prep
+    if(split.tipo==="proveedor") return split.fecha_preparacion||split.fecha_evento||""
     // Prep areas: fecha_preparacion = evento real del contrato
     if(split.fecha_preparacion) return split.fecha_preparacion
     // Fallback: fecha_entrega_contrato + 1
