@@ -8770,13 +8770,15 @@ function abrirHojaSplit(split:any,logoSrc:string){
       d.setDate(d.getDate()+(split.tipo==="rutas"?1:-1))
       return d.toISOString().slice(0,10)
     }
-    // Prep areas: si tiene fecha_entrega_contrato, evento = entrega + 1 día (infalible)
+    // Prep areas y proveedor: fecha_preparacion = evento real del contrato
+    if(split.fecha_preparacion) return split.fecha_preparacion
+    // Fallback: fecha_entrega_contrato + 1
     if(split.fecha_entrega_contrato){
       const d=new Date(split.fecha_entrega_contrato+"T12:00:00")
       d.setDate(d.getDate()+1)
       return d.toISOString().slice(0,10)
     }
-    // Fallback: fecha_evento + 1
+    // Ultimo fallback: fecha_evento + 1
     if(!split.fecha_evento) return ""
     const d=new Date(split.fecha_evento+"T12:00:00")
     d.setDate(d.getDate()+1)
