@@ -766,7 +766,7 @@ export default function Dashboard(){
                 </label>
               </div>
             </div>
-            <InicioSection contratos={contratosEnriquecidos} esAdmin={esAdmin} vendedorActual={vendedorActual} token={token}/>
+            <InicioSection contratos={contratosEnriquecidos} esAdmin={esAdmin} vendedorActual={vendedorActual} token={token} onUpdate={()=>cargar(token)}/>
           </div>
         )}
 
@@ -7420,7 +7420,7 @@ function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
 }
 
 
-function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contrato[],esAdmin:boolean,vendedorActual:string,token:string}){
+function InicioSection({contratos,esAdmin,vendedorActual,token,onUpdate}:{contratos:Contrato[],esAdmin:boolean,vendedorActual:string,token:string,onUpdate?:()=>void}){
   const [vistaMode,setVistaMode]=useState<"semana"|"mes">("semana")
   const [alertaVisible,setAlertaVisible]=useState(true)
   const [semOff,setSemOff]=useState(0)
@@ -7550,7 +7550,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
   }
 
   // ── FICHA CONTRATO MODAL ──────────────────────────────────────────
-  const FichaModal=({x,onClose,token}:{x:Contrato,onClose:()=>void,token?:string})=>{
+  const FichaModal=({x,onClose,token,onUpdate}:{x:Contrato,onClose:()=>void,token?:string,onUpdate?:()=>void})=>{
     const totalArts=(x.articulos||[]).reduce((s:number,a:Articulo)=>s+(a.cantidad||0),0)
     const saldo=(x.total||0)-(x.cobrado||0)
     const CHOFERES_LIST=["PILLO","JORDAN","ISRAEL","MARCOS"]
@@ -7574,6 +7574,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
         const data=await res.json()
         if(data&&data.error){alert("Error: "+data.error);setGuardandoChofer(false);return}
         setChoferOk(true)
+        if(onUpdate) onUpdate()
         setTimeout(()=>setChoferOk(false),2500)
       }catch(e){alert("Error: "+e)}
       setGuardandoChofer(false)
@@ -7783,7 +7784,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
     <div style={{display:"flex",flexDirection:"column" as const,gap:14}}>
 
       {/* ── MODAL FICHA ── */}
-      {fichaContrato&&<FichaModal x={fichaContrato} onClose={()=>setFichaContrato(null)} token={token}/>}
+      {fichaContrato&&<FichaModal x={fichaContrato} onClose={()=>setFichaContrato(null)} token={token} onUpdate={onUpdate}/>}
 
       {/* ── HEADER NAV ── */}
       <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap" as const}}>
