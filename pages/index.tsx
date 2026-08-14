@@ -6897,7 +6897,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                     const r=await fetch("/api/splits",{
                       method:"POST",
                       headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
-                      body:(()=>{const payload=[{
+                      body:JSON.stringify([{
                         contrato_id:selContrato.id,
                         contrato_folio:selContrato.folio||selContrato.archivo||"",
                         cliente:selContrato.cliente||selContrato.archivo||"",
@@ -6911,7 +6911,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                         proveedor_nombre:nombre,estado:"pendiente",
                         articulos:[],notas:"",observaciones:"",
                         mostrar_precios:false,mostrar_direccion:false,
-                      }];alert("PAYLOAD: "+JSON.stringify(payload[0]).slice(0,300));return JSON.stringify(payload)})()
+                      }])
                     })
                     const data=await r.json()
                     if(Array.isArray(data))setSplitsDelContrato(prev=>[...prev,...data])
