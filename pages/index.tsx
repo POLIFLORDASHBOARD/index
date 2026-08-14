@@ -6894,8 +6894,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                   <button onClick={async()=>{
                     const nombre=prompt("Nombre del proveedor:")
                     if(!nombre)return
-                    const r=(()=>alert("selContrato fechas: entrega="+selContrato.fecha_entrega+" desmonte="+selContrato.fecha_desmonte+" evento="+selContrato.fecha_evento))()
-                    await fetch("/api/splits",{
+                    const r=await fetch("/api/splits",{
                       method:"POST",
                       headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
                       body:JSON.stringify([{
@@ -6903,7 +6902,8 @@ document.getElementById("btn-pdfc").onclick=function(){
                         contrato_folio:selContrato.folio||selContrato.archivo||"",
                         cliente:selContrato.cliente||selContrato.archivo||"",
                         lugar:selContrato.lugar||"",
-                        fecha_evento:selContrato.fecha_entrega||selContrato.fecha_evento||"",
+                        tel:selContrato.tel||selContrato.telefono||"",
+                        fecha_evento:selContrato.fecha_entrega||"",
                         fecha_preparacion:selContrato.fecha_evento||"",
                         fecha_entrega_contrato:selContrato.fecha_entrega||"",
                         fecha_desmonte_contrato:selContrato.fecha_desmonte||"",
