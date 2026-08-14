@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     while (true) {
       const { data, error } = await supabase
         .from("contratos")
-        .select("*, articulos(nombre,cantidad,pu,importe,seccion)")
+        .select("*, chofer_entrega, chofer_desmonte, articulos(nombre,cantidad,pu,importe,seccion)")
         .order("fecha_evento", { ascending: true })
         .range(from, from + pageSize - 1)
       if (error) return res.status(500).json({ error: error.message })
@@ -126,7 +126,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from("contratos")
       .update(updates)
       .eq("id", id)
-      .select()
+      .select("*, chofer_entrega, chofer_desmonte")
       .single()
     if (error) return res.status(500).json({ error: error.message })
 
