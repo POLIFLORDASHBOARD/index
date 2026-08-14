@@ -8753,7 +8753,7 @@ function generarSplitsDesdeContrato(contrato:any):any[]{
   }))
 }
 
-function abrirHojaSplit(split:any,logoSrc:string){console.log("HOJA SPLIT:",JSON.stringify({tipo:split.tipo,fe:split.fecha_evento,fp:split.fecha_preparacion,fec:split.fecha_entrega_contrato,fdc:split.fecha_desmonte_contrato}))
+function abrirHojaSplit(split:any,logoSrc:string){
   const tipo=SPLIT_TIPOS.find(t=>t.id===split.tipo)||SPLIT_TIPOS[0]
   const arts=split.articulos||[]
   // Usar la definición de SPLIT_TIPOS como fuente de verdad para dirección y precio
@@ -8778,7 +8778,9 @@ function abrirHojaSplit(split:any,logoSrc:string){console.log("HOJA SPLIT:",JSON
       d.setDate(d.getDate()+(split.tipo==="rutas"?1:-1))
       return d.toISOString().slice(0,10)
     }
-    // Prep areas y proveedor: fecha_preparacion = evento real del contrato
+    // Proveedor: fecha_evento es el evento real directamente
+    if(split.tipo==="proveedor") return split.fecha_evento||""
+    // Prep areas: fecha_preparacion = evento real del contrato
     if(split.fecha_preparacion) return split.fecha_preparacion
     // Fallback: fecha_entrega_contrato + 1
     if(split.fecha_entrega_contrato){
