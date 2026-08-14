@@ -7566,7 +7566,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
         headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
         body:JSON.stringify({
           asig_entrega:choferEnt?[choferEnt]:[],
-          asig_desmonte:choferDes?[choferDes]:[]
+          asig_desmonte:choferDes?[choferes?[choferDes]:[]
         })
       })
       setGuardandoChofer(false)
