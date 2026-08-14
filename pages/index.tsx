@@ -766,7 +766,7 @@ export default function Dashboard(){
                 </label>
               </div>
             </div>
-            <InicioSection contratos={contratosEnriquecidos} esAdmin={esAdmin} vendedorActual={vendedorActual} token={token} onUpdate={()=>cargar(token)}/>
+            <InicioSection contratos={contratosEnriquecidos} esAdmin={esAdmin} vendedorActual={vendedorActual} token={token}/>
           </div>
         )}
 
@@ -6357,8 +6357,8 @@ document.getElementById("btn-pdfc").onclick=function(){
                       {x.tel&&<div style={{fontSize:10,color:"#4a4640",marginTop:1}}>📞 {x.tel}</div>}
                       <div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap" as const}}>
                         {nArts>0&&<span style={{fontSize:9,background:"#f5f4f0",color:"#4a4640",padding:"1px 6px",borderRadius:4}}>📦 {nArts} pzas</span>}
-                        {(x.asig_entrega||[]).length>0&&<span style={{fontSize:9,background:"#edf3fa",color:"#1a3a5c",padding:"1px 6px",borderRadius:4}}>🚚 {(x.asig_entrega||[]).join(", ")}</span>}
-                        {!(x.asig_entrega||[]).length&&x.fecha_entrega&&new Date(x.fecha_entrega)>=new Date()&&<span style={{fontSize:9,background:"#fdf0f0",color:"#8b2e2e",padding:"1px 6px",borderRadius:4,fontWeight:700}}>⚠️ Sin asignar</span>}
+                        {(x.asig_entrega||[]).length>0&&<span style={{fontSize:9,background:"#edf3fa",color:"#1a3a5c",padding:"1px 6px",borderRadius:4}}>🚛 {(x as any).chofer_entrega||(x.asig_entrega||[]).join(", ")}</span>}
+                        {!(x as any).chofer_entrega&&!(x.asig_entrega||[]).length&&tipo==="entrega"&&<span style={{fontSize:9,background:"#fdf0f0",color:"#8b2e2e",padding:"1px 6px",borderRadius:4,fontWeight:700}}>⚠️ Sin asignar</span>}
                       </div>
                     </div>
                     {/* Monto */}
@@ -7420,7 +7420,7 @@ function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
 }
 
 
-function InicioSection({contratos,esAdmin,vendedorActual,token,onUpdate}:{contratos:Contrato[],esAdmin:boolean,vendedorActual:string,token:string,onUpdate?:()=>void}){
+function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contrato[],esAdmin:boolean,vendedorActual:string,token:string}){
   const [vistaMode,setVistaMode]=useState<"semana"|"mes">("semana")
   const [alertaVisible,setAlertaVisible]=useState(true)
   const [semOff,setSemOff]=useState(0)
@@ -7550,7 +7550,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token,onUpdate}:{contra
   }
 
   // ── FICHA CONTRATO MODAL ──────────────────────────────────────────
-  const FichaModal=({x,onClose,token,onUpdate}:{x:Contrato,onClose:()=>void,token?:string,onUpdate?:()=>void})=>{
+  const FichaModal=({x,onClose,token}:{x:Contrato,onClose:()=>void,token?:string})=>{
     const totalArts=(x.articulos||[]).reduce((s:number,a:Articulo)=>s+(a.cantidad||0),0)
     const saldo=(x.total||0)-(x.cobrado||0)
     const CHOFERES_LIST=["PILLO","JORDAN","ISRAEL","MARCOS"]
@@ -7574,7 +7574,6 @@ function InicioSection({contratos,esAdmin,vendedorActual,token,onUpdate}:{contra
         const data=await res.json()
         if(data&&data.error){alert("Error: "+data.error);setGuardandoChofer(false);return}
         setChoferOk(true)
-        if(onUpdate) onUpdate()
         setTimeout(()=>setChoferOk(false),2500)
       }catch(e){alert("Error: "+e)}
       setGuardandoChofer(false)
@@ -7784,7 +7783,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token,onUpdate}:{contra
     <div style={{display:"flex",flexDirection:"column" as const,gap:14}}>
 
       {/* ── MODAL FICHA ── */}
-      {fichaContrato&&<FichaModal x={fichaContrato} onClose={()=>setFichaContrato(null)} token={token} onUpdate={onUpdate}/>}
+      {fichaContrato&&<FichaModal x={fichaContrato} onClose={()=>setFichaContrato(null)} token={token}/>}
 
       {/* ── HEADER NAV ── */}
       <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap" as const}}>
