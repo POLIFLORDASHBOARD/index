@@ -6894,7 +6894,8 @@ document.getElementById("btn-pdfc").onclick=function(){
                   <button onClick={async()=>{
                     const nombre=prompt("Nombre del proveedor:")
                     if(!nombre)return
-                    const r=await fetch("/api/splits",{
+                    const r=(()=>alert("selContrato fechas: entrega="+selContrato.fecha_entrega+" desmonte="+selContrato.fecha_desmonte+" evento="+selContrato.fecha_evento))()
+                    await fetch("/api/splits",{
                       method:"POST",
                       headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
                       body:JSON.stringify([{
