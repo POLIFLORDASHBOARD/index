@@ -44,6 +44,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const result = allData.map((c: any) => ({
       ...c,
       tel: c.telefono || c.tel || "",
+      fecha_entrega: c.fecha_entrega || "",
+      fecha_desmonte: c.fecha_desmonte || "",
       articulos: c.articulos || []
     }))
     return res.status(200).json(result)
