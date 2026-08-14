@@ -6857,7 +6857,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                             style={{padding:"2px 6px",borderRadius:6,border:"none",background:est.bg,color:est.color,fontFamily:"Epilogue,sans-serif",fontSize:10,fontWeight:700,cursor:"pointer",outline:"none"}}>
                             {SPLIT_ESTADOS.map((e:any)=><option key={e.id} value={e.id}>{e.label}</option>)}
                           </select>
-                          <button onClick={()=>abrirHojaSplit(s.tipo==="proveedor"?{...s,fecha_entrega_contrato:s.fecha_entrega_contrato||selContrato?.fecha_entrega||"",fecha_desmonte_contrato:s.fecha_desmonte_contrato||selContrato?.fecha_desmonte||"",fecha_evento:s.fecha_evento||selContrato?.fecha_evento||""}:s,logoUrl)}
+                          <button onClick={()=>abrirHojaSplit(s.tipo==="proveedor"?{...s,fecha_entrega_contrato:s.fecha_entrega_contrato||selContrato?.fecha_entrega||"",fecha_desmonte_contrato:s.fecha_desmonte_contrato||selContrato?.fecha_desmonte||"",fecha_preparacion:s.fecha_preparacion||selContrato?.fecha_evento||""}:s,logoUrl)}
                             style={{padding:"3px 8px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap" as const}}>
                             🖨️
                           </button>
@@ -6902,13 +6902,14 @@ document.getElementById("btn-pdfc").onclick=function(){
                         contrato_folio:selContrato.folio||selContrato.archivo||"",
                         cliente:selContrato.cliente||selContrato.archivo||"",
                         lugar:selContrato.lugar||"",
-                        fecha_evento:selContrato.fecha_evento||"",
+                        fecha_evento:selContrato.fecha_entrega||selContrato.fecha_evento||"",
+                        fecha_preparacion:selContrato.fecha_evento||"",
                         fecha_entrega_contrato:selContrato.fecha_entrega||"",
                         fecha_desmonte_contrato:selContrato.fecha_desmonte||"",
                         tipo:"proveedor",nombre:`Proveedor: ${nombre}`,
                         proveedor_nombre:nombre,estado:"pendiente",
                         articulos:[],notas:"",observaciones:"",
-                        mostrar_precios:false,mostrar_direccion:true,
+                        mostrar_precios:false,mostrar_direccion:false,
                       }])
                     })
                     const data=await r.json()
