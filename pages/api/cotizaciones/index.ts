@@ -52,7 +52,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select("id", { count: "exact", head: true })
     const num = (count || 0) + 1
     const prefijo = _prefijo || "COT"
-    const folio = `${prefijo}-${String(num).padStart(6,"0")}`
+    const baseFollio = `${prefijo}-${String(num).padStart(6,"0")}`
+    // Si el folio ya existe, agregar sufijo -B, -C, -D...
+    let folio = baseFollio
+    const SUFIJOS = ["","B","C","D","E","F"]
+    for (const sufijo of SUFIJOS) {
+      folio = sufijo ? `${baseFollio}-${sufijo}` : baseFollio
+      const { data: existing } = await supabase.from("cotizaciones").select("id").eq("folio", folio).maybeSingle()
+      if (!existing) break
+    }
     const { data, error } = await supabase
       .from("cotizaciones").insert({ ...body, folio }).select().single()
     if (error) return res.status(500).json({ error: error.message })
