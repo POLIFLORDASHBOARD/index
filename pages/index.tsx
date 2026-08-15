@@ -4348,6 +4348,9 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
   const [cots, setCots] = useState<Cotizacion[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqCot, setBusqCot] = useState("")
+  const [filtroAno, setFiltroAno] = useState("")
+  const [filtroMes, setFiltroMes] = useState("")
+  const [filtroSem, setFiltroSem] = useState("")
   const [filtroEst, setFiltroEst] = useState("todos")
   const [filtroVendCot, setFiltroVendCot] = useState(vendedorActual||"todos")
   const [vista, setVista] = useState<"lista"|"form"|"detalle"|"calendario">("lista")
@@ -4979,6 +4982,45 @@ document.getElementById("btn-pdf").onclick=function(){
           placeholder="🔍 Buscar por cliente, folio o lugar..."
           style={{width:"100%",padding:"8px 12px",border:"1px solid #e8e5de",borderRadius:8,fontFamily:"Epilogue,sans-serif",fontSize:12,outline:"none",boxSizing:"border-box" as const}}/>
       </div>
+      {/* Filtros año / mes / semana */}
+      {(()=>{
+        const anos=[...new Set(cots.map((c:any)=>(c.fecha_evento||"").slice(0,4)).filter(Boolean))].sort().reverse()
+        const meses=filtroAno?[...new Set(cots.filter((c:any)=>(c.fecha_evento||"").startsWith(filtroAno)).map((c:any)=>(c.fecha_evento||"").slice(5,7)).filter(Boolean))].sort():[]
+        const MESES_N=["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+        // semanas del mes seleccionado
+        const semsSet=new Set<string>()
+        if(filtroAno&&filtroMes){
+          cots.filter((c:any)=>(c.fecha_evento||"").startsWith(filtroAno+"-"+filtroMes)).forEach((c:any)=>{
+            const d=new Date(c.fecha_evento+"T12:00:00");const dow=d.getDay()===0?6:d.getDay()-1;const lun=new Date(d);lun.setDate(d.getDate()-dow);semsSet.add(lun.toISOString().slice(0,10))
+          })
+        }
+        const sems=[...semsSet].sort()
+        return(
+          <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" as const,alignItems:"center"}}>
+            <span style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".06em"}}>Filtrar:</span>
+            {/* Año */}
+            <select value={filtroAno} onChange={e=>{setFiltroAno(e.target.value);setFiltroMes("");setFiltroSem("")}}
+              style={{padding:"3px 8px",borderRadius:8,border:"1px solid #e8e5de",fontFamily:"Epilogue,sans-serif",fontSize:11,background:"#fff",cursor:"pointer"}}>
+              <option value="">Todos los años</option>
+              {anos.map((a:string)=><option key={a} value={a}>{a}</option>)}
+            </select>
+            {/* Mes */}
+            {filtroAno&&<select value={filtroMes} onChange={e=>{setFiltroMes(e.target.value);setFiltroSem("")}}
+              style={{padding:"3px 8px",borderRadius:8,border:"1px solid #e8e5de",fontFamily:"Epilogue,sans-serif",fontSize:11,background:"#fff",cursor:"pointer"}}>
+              <option value="">Todos los meses</option>
+              {meses.map((m:string)=><option key={m} value={m}>{MESES_N[parseInt(m)]}</option>)}
+            </select>}
+            {/* Semana */}
+            {filtroAno&&filtroMes&&<select value={filtroSem} onChange={e=>setFiltroSem(e.target.value)}
+              style={{padding:"3px 8px",borderRadius:8,border:"1px solid #e8e5de",fontFamily:"Epilogue,sans-serif",fontSize:11,background:"#fff",cursor:"pointer"}}>
+              <option value="">Todas las semanas</option>
+              {sems.map((s:string)=>{const d=new Date(s+"T12:00:00");const fin=new Date(d);fin.setDate(d.getDate()+6);return<option key={s} value={s}>{d.getDate()}/{d.getMonth()+1} — {fin.getDate()}/{fin.getMonth()+1}</option>})}
+            </select>}
+            {(filtroAno||filtroMes||filtroSem)&&<button onClick={()=>{setFiltroAno("");setFiltroMes("");setFiltroSem("")}}
+              style={{padding:"3px 10px",borderRadius:8,border:"1px solid #e8e5de",background:"#f5f4f0",fontFamily:"Epilogue,sans-serif",fontSize:11,cursor:"pointer"}}>✕ Limpiar</button>}
+          </div>
+        )
+      })()}
       {/* KPIs operativos - sin montos */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
         {[
@@ -5140,7 +5182,10 @@ document.getElementById("btn-pdf").onclick=function(){
             <div style={{fontSize:32,opacity:.2,marginBottom:8}}>📋</div>
             <div>No hay cotizaciones</div>
           </div>}
-          {cots.filter((cot:any)=>(filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot)&&(!busqCot||(cot.cliente_nombre||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.folio||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.lugar_evento||"").toLowerCase().includes(busqCot.toLowerCase()))).map(cot=>{
+          {cots.filter((cot:any)=>(filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot)&&(!busqCot||(cot.cliente_nombre||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.folio||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.lugar_evento||"").toLowerCase().includes(busqCot.toLowerCase()))
+&&(!filtroAno||((cot.fecha_evento||"").startsWith(filtroAno)))
+&&(!filtroMes||((cot.fecha_evento||"").startsWith(filtroAno+"-"+filtroMes)))
+&&(!filtroSem||(()=>{if(!cot.fecha_evento)return false;const d=new Date(cot.fecha_evento+"T12:00:00");const dow=d.getDay()===0?6:d.getDay()-1;const lun=new Date(d);lun.setDate(d.getDate()-dow);return lun.toISOString().slice(0,10)===filtroSem})())).map(cot=>{
             const dias = diasVigencia(cot.fecha_vigencia)
             const porVencer = dias !== null && dias >= 0 && dias <= 7 && (cot.estado==="enviada"||cot.estado==="pendiente")
             const vencida = dias !== null && dias < 0 && (cot.estado==="enviada"||cot.estado==="pendiente")
@@ -5157,7 +5202,7 @@ document.getElementById("btn-pdf").onclick=function(){
                     <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:700}}>{cot.cliente_nombre||"Sin nombre"}</div>
                     <div style={{fontSize:11,color:"#9a9590",marginTop:2}}>
                       {cot.lugar_evento&&<span>📍 {cot.lugar_evento.slice(0,40)} · </span>}
-                      {cot.fecha_evento&&<span>📅 {new Date(cot.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"short"})} · </span>}
+                      {cot.fecha_evento&&<span>📅 {cot.fecha_evento} · </span>}
                       <span>{(cot.partidas||[]).length} artículos</span>
                       {cot.vendedor&&<span> · 👤 {cot.vendedor}</span>}
                     </div>
