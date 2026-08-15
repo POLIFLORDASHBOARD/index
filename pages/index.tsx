@@ -4459,7 +4459,7 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
     const dbCots = (Array.isArray(fromDB) ? fromDB : []).filter((x:any) => x.estado !== "convertida")
     const allCots = [...dbCots, ...cotFromExcel]
       .filter(c => filtroEst === "todos" || (c as any).estado === filtroEst)
-      .sort((a,b) => (a.fecha_evento||"").localeCompare(b.fecha_evento||""))
+      .sort((a,b) => (b.creado_en||"").localeCompare(a.creado_en||""))
     setCots(allCots)
     setCargando(false)
   }
@@ -5157,7 +5157,7 @@ document.getElementById("btn-pdf").onclick=function(){
                     <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:700}}>{cot.cliente_nombre||"Sin nombre"}</div>
                     <div style={{fontSize:11,color:"#9a9590",marginTop:2}}>
                       {cot.lugar_evento&&<span>📍 {cot.lugar_evento.slice(0,40)} · </span>}
-                      {cot.fecha_evento&&<span>📅 {cot.fecha_evento} · </span>}
+                      {cot.fecha_evento&&<span>📅 {new Date(cot.fecha_evento+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"short"})} · </span>}
                       <span>{(cot.partidas||[]).length} artículos</span>
                       {cot.vendedor&&<span> · 👤 {cot.vendedor}</span>}
                     </div>
