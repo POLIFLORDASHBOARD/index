@@ -4347,6 +4347,7 @@ const DELETE_PWD = "LITA2024"
 function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin, contratos: contratosAll = [] }: { token: string, personal: any, logoUrl?: string, vendedorActual?: string, esAdmin?: boolean, contratos?: any[] }) {
   const [cots, setCots] = useState<Cotizacion[]>([])
   const [cargando, setCargando] = useState(true)
+  const [busqCot, setBusqCot] = useState("")
   const [filtroEst, setFiltroEst] = useState("todos")
   const [filtroVendCot, setFiltroVendCot] = useState(vendedorActual||"todos")
   const [vista, setVista] = useState<"lista"|"form"|"detalle"|"calendario">("lista")
@@ -4458,7 +4459,7 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
     const dbCots = (Array.isArray(fromDB) ? fromDB : []).filter((x:any) => x.estado !== "convertida")
     const allCots = [...dbCots, ...cotFromExcel]
       .filter(c => filtroEst === "todos" || (c as any).estado === filtroEst)
-      .sort((a,b) => (b.creado_en||"").localeCompare(a.creado_en||""))
+      .sort((a,b) => (a.fecha_evento||"").localeCompare(b.fecha_evento||""))
     setCots(allCots)
     setCargando(false)
   }
@@ -4972,6 +4973,12 @@ document.getElementById("btn-pdf").onclick=function(){
         </div>
       </div>
 
+      {/* Buscador */}
+      <div style={{marginBottom:10}}>
+        <input value={busqCot} onChange={e=>setBusqCot(e.target.value)}
+          placeholder="🔍 Buscar por cliente, folio o lugar..."
+          style={{width:"100%",padding:"8px 12px",border:"1px solid #e8e5de",borderRadius:8,fontFamily:"Epilogue,sans-serif",fontSize:12,outline:"none",boxSizing:"border-box" as const}}/>
+      </div>
       {/* KPIs operativos - sin montos */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
         {[
@@ -5133,7 +5140,7 @@ document.getElementById("btn-pdf").onclick=function(){
             <div style={{fontSize:32,opacity:.2,marginBottom:8}}>📋</div>
             <div>No hay cotizaciones</div>
           </div>}
-          {cots.filter((cot:any)=>filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot).map(cot=>{
+          {cots.filter((cot:any)=>(filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot)&&(!busqCot||(cot.cliente_nombre||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.folio||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.lugar_evento||"").toLowerCase().includes(busqCot.toLowerCase()))).map(cot=>{
             const dias = diasVigencia(cot.fecha_vigencia)
             const porVencer = dias !== null && dias >= 0 && dias <= 7 && (cot.estado==="enviada"||cot.estado==="pendiente")
             const vencida = dias !== null && dias < 0 && (cot.estado==="enviada"||cot.estado==="pendiente")
