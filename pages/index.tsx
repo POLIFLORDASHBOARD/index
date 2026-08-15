@@ -9047,7 +9047,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
   const abrirModalProv=(g:any)=>{
     const ct=contratos.find((x:any)=>x.id===g.contrato_id)
-    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:g.fecha,fechaEvento:ct?.fecha_evento||g.fecha,lugarContrato:ct?.lugar||""})
+    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:g.fecha,fechaEvento:ct?.fecha_evento||g.fecha,fechaEntrega:ct?.fecha_entrega||g.fecha,fechaDesmonte:ct?.fecha_desmonte||"",lugarContrato:ct?.lugar||""})
     setProvNombre(""); setProvArts([]); setProvBusq(""); setProvMostrarDir(false); setProvDireccion("")
   }
 
@@ -9057,7 +9057,11 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
     const nuevo={
       contrato_id:modalProv.contratoId,contrato_folio:modalProv.folio,cliente:modalProv.cliente,
       lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",
-      fecha_evento:modalProv.fecha,tipo:"proveedor",nombre:`📦 ${provNombre}`,
+      fecha_evento:modalProv.fecha,
+      fecha_preparacion:modalProv.fechaEvento||null,
+      fecha_entrega_contrato:modalProv.fechaEntrega||null,
+      fecha_desmonte_contrato:modalProv.fechaDesmonte||null,
+      tipo:"proveedor",nombre:`📦 ${provNombre}`,
       proveedor_nombre:provNombre,estado:"pendiente",articulos:provArts,notas:"",observaciones:"",
       mostrar_precios:false,mostrar_direccion:provMostrarDir,
     }
