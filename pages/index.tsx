@@ -4571,6 +4571,11 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
     setFormGuardado(true)
     const body = { ...cotActual }
     if (estadoNuevo) body.estado = estadoNuevo
+    // Limpiar fechas vacías — Supabase rechaza "" en campos date
+    const DATE_FIELDS = ["fecha_evento","fecha_entrega","fecha_desmonte","fecha_vigencia"]
+    for (const f of DATE_FIELDS) {
+      if ((body as any)[f] === "" || (body as any)[f] === null) (body as any)[f] = null
+    }
     // Add vendedor prefix to body for folio generation
     if (esNueva && body.vendedor) {
       body._prefijo = prefijoVendedor(body.vendedor)
