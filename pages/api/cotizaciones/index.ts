@@ -42,9 +42,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       "estado","vendedor","subtotal","descuento_pct","descuento_monto",
       "aplica_iva","iva_monto","total","notas_cliente","condiciones","partidas"
     ]
+    const DATE_COLS = ["fecha_evento","fecha_entrega","fecha_desmonte","fecha_vigencia"]
     const body: any = {}
     for (const k of COT_COLS) {
-      if (k in bodyRaw) body[k] = bodyRaw[k]
+      if (k in bodyRaw) body[k] = (DATE_COLS.includes(k) && bodyRaw[k] === "") ? null : bodyRaw[k]
     }
     const { count } = await supabase
       .from("cotizaciones")
@@ -69,9 +70,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       "estado","vendedor","subtotal","descuento_pct","descuento_monto",
       "aplica_iva","iva_monto","total","notas_cliente","condiciones","partidas"
     ]
+    const DATE_COLS_P = ["fecha_evento","fecha_entrega","fecha_desmonte","fecha_vigencia"]
     const clean: any = { actualizado_en: new Date().toISOString() }
     for (const k of COLS) {
-      if (k in req.body) clean[k] = req.body[k]
+      if (k in req.body) clean[k] = (DATE_COLS_P.includes(k) && req.body[k] === "") ? null : req.body[k]
     }
 
     const { data, error } = await supabase
