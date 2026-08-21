@@ -6443,8 +6443,8 @@ document.getElementById("btn-pdfc").onclick=function(){
 
       {/* ── DETALLE CONTRATO ── */}
       {selContrato&&(
-        <div style={isMobile?{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.6)",zIndex:2000,display:"flex",flexDirection:"column" as const,justifyContent:"flex-end" as const}:{position:"sticky" as const,top:70,alignSelf:"flex-start" as const}}>
-          <div style={{background:"#fff",borderRadius:isMobile?"16px 16px 0 0":"12px",overflow:"hidden",maxHeight:isMobile?"90vh":"85vh",overflowY:"auto" as const,border:isMobile?"none":"1px solid #e8e5de"}}>
+        <div style={isMobile?{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.6)",zIndex:2000,display:"flex",flexDirection:"column" as const,justifyContent:"flex-end" as const}:contratoEditRef?{position:"fixed" as const,top:0,right:0,bottom:0,width:"min(860px,75vw)",background:"rgba(0,0,0,.4)",zIndex:1500,display:"flex",flexDirection:"column" as const,justifyContent:"stretch" as const}:{position:"sticky" as const,top:70,alignSelf:"flex-start" as const}}>
+          <div style={{background:"#fff",borderRadius:isMobile?"16px 16px 0 0":contratoEditRef?"0":"12px",overflow:"hidden",maxHeight:isMobile?"90vh":contratoEditRef?"100vh":"85vh",overflowY:"auto" as const,height:contratoEditRef?"100%":"auto",border:isMobile?"none":"1px solid #e8e5de"}}>
             {/* Header rediseñado */}
             <div style={{background:"linear-gradient(135deg,#0f172a 0%,#1e3a5c 100%)",padding:"20px 20px 16px"}}>
               {/* Top row: cliente + acciones */}
