@@ -6635,7 +6635,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                   {/* Tabla inline */}
                   <div style={{border:"1.5px solid #e8e5de",borderRadius:10,overflow:"hidden",marginBottom:8}}>
                     {/* Header */}
-                    <div style={{display:"grid",gridTemplateColumns:"58px 1fr 90px 58px 60px 24px",background:"#0f172a"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"22px 58px 1fr 90px 58px 60px 24px",background:"#0f172a"}}>
                       {["Cant.","Artículo","P.U.","Desc%","Subtotal",""].map((h,hi)=>(
                         <div key={hi} style={{padding:"7px 6px",fontSize:9,fontWeight:700,color:"#94a3b8",textAlign:hi>=2?"center" as const:"left" as const,textTransform:"uppercase" as const,letterSpacing:".05em",borderRight:hi<6?"1px solid rgba(255,255,255,.07)":"none"}}>{h}</div>
                       ))}
@@ -6650,6 +6650,13 @@ document.getElementById("btn-pdfc").onclick=function(){
                       return(
                         <div key={i} style={{display:"grid",gridTemplateColumns:"58px 1fr 90px 58px 60px 24px",borderBottom:i<editArtsContrato.length-1?"1px solid #f0ece4":"none",background:i%2===0?"#fff":"#fafaf8",alignItems:"center"}}>
 
+                          {/* Mover ▲▼ */}
+                          <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",gap:1,borderRight:"1px solid #ebebeb",minHeight:36,padding:"2px 0"}}>
+                            <button onClick={()=>{if(i===0)return;const arr=[...editArtsContrato];[arr[i-1],arr[i]]=[arr[i],arr[i-1]];setEditArtsContrato(arr)}}
+                              style={{background:"none",border:"none",cursor:i===0?"default":"pointer",opacity:i===0?.2:1,fontSize:8,lineHeight:1,padding:"1px 3px",color:"#666"}}>▲</button>
+                            <button onClick={()=>{if(i===editArtsContrato.length-1)return;const arr=[...editArtsContrato];[arr[i],arr[i+1]]=[arr[i+1],arr[i]];setEditArtsContrato(arr)}}
+                              style={{background:"none",border:"none",cursor:i===editArtsContrato.length-1?"default":"pointer",opacity:i===editArtsContrato.length-1?.2:1,fontSize:8,lineHeight:1,padding:"1px 3px",color:"#666"}}>▼</button>
+                          </div>
                           {/* Cantidad */}
                           <div style={{borderRight:"1px solid #ebebeb",display:"flex",justifyContent:"center"}}>
                             <input type="number" min="1" value={a.cantidad||1}
