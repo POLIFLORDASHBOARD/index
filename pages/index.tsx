@@ -6648,7 +6648,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                       const descMonto=a.aplica_descuento?Math.round(bruto*(a.descuento_pct_art||0)/100):0
                       const neto=bruto-descMonto
                       return(
-                        <div key={i} style={{display:"grid",gridTemplateColumns:"58px 1fr 90px 58px 60px 24px",borderBottom:i<editArtsContrato.length-1?"1px solid #f0ece4":"none",background:i%2===0?"#fff":"#fafaf8",alignItems:"center"}}>
+                        <div key={i} style={{display:"grid",gridTemplateColumns:"20px 44px 1fr 82px 58px 80px 22px",borderBottom:i<editArtsContrato.length-1?"1px solid #f0ece4":"none",background:i%2===0?"#fff":"#fafaf8",alignItems:"center"}}>
 
                           {/* Mover ▲▼ */}
                           <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",gap:0,borderRight:"1px solid #ebebeb",minHeight:32,padding:"1px 0",width:20}}>
