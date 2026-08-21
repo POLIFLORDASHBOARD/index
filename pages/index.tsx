@@ -6635,9 +6635,9 @@ document.getElementById("btn-pdfc").onclick=function(){
                   {/* Tabla inline */}
                   <div style={{border:"1.5px solid #e8e5de",borderRadius:10,overflow:"hidden",marginBottom:8}}>
                     {/* Header */}
-                    <div style={{display:"grid",gridTemplateColumns:"22px 58px 1fr 90px 58px 60px 24px",background:"#0f172a"}}>
-                      {["Cant.","Artículo","P.U.","Desc%","Subtotal",""].map((h,hi)=>(
-                        <div key={hi} style={{padding:"7px 6px",fontSize:9,fontWeight:700,color:"#94a3b8",textAlign:hi>=2?"center" as const:"left" as const,textTransform:"uppercase" as const,letterSpacing:".05em",borderRight:hi<6?"1px solid rgba(255,255,255,.07)":"none"}}>{h}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"20px 44px 1fr 82px 58px 80px 22px",background:"#0f172a"}}>
+                      {["","Cant.","Artículo / Descripción","P.U.","Desc%","Subtotal",""].map((h,hi)=>(
+                        <div key={hi} style={{padding:"7px 6px",fontSize:9,fontWeight:700,color:"#94a3b8",textAlign:hi===1||hi===5?"center" as const:hi>=2?"right" as const:"left" as const,textTransform:"uppercase" as const,letterSpacing:".05em",borderRight:hi<6?"1px solid rgba(255,255,255,.07)":"none"}}>{h}</div>
                       ))}
                     </div>
                     {/* Filas */}
@@ -6651,7 +6651,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                         <div key={i} style={{display:"grid",gridTemplateColumns:"58px 1fr 90px 58px 60px 24px",borderBottom:i<editArtsContrato.length-1?"1px solid #f0ece4":"none",background:i%2===0?"#fff":"#fafaf8",alignItems:"center"}}>
 
                           {/* Mover ▲▼ */}
-                          <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",gap:1,borderRight:"1px solid #ebebeb",minHeight:36,padding:"2px 0"}}>
+                          <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",gap:0,borderRight:"1px solid #ebebeb",minHeight:32,padding:"1px 0",width:20}}>
                             <button onClick={()=>{if(i===0)return;const arr=[...editArtsContrato];[arr[i-1],arr[i]]=[arr[i],arr[i-1]];setEditArtsContrato(arr)}}
                               style={{background:"none",border:"none",cursor:i===0?"default":"pointer",opacity:i===0?.2:1,fontSize:8,lineHeight:1,padding:"1px 3px",color:"#666"}}>▲</button>
                             <button onClick={()=>{if(i===editArtsContrato.length-1)return;const arr=[...editArtsContrato];[arr[i],arr[i+1]]=[arr[i+1],arr[i]];setEditArtsContrato(arr)}}
@@ -6661,18 +6661,18 @@ document.getElementById("btn-pdfc").onclick=function(){
                           <div style={{borderRight:"1px solid #ebebeb",display:"flex",justifyContent:"center"}}>
                             <input type="number" min="1" value={a.cantidad||1}
                               onChange={e=>{const v=Math.max(1,parseInt(e.target.value)||1);setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,cantidad:v}:x))}}
-                              style={{width:"100%",padding:"6px 4px",border:"none",textAlign:"center" as const,fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#1a3a5c",outline:"none",background:"transparent"}}/>
+                              style={{width:"100%",padding:"4px 2px",border:"none",textAlign:"center" as const,fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#1a3a5c",outline:"none",background:"transparent",boxSizing:"border-box" as const}}/>
                           </div>
                           {/* Nombre editable */}
                           <div style={{borderRight:"1px solid #ebebeb",position:"relative" as const}}>
                             <input value={a.nombre||""} onChange={e=>setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,nombre:e.target.value}:x))}
-                              style={{width:"100%",padding:"6px 8px",border:"none",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:500,outline:"none",background:"transparent",boxSizing:"border-box" as const}}/>
+                              style={{width:"100%",padding:"4px 6px",border:"none",fontFamily:"Epilogue,sans-serif",fontSize:11,fontWeight:500,outline:"none",background:"transparent",boxSizing:"border-box" as const,overflow:"hidden",textOverflow:"ellipsis" as const}}/>
                           </div>
                           {/* P.U. */}
                           <div style={{borderRight:"1px solid #ebebeb",display:"flex",justifyContent:"flex-end"}}>
                             <input type="number" min="0" value={a.pu||0}
                               onChange={e=>{const v=parseFloat(e.target.value)||0;setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,pu:v}:x))}}
-                              style={{width:"100%",padding:"6px 6px",border:"none",textAlign:"right" as const,fontFamily:"monospace",fontSize:11,fontWeight:600,outline:"none",background:"transparent"}}/>
+                              style={{width:"100%",padding:"4px 4px",border:"none",textAlign:"right" as const,fontFamily:"monospace",fontSize:11,fontWeight:600,outline:"none",background:"transparent",boxSizing:"border-box" as const}}/>
                           </div>
                           {/* Descuento % */}
                           <div style={{borderRight:"1px solid #ebebeb",display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",padding:"3px 2px",gap:1}}>
@@ -6690,7 +6690,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                             )}
                           </div>
                           {/* Subtotal neto */}
-                          <div style={{borderRight:"1px solid #ebebeb",padding:"4px 6px",textAlign:"right" as const}}>
+                          <div style={{padding:"4px 6px",textAlign:"right" as const}}>
                             <div style={{fontFamily:"monospace",fontSize:11,fontWeight:700,color:"#1a3a5c"}}>${neto.toLocaleString("es-MX")}</div>
                             {descMonto>0&&<div style={{fontSize:8,color:"#8b2e2e",fontFamily:"monospace"}}>-${descMonto.toLocaleString("es-MX")}</div>}
                           </div>
