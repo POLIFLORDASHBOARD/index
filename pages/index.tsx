@@ -6344,7 +6344,7 @@ document.getElementById("btn-pdfc").onclick=function(){
   const totalArts=(x:Contrato)=>(x.articulos||[]).reduce((s:number,a:Articulo)=>s+(a.cantidad||0),0)
 
   return(
-    <div style={{display:"grid",gridTemplateColumns:selContrato&&!isMobile?"1fr 540px":"1fr",gap:14}}>
+    <div style={{display:"grid",gridTemplateColumns:selContrato&&!isMobile?"38fr 62fr":"1fr",gap:14}}>
       {/* ── LISTA ── */}
       <div>
         {/* Filtros */}
