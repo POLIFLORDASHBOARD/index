@@ -6219,24 +6219,23 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
     </tfoot>
   </table>
 
-  <!-- Pagos -->
-  ${(x.pagos||[]).length>0?`
+  <!-- Pagos y saldo -->
   <div style="margin-bottom:24px;background:#f0fdf4;border-radius:10px;padding:16px">
-    <div style="font-size:10px;font-weight:700;color:#2d6a4f;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Historial de pagos</div>
-    ${(x.pagos||[]).map((p:any)=>`
+    <div style="font-size:10px;font-weight:700;color:#2d6a4f;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Resumen de pagos</div>
+    ${(x.pagos||[]).length>0?(x.pagos||[]).map((p:any)=>`
       <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #dcfce7;font-size:12px">
         <span>${p.fecha} — ${p.metodo||"efectivo"}${p.nota?" ("+p.nota+")":""}</span>
         <span style="font-family:monospace;font-weight:700;color:#2d6a4f">$${(p.monto||0).toLocaleString("es-MX")}</span>
-      </div>`).join("")}
-    <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:4px;font-weight:700">
+      </div>`).join(""):""}
+    <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:4px;font-weight:700;border-top:1px solid #dcfce7">
       <span>Cobrado</span>
       <span style="font-family:monospace;color:#2d6a4f">$${(x.cobrado||0).toLocaleString("es-MX")}</span>
     </div>
-    ${saldo>0?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700">
-      <span style="color:#92580a">Saldo pendiente</span>
-      <span style="font-family:monospace;color:#92580a">$${saldo.toLocaleString("es-MX")}</span>
-    </div>`:""}
-  </div>`:""}
+    <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700">
+      <span style="color:${saldo>0?"#92580a":"#2d6a4f"}">Saldo pendiente</span>
+      <span style="font-family:monospace;color:${saldo>0?"#92580a":"#2d6a4f"}">$${saldo.toLocaleString("es-MX")}</span>
+    </div>
+  </div>
 
   <!-- Firmas -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:1px solid #e8e5de">
