@@ -221,63 +221,6 @@ async function apiCall(url:string,method:string,body?:any,token?:string){
   return res.json()
 }
 
-// ── Analytics Gate — contraseña requerida ──
-function AnalyticsGate({token,contratos}:{token:string,contratos:any[]}){
-  const [ok,setOk]=useState(false)
-  const [pwd,setPwd]=useState("")
-  const [err,setErr]=useState(false)
-
-  if(ok) return <AnalyticsSection token={token} contratos={contratos}/>
-
-  return(
-    <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",
-      justifyContent:"center",minHeight:"60vh",fontFamily:"Epilogue,sans-serif"}}>
-      <div style={{background:"#fff",borderRadius:16,padding:"40px 48px",
-        boxShadow:"0 4px 24px rgba(0,0,0,.10)",border:"1px solid #e8e5de",
-        textAlign:"center" as const,maxWidth:360,width:"100%"}}>
-        <div style={{fontSize:40,marginBottom:12}}>📊</div>
-        <div style={{fontSize:20,fontWeight:800,marginBottom:4,color:"#0f172a"}}>Analytics</div>
-        <div style={{fontSize:13,color:"#9a9590",marginBottom:28}}>
-          Acceso restringido — ingresa tu contraseña
-        </div>
-        <input
-          type="password"
-          value={pwd}
-          onChange={e=>{setPwd(e.target.value);setErr(false)}}
-          onKeyDown={e=>{
-            if(e.key==="Enter"){
-              if(pwd==="POLIFLOR_GERENCIA_2026"){setOk(true)}
-              else{setErr(true);setPwd("")}
-            }
-          }}
-          placeholder="Contraseña"
-          autoFocus
-          style={{width:"100%",padding:"10px 14px",borderRadius:8,
-            border:`2px solid ${err?"#dc2626":"#e8e5de"}`,
-            fontSize:14,outline:"none",boxSizing:"border-box" as const,
-            marginBottom:err?6:16}}/>
-        {err&&<div style={{fontSize:12,color:"#dc2626",marginBottom:12,textAlign:"left" as const}}>
-          ❌ Contraseña incorrecta
-        </div>}
-        <button
-          onClick={()=>{
-            if(pwd==="POLIFLOR_GERENCIA_2026"){setOk(true)}
-            else{setErr(true);setPwd("")}
-          }}
-          style={{width:"100%",padding:"10px",borderRadius:8,border:"none",
-            background:"#0f172a",color:"#fff",fontWeight:700,fontSize:14,
-            cursor:"pointer"}}>
-          Entrar
-        </button>
-      </div>
-    </div>
-  )
-}
-
-
-// ══════════════════════════════════════════════
-//  ANALYTICS SECTION — Rentabilidad por categoría
-// ══════════════════════════════════════════════
 
 const CAT_COLORS:Record<string,string>={
   MOBILIARIO:"#1a3a5c",
