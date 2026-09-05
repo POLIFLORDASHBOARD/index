@@ -1,5 +1,5 @@
 // BUILD: 1785892031
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import Head from "next/head"
 import * as XLSX from "xlsx"
 
@@ -223,9 +223,9 @@ async function apiCall(url:string,method:string,body?:any,token?:string){
 
 // ── Analytics Gate — contraseña requerida ──
 function AnalyticsGate({token,contratos}:{token:string,contratos:any[]}){
-  const [ok,setOk]=React.useState(false)
-  const [pwd,setPwd]=React.useState("")
-  const [err,setErr]=React.useState(false)
+  const [ok,setOk]=useState(false)
+  const [pwd,setPwd]=useState("")
+  const [err,setErr]=useState(false)
 
   if(ok) return <AnalyticsSection token={token} contratos={contratos}/>
 
@@ -279,8 +279,8 @@ function AnalyticsGate({token,contratos}:{token:string,contratos:any[]}){
 //  ANALYTICS SECTION — Rentabilidad por categoría
 // ══════════════════════════════════════════════
 function AnalyticsSection({token,contratos}:{token:string,contratos:any[]}){
-  const [vista,setVista]=React.useState<"semana"|"mes">("semana")
-  const [rangoSem,setRangoSem]=React.useState(12) // últimas N semanas
+  const [vista,setVista]=useState<"semana"|"mes">("semana")
+  const [rangoSem,setRangoSem]=useState(12) // últimas N semanas
 
   // Categorías a analizar
   const CATS=["MOBILIARIO","FLORES","VAJILLA","MANTELERIA","CARPAS","SERVICIOS"]
@@ -304,7 +304,7 @@ function AnalyticsSection({token,contratos}:{token:string,contratos:any[]}){
   const getMes=(dateStr:string)=>dateStr?.slice(0,7)||""
 
   // Procesar contratos: agrupar ingresos por categoría y periodo
-  const datos=React.useMemo(()=>{
+  const datos=useMemo(()=>{
     const ahora=new Date()
     const periodos:Record<string,Record<string,number>>={}
     const totCat:Record<string,number>={} 
