@@ -537,7 +537,7 @@ function AnalyticsSection({token,contratos}:{token:string,contratos:any[]}){
                        vista==="mes"?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(p.slice(5))]:p}
                     </div>
                     <div style={{fontSize:8,color:"#c4bfb8",textAlign:"center" as const}}>
-                      {eventos[p]?events[p]+"ev":""}
+                      {eventos[p]?eventos[p]+"ev":""}
                     </div>
                   </div>
                 )
