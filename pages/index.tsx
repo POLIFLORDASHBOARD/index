@@ -221,6 +221,250 @@ async function apiCall(url:string,method:string,body?:any,token?:string){
   return res.json()
 }
 
+// ══════════════════════════════════════════════
+//  ANALYTICS SECTION — Rentabilidad por categoría
+// ══════════════════════════════════════════════
+function AnalyticsSection({token,contratos}:{token:string,contratos:any[]}){
+  const [vista,setVista]=React.useState<"semana"|"mes">("semana")
+  const [rangoSem,setRangoSem]=React.useState(12) // últimas N semanas
+
+  // Categorías a analizar
+  const CATS=["MOBILIARIO","FLORES","VAJILLA","MANTELERIA","CARPAS","SERVICIOS"]
+  const COLORES:Record<string,string>={
+    MOBILIARIO:"#1a3a5c",
+    FLORES:"#d946a8",
+    VAJILLA:"#92580a",
+    MANTELERIA:"#2d6a4f",
+    CARPAS:"#6d28d9",
+    SERVICIOS:"#374151",
+  }
+
+  // Función para obtener semana ISO (YYYY-WNN)
+  const getWeek=(dateStr:string)=>{
+    const d=new Date(dateStr+"T12:00:00")
+    const jan4=new Date(d.getFullYear(),0,4)
+    const start=jan4.getTime()-((jan4.getDay()||7)-1)*86400000
+    const week=Math.floor((d.getTime()-start)/604800000)+1
+    return `${d.getFullYear()}-S${String(week).padStart(2,"0")}`
+  }
+  const getMes=(dateStr:string)=>dateStr?.slice(0,7)||""
+
+  // Procesar contratos: agrupar ingresos por categoría y periodo
+  const datos=React.useMemo(()=>{
+    const ahora=new Date()
+    const periodos:Record<string,Record<string,number>>={}
+    const totCat:Record<string,number>={} 
+    const totPeriodo:Record<string,number>={}
+    const eventos:Record<string,number>={}
+
+    contratos.forEach((c:any)=>{
+      const fe=c.fecha_evento
+      if(!fe)return
+      const d=new Date(fe+"T12:00:00")
+      // Solo últimas N semanas/meses
+      const diffDias=(ahora.getTime()-d.getTime())/86400000
+      if(vista==="semana"&&diffDias>rangoSem*7)return
+      if(vista==="mes"&&diffDias>rangoSem*30)return
+
+      const periodo=vista==="semana"?getWeek(fe):getMes(fe)
+      if(!periodos[periodo])periodos[periodo]={}
+      if(!totPeriodo[periodo])totPeriodo[periodo]=0
+      eventos[periodo]=(eventos[periodo]||0)+1
+
+      const arts:any[]=c.articulos||[]
+      if(arts.length===0){
+        // Si no hay artículos, intentar distribuir el total por tipo del contrato
+        const total=c.total||0
+        const cat=c.tipo||"SIN CATEGORÍA"
+        periodos[periodo][cat]=(periodos[periodo][cat]||0)+total
+        totCat[cat]=(totCat[cat]||0)+total
+        totPeriodo[periodo]+=total
+        return
+      }
+      arts.forEach((a:any)=>{
+        const cat=(a.seccion||a.categoria||"SIN CATEGORÍA").toUpperCase().trim()
+        const importe=(a.pu||a.precio_unitario||0)*(a.cantidad||1)
+        periodos[periodo][cat]=(periodos[periodo][cat]||0)+importe
+        totCat[cat]=(totCat[cat]||0)+importe
+        totPeriodo[periodo]+=importe
+      })
+    })
+
+    const periodosOrdenados=Object.keys(periodos).sort()
+    return{periodos,periodosOrdenados,totCat,totPeriodo,eventos}
+  },[contratos,vista,rangoSem])
+
+  const {periodos,periodosOrdenados,totCat,totPeriodo,eventos}=datos
+  const fmt=(n:number)=>"$"+Math.round(n).toLocaleString("es-MX")
+
+  // Top categorías por ingreso total
+  const topCats=Object.entries(totCat)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,6)
+
+  const granTotal=Object.values(totCat).reduce((s,v)=>s+v,0)
+
+  // Máximo para escalar barras
+  const maxPeriodo=Math.max(...periodosOrdenados.map(p=>totPeriodo[p]||0),1)
+
+  return(
+    <div style={{fontFamily:"Epilogue,sans-serif",color:"#1a1814"}}>
+      {/* Header */}
+      <div style={{marginBottom:24}}>
+        <h2 style={{fontSize:22,fontWeight:800,margin:0}}>📊 Analytics de Rentabilidad</h2>
+        <p style={{fontSize:13,color:"#9a9590",marginTop:4}}>Ingresos por categoría basados en artículos de contratos confirmados</p>
+      </div>
+
+      {/* Controles */}
+      <div style={{display:"flex",gap:10,marginBottom:24,flexWrap:"wrap" as const}}>
+        <div style={{display:"flex",gap:4}}>
+          {(["semana","mes"] as const).map(v=>(
+            <button key={v} onClick={()=>setVista(v)}
+              style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",
+                background:vista===v?"#0f172a":"#f5f4f0",
+                color:vista===v?"#fff":"#4a4640",fontWeight:700,fontSize:12}}>
+              Por {v==="semana"?"Semana":"Mes"}
+            </button>
+          ))}
+        </div>
+        <select value={rangoSem} onChange={e=>setRangoSem(Number(e.target.value))}
+          style={{padding:"6px 10px",borderRadius:8,border:"1px solid #e8e5de",fontSize:12,background:"#fff"}}>
+          {vista==="semana"?
+            [4,8,12,24,52].map(n=><option key={n} value={n}>Últimas {n} semanas</option>):
+            [3,6,12,24].map(n=><option key={n} value={n}>Últimos {n} meses</option>)
+          }
+        </select>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:28}}>
+        {topCats.map(([cat,total])=>(
+          <div key={cat} style={{background:"#fff",borderRadius:12,padding:"16px",
+            border:`2px solid ${COLORES[cat]||"#e8e5de"}`,
+            boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+            <div style={{fontSize:10,fontWeight:700,color:COLORES[cat]||"#4a4640",
+              textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6}}>{cat}</div>
+            <div style={{fontSize:20,fontWeight:800,color:"#1a1814"}}>{fmt(total)}</div>
+            <div style={{fontSize:11,color:"#9a9590",marginTop:4}}>
+              {Math.round(total/granTotal*100)}% del total
+            </div>
+            <div style={{marginTop:8,height:4,borderRadius:2,background:"#f0ece4"}}>
+              <div style={{height:4,borderRadius:2,
+                background:COLORES[cat]||"#1a3a5c",
+                width:`${Math.round(total/granTotal*100)}%`}}/>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Gráfica de barras apiladas por periodo */}
+      <div style={{background:"#fff",borderRadius:12,padding:"20px",
+        border:"1px solid #e8e5de",marginBottom:24}}>
+        <h3 style={{fontSize:14,fontWeight:700,margin:"0 0 16px"}}>
+          Ingresos por {vista==="semana"?"semana":"mes"} y categoría
+        </h3>
+        <div style={{overflowX:"auto" as const}}>
+          <div style={{display:"flex",gap:4,alignItems:"flex-end",minWidth:periodosOrdenados.length*70,height:200,paddingBottom:24,position:"relative" as const}}>
+            {periodosOrdenados.map(p=>{
+              const total=totPeriodo[p]||0
+              const pct=total/maxPeriodo
+              return(
+                <div key={p} style={{flex:1,display:"flex",flexDirection:"column" as const,
+                  alignItems:"center",justifyContent:"flex-end",gap:0,minWidth:60}}>
+                  {/* Barra apilada */}
+                  <div style={{width:"100%",height:Math.round(pct*160),display:"flex",
+                    flexDirection:"column" as const,borderRadius:"4px 4px 0 0",overflow:"hidden",
+                    title:fmt(total)}}>
+                    {topCats.map(([cat])=>{
+                      const v=periodos[p]?.[cat]||0
+                      const h=total>0?Math.round(v/total*100):0
+                      return h>0?<div key={cat} style={{height:`${h}%`,
+                        background:COLORES[cat]||"#9a9590",
+                        title:`${cat}: ${fmt(v)}`}}/>:null
+                    })}
+                  </div>
+                  {/* Label periodo */}
+                  <div style={{fontSize:8,color:"#9a9590",marginTop:4,textAlign:"center" as const,
+                    transform:"rotate(-35deg)",transformOrigin:"top center" as const,
+                    whiteSpace:"nowrap" as const}}>
+                    {p.replace(/\d{4}-/,"")}
+                  </div>
+                  <div style={{fontSize:9,color:"#4a4640",fontWeight:700,
+                    marginTop:8,textAlign:"center" as const}}>
+                    {total>0?("$"+Math.round(total/1000)+"k"):""}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Leyenda */}
+      <div style={{display:"flex",gap:12,flexWrap:"wrap" as const,marginBottom:24}}>
+        {topCats.map(([cat])=>(
+          <div key={cat} style={{display:"flex",alignItems:"center",gap:5}}>
+            <div style={{width:12,height:12,borderRadius:3,background:COLORES[cat]||"#9a9590"}}/>
+            <span style={{fontSize:11,color:"#4a4640",fontWeight:600}}>{cat}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabla detalle por periodo */}
+      <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
+        <div style={{background:"#0f172a",color:"#fff",padding:"10px 16px",
+          display:"grid",
+          gridTemplateColumns:`120px repeat(${Math.min(topCats.length,6)},1fr) 100px`}}>
+          <div style={{fontSize:11,fontWeight:700}}>Periodo</div>
+          {topCats.slice(0,6).map(([cat])=>(
+            <div key={cat} style={{fontSize:10,fontWeight:700,textAlign:"right" as const,
+              color:COLORES[cat]||"#fff"}}>{cat}</div>
+          ))}
+          <div style={{fontSize:11,fontWeight:700,textAlign:"right" as const}}>TOTAL</div>
+        </div>
+        {periodosOrdenados.slice(-20).reverse().map((p,pi)=>(
+          <div key={p} style={{display:"grid",
+            gridTemplateColumns:`120px repeat(${Math.min(topCats.length,6)},1fr) 100px`,
+            padding:"8px 16px",borderBottom:"1px solid #f0ece4",
+            background:pi%2===0?"#fff":"#fafaf8",fontSize:12}}>
+            <div style={{fontWeight:600,color:"#1a1814"}}>
+              {p}
+              <div style={{fontSize:9,color:"#9a9590"}}>{eventos[p]||0} eventos</div>
+            </div>
+            {topCats.slice(0,6).map(([cat])=>(
+              <div key={cat} style={{textAlign:"right" as const,
+                color:(periodos[p]?.[cat]||0)>0?(COLORES[cat]||"#1a1814"):"#d4d0cb",
+                fontFamily:"monospace",fontWeight:(periodos[p]?.[cat]||0)>0?700:400}}>
+                {(periodos[p]?.[cat]||0)>0?fmt(periodos[p][cat]):"—"}
+              </div>
+            ))}
+            <div style={{textAlign:"right" as const,fontWeight:800,
+              fontFamily:"monospace",color:"#1a1814"}}>
+              {fmt(totPeriodo[p]||0)}
+            </div>
+          </div>
+        ))}
+        {/* Totales */}
+        <div style={{display:"grid",
+          gridTemplateColumns:`120px repeat(${Math.min(topCats.length,6)},1fr) 100px`,
+          padding:"10px 16px",background:"#f0ece4",fontWeight:800,fontSize:12}}>
+          <div>TOTAL</div>
+          {topCats.slice(0,6).map(([cat,total])=>(
+            <div key={cat} style={{textAlign:"right" as const,
+              color:COLORES[cat]||"#1a1814",fontFamily:"monospace"}}>
+              {fmt(total)}
+            </div>
+          ))}
+          <div style={{textAlign:"right" as const,fontFamily:"monospace",color:"#1a1814"}}>
+            {fmt(granTotal)}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 export default function Dashboard(){
   const [user,setUser]=useState<Usuario|null>(null)
   const [token,setToken]=useState("")
@@ -553,6 +797,7 @@ export default function Dashboard(){
             {id:"planeacion",label:"Planeación",icon:"cal",subs:[["agenda","Agenda"],["carga","🚚 Carga"],["gantt","Gantt"],["dias","Por Día"]]},
             {id:"catalogo",label:"Catálogo",icon:"box",subs:[["cat-articulos","Artículos"],["cat-clientes","Clientes"],["cat-busqueda","Buscar"]]},
             {id:"inventario",label:"Inventario",icon:"inv"},
+            {id:"analytics",label:"📊 Analytics",icon:"home"},
             {id:"splits",label:"Splits",icon:"cut"},
             ...(esAdmin?[{id:"finanzas",label:"Finanzas",icon:"money"},{id:"rh",label:"RH",icon:"people"}]:[]),
             {id:"config",label:"Config",icon:"cog",subs:[["cfg-equipo","Equipo"],["cfg-rutas","Rutas"],["cfg-misrutas","Mis Rutas"],["cfg-logo","🖼️ Logo"],["cfg-password","🔑 Contraseña"]]},
@@ -840,6 +1085,10 @@ export default function Dashboard(){
         {seccion==="inventario"&&<InventarioSection contratos={cBase} token={token}/>}
         {seccion==="splits"&&(
           <SplitsSection token={token} contratos={contratosEnriquecidos} logoUrl={logoUrl}/>
+        )}
+
+        {seccion==="analytics"&&(
+          <AnalyticsSection token={token} contratos={contratosEnriquecidos}/>
         )}
         {seccion==="rh"&&esAdmin&&(
           <div style={{padding:"20px"}}>
