@@ -278,22 +278,66 @@ function AnalyticsGate({token,contratos}:{token:string,contratos:any[]}){
 // ══════════════════════════════════════════════
 //  ANALYTICS SECTION — Rentabilidad por categoría
 // ══════════════════════════════════════════════
-function AnalyticsSection({token,contratos}:{token:string,contratos:any[]}){
-  const [vista,setVista]=useState<"semana"|"mes">("semana")
-  const [rangoSem,setRangoSem]=useState(12) // últimas N semanas
 
-  // Categorías a analizar
-  const CATS=["MOBILIARIO","FLORES","VAJILLA","MANTELERIA","CARPAS","SERVICIOS"]
-  const COLORES:Record<string,string>={
-    MOBILIARIO:"#1a3a5c",
-    FLORES:"#d946a8",
-    VAJILLA:"#92580a",
-    MANTELERIA:"#2d6a4f",
-    CARPAS:"#6d28d9",
-    SERVICIOS:"#374151",
+const CAT_COLORS:Record<string,string>={
+  MOBILIARIO:"#1a3a5c",
+  FLORES:"#d946a8",
+  VAJILLA:"#92580a",
+  MANTELERIA:"#2d6a4f",
+  CARPAS:"#6d28d9",
+  SERVICIOS:"#374151",
+  "SIN CATEGORÍA":"#9a9590",
+}
+const ALL_CATS=["MOBILIARIO","FLORES","VAJILLA","MANTELERIA","CARPAS","SERVICIOS"]
+
+function AnalyticsGate({token,contratos}:{token:string,contratos:any[]}){
+  const [ok,setOk]=useState(false)
+  const [pwd,setPwd]=useState("")
+  const [err,setErr]=useState(false)
+  if(ok) return <AnalyticsSection token={token} contratos={contratos}/>
+  return(
+    <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",
+      justifyContent:"center",minHeight:"60vh",fontFamily:"Epilogue,sans-serif"}}>
+      <div style={{background:"#fff",borderRadius:16,padding:"40px 48px",
+        boxShadow:"0 4px 24px rgba(0,0,0,.10)",border:"1px solid #e8e5de",
+        textAlign:"center" as const,maxWidth:360,width:"100%"}}>
+        <div style={{fontSize:40,marginBottom:12}}>📊</div>
+        <div style={{fontSize:20,fontWeight:800,marginBottom:4,color:"#0f172a"}}>Analytics</div>
+        <div style={{fontSize:13,color:"#9a9590",marginBottom:28}}>Acceso restringido — ingresa tu contraseña</div>
+        <input type="password" value={pwd} autoFocus
+          onChange={e=>{setPwd(e.target.value);setErr(false)}}
+          onKeyDown={e=>{if(e.key==="Enter"){if(pwd==="POLIFLOR_GERENCIA_2026")setOk(true);else{setErr(true);setPwd("")}}}}
+          placeholder="Contraseña"
+          style={{width:"100%",padding:"10px 14px",borderRadius:8,
+            border:`2px solid ${err?"#dc2626":"#e8e5de"}`,fontSize:14,outline:"none",
+            boxSizing:"border-box" as const,marginBottom:err?6:16}}/>
+        {err&&<div style={{fontSize:12,color:"#dc2626",marginBottom:12,textAlign:"left" as const}}>❌ Contraseña incorrecta</div>}
+        <button onClick={()=>{if(pwd==="POLIFLOR_GERENCIA_2026")setOk(true);else{setErr(true);setPwd("")}}}
+          style={{width:"100%",padding:"10px",borderRadius:8,border:"none",
+            background:"#0f172a",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+          Entrar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AnalyticsSection({token,contratos}:{token:string,contratos:any[]}){
+  const [vista,setVista]=useState<"semana"|"mes"|"año">("mes")
+  const [anioSel,setAnioSel]=useState(new Date().getFullYear().toString())
+  const [tabActiva,setTabActiva]=useState<"dashboard"|"clasificar">("dashboard")
+  // overrides: {articulo_nombre -> categoria}
+  const [overrides,setOverrides]=useState<Record<string,string>>(()=>{
+    try{ return JSON.parse(localStorage.getItem("pf_cat_overrides")||"{}") }catch{return{}}
+  })
+  const [busqClasif,setBusqClasif]=useState("")
+
+  const saveOverride=(nombre:string,cat:string)=>{
+    const next={...overrides,[nombre]:cat}
+    setOverrides(next)
+    localStorage.setItem("pf_cat_overrides",JSON.stringify(next))
   }
 
-  // Función para obtener semana ISO (YYYY-WNN)
   const getWeek=(dateStr:string)=>{
     const d=new Date(dateStr+"T12:00:00")
     const jan4=new Date(d.getFullYear(),0,4)
@@ -301,219 +345,397 @@ function AnalyticsSection({token,contratos}:{token:string,contratos:any[]}){
     const week=Math.floor((d.getTime()-start)/604800000)+1
     return `${d.getFullYear()}-S${String(week).padStart(2,"0")}`
   }
-  const getMes=(dateStr:string)=>dateStr?.slice(0,7)||""
 
-  // Procesar contratos: agrupar ingresos por categoría y periodo
+  const getCat=(a:any)=>{
+    const nombre=(a.nombre||"").trim()
+    if(overrides[nombre]) return overrides[nombre].toUpperCase()
+    const s=(a.seccion||a.categoria||"").toUpperCase().trim()
+    return s||"SIN CATEGORÍA"
+  }
+
+  // Años disponibles
+  const anosDisp=useMemo(()=>{
+    const anos=new Set<string>()
+    contratos.forEach((c:any)=>{
+      const y=(c.fecha_evento||"").slice(0,4)
+      if(y) anos.add(y)
+    })
+    return [...anos].sort().reverse()
+  },[contratos])
+
+  // Datos filtrados por año
+  const contratosFiltrados=useMemo(()=>
+    contratos.filter((c:any)=>(c.fecha_evento||"").startsWith(anioSel))
+  ,[contratos,anioSel])
+
+  // Procesamiento principal
   const datos=useMemo(()=>{
-    const ahora=new Date()
     const periodos:Record<string,Record<string,number>>={}
-    const totCat:Record<string,number>={} 
+    const totCat:Record<string,number>={}
     const totPeriodo:Record<string,number>={}
     const eventos:Record<string,number>={}
+    const sinClasif:Record<string,{total:number,contratos:number}>= {}
 
-    contratos.forEach((c:any)=>{
-      const fe=c.fecha_evento
-      if(!fe)return
-      const d=new Date(fe+"T12:00:00")
-      // Solo últimas N semanas/meses
-      const diffDias=(ahora.getTime()-d.getTime())/86400000
-      if(vista==="semana"&&diffDias>rangoSem*7)return
-      if(vista==="mes"&&diffDias>rangoSem*30)return
+    contratosFiltrados.forEach((c:any)=>{
+      const fe=c.fecha_evento; if(!fe) return
+      let periodo=""
+      if(vista==="semana") periodo=getWeek(fe)
+      else if(vista==="mes") periodo=fe.slice(0,7)
+      else periodo=fe.slice(0,4)
 
-      const periodo=vista==="semana"?getWeek(fe):getMes(fe)
-      if(!periodos[periodo])periodos[periodo]={}
-      if(!totPeriodo[periodo])totPeriodo[periodo]=0
+      if(!periodos[periodo]) periodos[periodo]={}
+      if(!totPeriodo[periodo]) totPeriodo[periodo]=0
       eventos[periodo]=(eventos[periodo]||0)+1
 
       const arts:any[]=c.articulos||[]
       if(arts.length===0){
-        // Si no hay artículos, intentar distribuir el total por tipo del contrato
-        const total=c.total||0
-        const cat=c.tipo||"SIN CATEGORÍA"
+        // Contrato sin desglose — usar total del contrato
+        const total=Number(c.total)||0
+        const cat="SIN CATEGORÍA"
         periodos[periodo][cat]=(periodos[periodo][cat]||0)+total
         totCat[cat]=(totCat[cat]||0)+total
         totPeriodo[periodo]+=total
         return
       }
       arts.forEach((a:any)=>{
-        const cat=(a.seccion||a.categoria||"SIN CATEGORÍA").toUpperCase().trim()
-        const importe=(a.pu||a.precio_unitario||0)*(a.cantidad||1)
-        periodos[periodo][cat]=(periodos[periodo][cat]||0)+importe
-        totCat[cat]=(totCat[cat]||0)+importe
-        totPeriodo[periodo]+=importe
+        const cat=getCat(a)
+        const bruto=(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1)
+        const desc=a.aplica_descuento?Math.round(bruto*(Number(a.descuento_pct_art)||0)/100):0
+        const neto=bruto-desc
+        periodos[periodo][cat]=(periodos[periodo][cat]||0)+neto
+        totCat[cat]=(totCat[cat]||0)+neto
+        totPeriodo[periodo]+=neto
+        if(cat==="SIN CATEGORÍA"){
+          const n=(a.nombre||"Sin nombre").trim()
+          if(!sinClasif[n]) sinClasif[n]={total:0,contratos:0}
+          sinClasif[n].total+=neto
+          sinClasif[n].contratos+=1
+        }
       })
     })
 
     const periodosOrdenados=Object.keys(periodos).sort()
-    return{periodos,periodosOrdenados,totCat,totPeriodo,eventos}
-  },[contratos,vista,rangoSem])
+    const granTotal=Object.values(totCat).reduce((s,v)=>s+v,0)
+    const topCats=Object.entries(totCat).sort((a,b)=>b[1]-a[1])
+    const maxPeriodo=Math.max(...periodosOrdenados.map(p=>totPeriodo[p]||0),1)
+    return{periodos,periodosOrdenados,totCat,totPeriodo,eventos,granTotal,topCats,maxPeriodo,sinClasif}
+  },[contratosFiltrados,vista,overrides])
 
-  const {periodos,periodosOrdenados,totCat,totPeriodo,eventos}=datos
+  const {periodos,periodosOrdenados,totCat,totPeriodo,eventos,granTotal,topCats,maxPeriodo,sinClasif}=datos
   const fmt=(n:number)=>"$"+Math.round(n).toLocaleString("es-MX")
+  const fmtK=(n:number)=>n>=1000000?"$"+(n/1000000).toFixed(1)+"M":n>=1000?"$"+Math.round(n/1000)+"k":fmt(n)
 
-  // Top categorías por ingreso total
-  const topCats=Object.entries(totCat)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,6)
+  // Artículos sin clasificar ordenados por impacto
+  const sinClasifArr=Object.entries(sinClasif).sort((a,b)=>b[1].total-a[1].total)
+  const sinClasifFiltrado=busqClasif
+    ? sinClasifArr.filter(([n])=>n.toLowerCase().includes(busqClasif.toLowerCase()))
+    : sinClasifArr
 
-  const granTotal=Object.values(totCat).reduce((s,v)=>s+v,0)
-
-  // Máximo para escalar barras
-  const maxPeriodo=Math.max(...periodosOrdenados.map(p=>totPeriodo[p]||0),1)
+  const totalSinClasif=sinClasifArr.reduce((s,[,v])=>s+v.total,0)
+  const pctSinClasif=granTotal>0?Math.round(totalSinClasif/granTotal*100):0
 
   return(
-    <div style={{fontFamily:"Epilogue,sans-serif",color:"#1a1814"}}>
-      {/* Header */}
-      <div style={{marginBottom:24}}>
-        <h2 style={{fontSize:22,fontWeight:800,margin:0}}>📊 Analytics de Rentabilidad</h2>
-        <p style={{fontSize:13,color:"#9a9590",marginTop:4}}>Ingresos por categoría basados en artículos de contratos confirmados</p>
-      </div>
+    <div style={{fontFamily:"Epilogue,sans-serif",color:"#1a1814",maxWidth:1200}}>
 
-      {/* Controles */}
-      <div style={{display:"flex",gap:10,marginBottom:24,flexWrap:"wrap" as const}}>
-        <div style={{display:"flex",gap:4}}>
-          {(["semana","mes"] as const).map(v=>(
+      {/* ── Header ejecutivo ── */}
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",
+        flexWrap:"wrap" as const,gap:12,marginBottom:20}}>
+        <div>
+          <h2 style={{fontSize:24,fontWeight:800,margin:0,color:"#0f172a"}}>
+            📊 Analytics de Rentabilidad
+          </h2>
+          <p style={{fontSize:13,color:"#9a9590",margin:"4px 0 0"}}>
+            Ingresos reales por categoría · Poliflor Eventos
+          </p>
+        </div>
+        {/* Controles */}
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" as const}}>
+          {/* Selector de año */}
+          <select value={anioSel} onChange={e=>setAnioSel(e.target.value)}
+            style={{padding:"8px 12px",borderRadius:8,border:"2px solid #0f172a",
+              fontSize:14,fontWeight:700,background:"#0f172a",color:"#fff",cursor:"pointer"}}>
+            {anosDisp.map(a=><option key={a} value={a}>{a}</option>)}
+          </select>
+          {/* Vista */}
+          {(["semana","mes","año"] as const).map(v=>(
             <button key={v} onClick={()=>setVista(v)}
-              style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",
-                background:vista===v?"#0f172a":"#f5f4f0",
-                color:vista===v?"#fff":"#4a4640",fontWeight:700,fontSize:12}}>
-              Por {v==="semana"?"Semana":"Mes"}
+              style={{padding:"8px 14px",borderRadius:8,border:"none",cursor:"pointer",
+                fontWeight:700,fontSize:12,
+                background:vista===v?"#1a3a5c":"#f5f4f0",
+                color:vista===v?"#fff":"#4a4640"}}>
+              {v==="semana"?"📅 Semana":v==="mes"?"📆 Mes":"📊 Año"}
             </button>
           ))}
         </div>
-        <select value={rangoSem} onChange={e=>setRangoSem(Number(e.target.value))}
-          style={{padding:"6px 10px",borderRadius:8,border:"1px solid #e8e5de",fontSize:12,background:"#fff"}}>
-          {vista==="semana"?
-            [4,8,12,24,52].map(n=><option key={n} value={n}>Últimas {n} semanas</option>):
-            [3,6,12,24].map(n=><option key={n} value={n}>Últimos {n} meses</option>)
-          }
-        </select>
       </div>
 
-      {/* KPI Cards */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:28}}>
-        {topCats.map(([cat,total])=>(
-          <div key={cat} style={{background:"#fff",borderRadius:12,padding:"16px",
-            border:`2px solid ${COLORES[cat]||"#e8e5de"}`,
-            boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
-            <div style={{fontSize:10,fontWeight:700,color:COLORES[cat]||"#4a4640",
-              textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6}}>{cat}</div>
-            <div style={{fontSize:20,fontWeight:800,color:"#1a1814"}}>{fmt(total)}</div>
-            <div style={{fontSize:11,color:"#9a9590",marginTop:4}}>
-              {Math.round(total/granTotal*100)}% del total
-            </div>
-            <div style={{marginTop:8,height:4,borderRadius:2,background:"#f0ece4"}}>
-              <div style={{height:4,borderRadius:2,
-                background:COLORES[cat]||"#1a3a5c",
-                width:`${Math.round(total/granTotal*100)}%`}}/>
-            </div>
-          </div>
+      {/* ── Tabs ── */}
+      <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"2px solid #e8e5de"}}>
+        {([["dashboard","📈 Dashboard"],["clasificar","🏷️ Clasificar artículos"]] as const).map(([id,label])=>(
+          <button key={id} onClick={()=>setTabActiva(id)}
+            style={{padding:"8px 18px",border:"none",cursor:"pointer",fontWeight:700,
+              fontSize:13,background:"none",
+              borderBottom:tabActiva===id?"3px solid #0f172a":"3px solid transparent",
+              color:tabActiva===id?"#0f172a":"#9a9590",marginBottom:-2}}>
+            {label}
+            {id==="clasificar"&&sinClasifArr.length>0&&(
+              <span style={{marginLeft:6,background:"#dc2626",color:"#fff",
+                borderRadius:10,fontSize:10,padding:"1px 6px"}}>
+                {sinClasifArr.length}
+              </span>
+            )}
+          </button>
         ))}
       </div>
 
-      {/* Gráfica de barras apiladas por periodo */}
-      <div style={{background:"#fff",borderRadius:12,padding:"20px",
-        border:"1px solid #e8e5de",marginBottom:24}}>
-        <h3 style={{fontSize:14,fontWeight:700,margin:"0 0 16px"}}>
-          Ingresos por {vista==="semana"?"semana":"mes"} y categoría
-        </h3>
-        <div style={{overflowX:"auto" as const}}>
-          <div style={{display:"flex",gap:4,alignItems:"flex-end",minWidth:periodosOrdenados.length*70,height:200,paddingBottom:24,position:"relative" as const}}>
-            {periodosOrdenados.map(p=>{
-              const total=totPeriodo[p]||0
-              const pct=total/maxPeriodo
-              return(
-                <div key={p} style={{flex:1,display:"flex",flexDirection:"column" as const,
-                  alignItems:"center",justifyContent:"flex-end",gap:0,minWidth:60}}>
-                  {/* Barra apilada */}
-                  <div style={{width:"100%",height:Math.round(pct*160),display:"flex",
-                    flexDirection:"column" as const,borderRadius:"4px 4px 0 0",overflow:"hidden",
-                    title:fmt(total)}}>
-                    {topCats.map(([cat])=>{
-                      const v=periodos[p]?.[cat]||0
-                      const h=total>0?Math.round(v/total*100):0
-                      return h>0?<div key={cat} style={{height:`${h}%`,
-                        background:COLORES[cat]||"#9a9590",
-                        title:`${cat}: ${fmt(v)}`}}/>:null
-                    })}
-                  </div>
-                  {/* Label periodo */}
-                  <div style={{fontSize:8,color:"#9a9590",marginTop:4,textAlign:"center" as const,
-                    transform:"rotate(-35deg)",transformOrigin:"top center" as const,
-                    whiteSpace:"nowrap" as const}}>
-                    {p.replace(/\d{4}-/,"")}
-                  </div>
-                  <div style={{fontSize:9,color:"#4a4640",fontWeight:700,
-                    marginTop:8,textAlign:"center" as const}}>
-                    {total>0?("$"+Math.round(total/1000)+"k"):""}
-                  </div>
+      {tabActiva==="dashboard"&&(<>
+
+        {/* ── KPI Cards ── */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",
+          gap:12,marginBottom:24}}>
+          {/* Total año */}
+          <div style={{background:"#0f172a",borderRadius:12,padding:"18px 16px",
+            color:"#fff",gridColumn:"span 1"}}>
+            <div style={{fontSize:10,fontWeight:700,opacity:.6,textTransform:"uppercase" as const,
+              letterSpacing:".08em",marginBottom:6}}>Total {anioSel}</div>
+            <div style={{fontSize:26,fontWeight:800}}>{fmtK(granTotal)}</div>
+            <div style={{fontSize:11,opacity:.6,marginTop:4}}>
+              {Object.values(eventos).reduce((s,v)=>s+v,0)} eventos
+            </div>
+          </div>
+          {/* Por categoría */}
+          {ALL_CATS.map(cat=>{
+            const total=totCat[cat]||0
+            const pct=granTotal>0?Math.round(total/granTotal*100):0
+            return(
+              <div key={cat} style={{background:"#fff",borderRadius:12,padding:"16px",
+                border:`2px solid ${CAT_COLORS[cat]||"#e8e5de"}`,
+                boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+                <div style={{fontSize:9,fontWeight:700,color:CAT_COLORS[cat],
+                  textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6}}>
+                  {cat}
                 </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Leyenda */}
-      <div style={{display:"flex",gap:12,flexWrap:"wrap" as const,marginBottom:24}}>
-        {topCats.map(([cat])=>(
-          <div key={cat} style={{display:"flex",alignItems:"center",gap:5}}>
-            <div style={{width:12,height:12,borderRadius:3,background:COLORES[cat]||"#9a9590"}}/>
-            <span style={{fontSize:11,color:"#4a4640",fontWeight:600}}>{cat}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Tabla detalle por periodo */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
-        <div style={{background:"#0f172a",color:"#fff",padding:"10px 16px",
-          display:"grid",
-          gridTemplateColumns:`120px repeat(${Math.min(topCats.length,6)},1fr) 100px`}}>
-          <div style={{fontSize:11,fontWeight:700}}>Periodo</div>
-          {topCats.slice(0,6).map(([cat])=>(
-            <div key={cat} style={{fontSize:10,fontWeight:700,textAlign:"right" as const,
-              color:COLORES[cat]||"#fff"}}>{cat}</div>
-          ))}
-          <div style={{fontSize:11,fontWeight:700,textAlign:"right" as const}}>TOTAL</div>
-        </div>
-        {periodosOrdenados.slice(-20).reverse().map((p,pi)=>(
-          <div key={p} style={{display:"grid",
-            gridTemplateColumns:`120px repeat(${Math.min(topCats.length,6)},1fr) 100px`,
-            padding:"8px 16px",borderBottom:"1px solid #f0ece4",
-            background:pi%2===0?"#fff":"#fafaf8",fontSize:12}}>
-            <div style={{fontWeight:600,color:"#1a1814"}}>
-              {p}
-              <div style={{fontSize:9,color:"#9a9590"}}>{eventos[p]||0} eventos</div>
+                <div style={{fontSize:20,fontWeight:800,color:"#1a1814"}}>{fmtK(total)}</div>
+                <div style={{display:"flex",justifyContent:"space-between",
+                  alignItems:"center",marginTop:6}}>
+                  <div style={{fontSize:11,color:"#9a9590"}}>{pct}% del total</div>
+                </div>
+                <div style={{marginTop:8,height:4,borderRadius:2,background:"#f0ece4"}}>
+                  <div style={{height:4,borderRadius:2,
+                    background:CAT_COLORS[cat]||"#1a3a5c",width:`${pct}%`}}/>
+                </div>
+              </div>
+            )
+          })}
+          {/* Sin clasificar */}
+          {totalSinClasif>0&&(
+            <div style={{background:"#fef2f2",borderRadius:12,padding:"16px",
+              border:"2px solid #fca5a5"}}>
+              <div style={{fontSize:9,fontWeight:700,color:"#dc2626",
+                textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6}}>
+                ⚠️ Sin clasificar
+              </div>
+              <div style={{fontSize:20,fontWeight:800,color:"#dc2626"}}>{fmtK(totalSinClasif)}</div>
+              <div style={{fontSize:11,color:"#dc2626",marginTop:4}}>
+                {pctSinClasif}% no clasificado
+              </div>
+              <button onClick={()=>setTabActiva("clasificar")}
+                style={{marginTop:8,fontSize:10,padding:"3px 8px",borderRadius:5,
+                  border:"1px solid #dc2626",background:"none",color:"#dc2626",
+                  cursor:"pointer",fontWeight:700}}>
+                Clasificar →
+              </button>
             </div>
-            {topCats.slice(0,6).map(([cat])=>(
-              <div key={cat} style={{textAlign:"right" as const,
-                color:(periodos[p]?.[cat]||0)>0?(COLORES[cat]||"#1a1814"):"#d4d0cb",
-                fontFamily:"monospace",fontWeight:(periodos[p]?.[cat]||0)>0?700:400}}>
-                {(periodos[p]?.[cat]||0)>0?fmt(periodos[p][cat]):"—"}
+          )}
+        </div>
+
+        {/* ── Gráfica de barras ── */}
+        <div style={{background:"#fff",borderRadius:12,padding:"20px 20px 12px",
+          border:"1px solid #e8e5de",marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+            <h3 style={{fontSize:14,fontWeight:700,margin:0}}>
+              Ingresos por {vista} — {anioSel}
+            </h3>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap" as const}}>
+              {ALL_CATS.map(cat=>(
+                <div key={cat} style={{display:"flex",alignItems:"center",gap:4}}>
+                  <div style={{width:10,height:10,borderRadius:2,background:CAT_COLORS[cat]}}/>
+                  <span style={{fontSize:10,color:"#4a4640"}}>{cat}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{overflowX:"auto" as const}}>
+            <div style={{display:"flex",gap:3,alignItems:"flex-end",
+              minWidth:Math.max(periodosOrdenados.length*56,300),
+              height:180,paddingBottom:4,position:"relative" as const}}>
+              {periodosOrdenados.map(p=>{
+                const total=totPeriodo[p]||0
+                const pct=total/maxPeriodo
+                return(
+                  <div key={p} style={{flex:1,display:"flex",flexDirection:"column" as const,
+                    alignItems:"center",justifyContent:"flex-end",minWidth:50}}>
+                    <div style={{fontSize:9,color:"#1a1814",fontWeight:700,marginBottom:2}}>
+                      {total>0?fmtK(total):""}
+                    </div>
+                    <div style={{width:"100%",height:Math.max(Math.round(pct*140),total>0?2:0),
+                      display:"flex",flexDirection:"column" as const,
+                      borderRadius:"4px 4px 0 0",overflow:"hidden"}}>
+                      {ALL_CATS.map(cat=>{
+                        const v=periodos[p]?.[cat]||0
+                        const h=total>0?v/total*100:0
+                        return h>0.5?<div key={cat} style={{height:`${h}%`,
+                          background:CAT_COLORS[cat]||"#9a9590"}}/>:null
+                      })}
+                    </div>
+                    <div style={{fontSize:8,color:"#9a9590",marginTop:4,textAlign:"center" as const,
+                      whiteSpace:"nowrap" as const}}>
+                      {vista==="semana"?p.split("-S")[1]+"ª":
+                       vista==="mes"?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(p.slice(5))]:p}
+                    </div>
+                    <div style={{fontSize:8,color:"#c4bfb8",textAlign:"center" as const}}>
+                      {eventos[p]?events[p]+"ev":""}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Tabla ejecutiva ── */}
+        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",
+          overflow:"hidden",marginBottom:24}}>
+          <div style={{background:"#0f172a",color:"#fff",padding:"10px 16px",
+            display:"grid",
+            gridTemplateColumns:`110px repeat(${ALL_CATS.length},1fr) 90px 60px`}}>
+            <div style={{fontSize:11,fontWeight:700}}>Periodo</div>
+            {ALL_CATS.map(cat=>(
+              <div key={cat} style={{fontSize:9,fontWeight:700,textAlign:"right" as const,
+                color:CAT_COLORS[cat]}}>
+                {cat.slice(0,7)}
               </div>
             ))}
-            <div style={{textAlign:"right" as const,fontWeight:800,
-              fontFamily:"monospace",color:"#1a1814"}}>
-              {fmt(totPeriodo[p]||0)}
-            </div>
+            <div style={{fontSize:11,fontWeight:700,textAlign:"right" as const}}>TOTAL</div>
+            <div style={{fontSize:11,fontWeight:700,textAlign:"right" as const,opacity:.6}}>EVENTOS</div>
           </div>
-        ))}
-        {/* Totales */}
-        <div style={{display:"grid",
-          gridTemplateColumns:`120px repeat(${Math.min(topCats.length,6)},1fr) 100px`,
-          padding:"10px 16px",background:"#f0ece4",fontWeight:800,fontSize:12}}>
-          <div>TOTAL</div>
-          {topCats.slice(0,6).map(([cat,total])=>(
-            <div key={cat} style={{textAlign:"right" as const,
-              color:COLORES[cat]||"#1a1814",fontFamily:"monospace"}}>
-              {fmt(total)}
+          {[...periodosOrdenados].reverse().map((p,pi)=>(
+            <div key={p} style={{display:"grid",
+              gridTemplateColumns:`110px repeat(${ALL_CATS.length},1fr) 90px 60px`,
+              padding:"7px 16px",borderBottom:"1px solid #f0ece4",
+              background:pi%2===0?"#fff":"#fafaf8",fontSize:11}}>
+              <div style={{fontWeight:700,color:"#1a1814"}}>
+                {vista==="semana"?p:
+                 vista==="mes"?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(p.slice(5))]+" "+p.slice(0,4):
+                 p}
+              </div>
+              {ALL_CATS.map(cat=>{
+                const v=periodos[p]?.[cat]||0
+                return(
+                  <div key={cat} style={{textAlign:"right" as const,fontFamily:"monospace",
+                    fontWeight:v>0?700:400,
+                    color:v>0?(CAT_COLORS[cat]||"#1a1814"):"#e0dbd4"}}>
+                    {v>0?fmtK(v):"—"}
+                  </div>
+                )
+              })}
+              <div style={{textAlign:"right" as const,fontWeight:800,fontFamily:"monospace",
+                color:"#1a1814"}}>{fmtK(totPeriodo[p]||0)}</div>
+              <div style={{textAlign:"right" as const,color:"#9a9590"}}>{eventos[p]||0}</div>
             </div>
           ))}
-          <div style={{textAlign:"right" as const,fontFamily:"monospace",color:"#1a1814"}}>
-            {fmt(granTotal)}
+          {/* Totales */}
+          <div style={{display:"grid",
+            gridTemplateColumns:`110px repeat(${ALL_CATS.length},1fr) 90px 60px`,
+            padding:"10px 16px",background:"#f0ece4",fontWeight:800,fontSize:12,
+            borderTop:"2px solid #0f172a"}}>
+            <div style={{color:"#0f172a"}}>TOTAL {anioSel}</div>
+            {ALL_CATS.map(cat=>(
+              <div key={cat} style={{textAlign:"right" as const,fontFamily:"monospace",
+                color:CAT_COLORS[cat]}}>
+                {(totCat[cat]||0)>0?fmtK(totCat[cat]||0):"—"}
+              </div>
+            ))}
+            <div style={{textAlign:"right" as const,fontFamily:"monospace",color:"#0f172a"}}>
+              {fmtK(granTotal)}
+            </div>
+            <div style={{textAlign:"right" as const,color:"#9a9590",fontSize:11}}>
+              {Object.values(eventos).reduce((s,v)=>s+v,0)}
+            </div>
           </div>
         </div>
-      </div>
+      </>)}
+
+      {/* ══ TAB CLASIFICAR ══ */}
+      {tabActiva==="clasificar"&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+            marginBottom:16,flexWrap:"wrap" as const,gap:10}}>
+            <div>
+              <h3 style={{fontSize:16,fontWeight:800,margin:0}}>🏷️ Clasificar artículos</h3>
+              <p style={{fontSize:12,color:"#9a9590",margin:"4px 0 0"}}>
+                {sinClasifArr.length} artículos sin categoría · {fmtK(totalSinClasif)} en riesgo de no clasificar ({pctSinClasif}%)
+              </p>
+            </div>
+            <input value={busqClasif} onChange={e=>setBusqClasif(e.target.value)}
+              placeholder="Buscar artículo..."
+              style={{padding:"8px 12px",borderRadius:8,border:"1px solid #e8e5de",
+                fontSize:12,width:220,outline:"none"}}/>
+          </div>
+
+          {sinClasifFiltrado.length===0&&(
+            <div style={{textAlign:"center" as const,padding:"40px",color:"#9a9590",fontSize:13}}>
+              {busqClasif?"No hay coincidencias":"✅ Todos los artículos están clasificados"}
+            </div>
+          )}
+
+          <div style={{display:"flex",flexDirection:"column" as const,gap:2}}>
+            {sinClasifFiltrado.map(([nombre,info],i)=>(
+              <div key={nombre} style={{display:"grid",gridTemplateColumns:"1fr auto auto",
+                gap:10,alignItems:"center",padding:"10px 16px",
+                background:i%2===0?"#fff":"#fafaf8",
+                border:"1px solid #f0ece4",borderRadius:8}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:600,color:"#1a1814",
+                    lineHeight:1.3}}>{nombre}</div>
+                  <div style={{fontSize:10,color:"#9a9590",marginTop:2}}>
+                    {fmtK(info.total)} · {info.contratos} contrato{info.contratos!==1?"s":""}
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"#dc2626",fontWeight:700,whiteSpace:"nowrap" as const}}>
+                  {fmtK(info.total)}
+                </div>
+                <select
+                  value={overrides[nombre]||""}
+                  onChange={e=>saveOverride(nombre,e.target.value)}
+                  style={{padding:"6px 10px",borderRadius:6,
+                    border:`2px solid ${overrides[nombre]?(CAT_COLORS[overrides[nombre].toUpperCase()]||"#2d6a4f"):"#e8e5de"}`,
+                    fontSize:11,fontWeight:700,background:"#fff",cursor:"pointer",
+                    color:overrides[nombre]?(CAT_COLORS[overrides[nombre].toUpperCase()]||"#2d6a4f"):"#9a9590",
+                    minWidth:140}}>
+                  <option value="">— Seleccionar categoría —</option>
+                  {ALL_CATS.map(c=><option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+
+          {Object.keys(overrides).length>0&&(
+            <div style={{marginTop:20,padding:"12px 16px",background:"#f0fdf4",
+              borderRadius:8,border:"1px solid #b7deca",fontSize:12}}>
+              <strong style={{color:"#2d6a4f"}}>✅ {Object.keys(overrides).length} artículos clasificados manualmente</strong>
+              <span style={{color:"#4a4640",marginLeft:8}}>
+                Las clasificaciones se guardan en este navegador y se aplican al dashboard.
+              </span>
+              <button onClick={()=>{setOverrides({});localStorage.removeItem("pf_cat_overrides")}}
+                style={{marginLeft:12,fontSize:11,padding:"2px 8px",borderRadius:4,
+                  border:"1px solid #dc2626",background:"none",color:"#dc2626",cursor:"pointer"}}>
+                Limpiar todo
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
