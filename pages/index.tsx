@@ -2737,7 +2737,7 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
           <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:13}}>
             <thead>
               <tr style={{background:"#fafaf8"}}>
-                {["Cliente","Fecha","Total","Cobrado","Saldo","Estado","Pagos",""].map((h,i)=>(
+                {["Cliente","Folio","Fecha","Total","Cobrado","Saldo","Estado","Pagos",""].map((h,i)=>(
                   <th key={i} style={{padding:"9px 12px",textAlign:"left" as const,fontSize:10,fontWeight:700,textTransform:"uppercase" as const,color:"#9a9590",letterSpacing:".05em",borderBottom:"1px solid #e8e5de"}}>{h}</th>
                 ))}
               </tr>
@@ -2749,6 +2749,7 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
                 return(
                   <tr key={i} style={{borderBottom:"1px solid #e8e5de"}}>
                     <td style={{padding:"10px 12px",fontWeight:600,maxWidth:150,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{c.cliente||c.archivo}</td>
+                    <td style={{padding:"10px 12px",color:"#9a9590",fontFamily:"monospace",fontSize:11,fontWeight:600}}>{c.folio||"—"}</td>
                     <td style={{padding:"10px 12px",color:"#9a9590",fontFamily:"monospace",fontSize:11}}>{c.fecha_evento}</td>
                     <td style={{padding:"10px 12px",fontWeight:700}}>{fmt(c.total||0)}</td>
                     <td style={{padding:"10px 12px",color:"#2d6a4f",fontWeight:600}}>{fmt(c.cobrado||0)}</td>
