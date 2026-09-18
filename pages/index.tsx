@@ -4379,7 +4379,7 @@ _(aplica "Asignación sugerida" para confirmar)
 
 // ─── CATÁLOGO DE ARTÍCULOS ─────────────────────────────────────────
 const CATS_CATALOGO = ["MOBILIARIO","FLORES","MANTELERIA","VAJILLA","SERVICIOS","CARPAS","ILUMINACION"]
-const CAT_COLORS: Record<string,string> = {
+const CAT_COLORS_CATALOGO: Record<string,string> = {
   MOBILIARIO:"#1a3a5c",FLORES:"#2d6a4f",MANTELERIA:"#92580a",
   VAJILLA:"#4a2d6e",SERVICIOS:"#8b2e2e",CARPAS:"#1a5c4a",ILUMINACION:"#5c4a1a"
 }
@@ -4510,7 +4510,7 @@ function CatalogoSection({ token }: { token: string }) {
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
           {[["todos", "Todos", articulos.length], ...CATS_CATALOGO.map(c => [c, `${CAT_ICONS[c]} ${c}`, conteos[c] || 0])].map(([k, l, n]) => (
             <button key={String(k)} onClick={() => { setCatActiva(String(k)); cargarCatalogo(String(k)) }}
-              style={{ padding: "4px 12px", borderRadius: 16, border: `1.5px solid ${catActiva === k ? (CAT_COLORS[String(k)] || "#1a1814") : "#e8e5de"}`, background: catActiva === k ? (CAT_COLORS[String(k)] || "#1a1814") : "#fff", color: catActiva === k ? "#fff" : "#4a4640", fontSize: 11, fontWeight: catActiva === k ? 700 : 400, cursor: "pointer", fontFamily: "Epilogue,sans-serif" }}>
+              style={{ padding: "4px 12px", borderRadius: 16, border: `1.5px solid ${catActiva === k ? (CAT_COLORS_CATALOGO[String(k)] || "#1a1814") : "#e8e5de"}`, background: catActiva === k ? (CAT_COLORS_CATALOGO[String(k)] || "#1a1814") : "#fff", color: catActiva === k ? "#fff" : "#4a4640", fontSize: 11, fontWeight: catActiva === k ? 700 : 400, cursor: "pointer", fontFamily: "Epilogue,sans-serif" }}>
               {String(l)} ({Number(n).toLocaleString()})
             </button>
           ))}
@@ -4560,7 +4560,7 @@ function CatalogoSection({ token }: { token: string }) {
                       {a.color && <div style={{ fontSize: 9, color: "#9a9590" }}>{a.color}{a.material ? ` · ${a.material}` : ""}{a.medidas ? ` · ${a.medidas}` : ""}</div>}
                     </td>
                     <td style={{ padding: "8px 12px" }}>
-                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 8, background: (CAT_COLORS[a.categoria] || "#9a9590") + "18", color: CAT_COLORS[a.categoria] || "#9a9590", fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 8, background: (CAT_COLORS_CATALOGO[a.categoria] || "#9a9590") + "18", color: CAT_COLORS_CATALOGO[a.categoria] || "#9a9590", fontWeight: 700 }}>
                         {CAT_ICONS[a.categoria] || "📦"} {a.categoria}
                       </span>
                     </td>
