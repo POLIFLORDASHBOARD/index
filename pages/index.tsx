@@ -4928,7 +4928,17 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
         _fromExcel: true
       } as any))
     // Cotizaciones: exclude converted ones (they become contratos)
-    const dbCots = (Array.isArray(fromDB) ? fromDB : []).filter((x:any) => x.estado !== "convertida")
+    const hoyMs = Date.now()
+    const dbCots = (Array.isArray(fromDB) ? fromDB : [])
+      .filter((x:any) => x.estado !== "convertida")
+      .map((x:any) => {
+        // Auto-marcar expirada si fecha_vigencia pasó y estado sigue activo
+        if(x.fecha_vigencia && ["enviada","vista","pendiente","por_vencer"].includes(x.estado)) {
+          const vigMs = new Date(x.fecha_vigencia+"T23:59:59").getTime()
+          if(vigMs < hoyMs) return {...x, estado:"expirada"}
+        }
+        return x
+      })
     const allCots = [...dbCots, ...cotFromExcel]
       .filter(c => filtroEst === "todos" || (c as any).estado === filtroEst)
       .sort((a,b) => (b.creado_en||"").localeCompare(a.creado_en||""))
