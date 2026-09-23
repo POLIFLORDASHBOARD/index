@@ -5666,7 +5666,7 @@ document.getElementById("btn-pdf").onclick=function(){
             <div style={{fontSize:32,opacity:.2,marginBottom:8}}>📋</div>
             <div>No hay cotizaciones</div>
           </div>}
-          {cots.filter((cot:any)=>(filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot)&&(!busqCot||(cot.cliente_nombre||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.folio||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.lugar_evento||"").toLowerCase().includes(busqCot.toLowerCase()))
+          {cots.filter((cot:any)=>(busqCot||(filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot))&&(!busqCot||(cot.cliente_nombre||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.folio||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.lugar_evento||"").toLowerCase().includes(busqCot.toLowerCase())||(cot.cliente_tel||"").includes(busqCot)))
 &&(!filtroAno||((cot.fecha_evento||"").startsWith(filtroAno)))
 &&(!filtroMes||((cot.fecha_evento||"").startsWith(filtroAno+"-"+filtroMes)))
 &&(!filtroSem||(()=>{if(!cot.fecha_evento)return false;const d=new Date(cot.fecha_evento+"T12:00:00");const dow=d.getDay()===0?6:d.getDay()-1;const lun=new Date(d);lun.setDate(d.getDate()-dow);return lun.toISOString().slice(0,10)===filtroSem})())).map(cot=>{
