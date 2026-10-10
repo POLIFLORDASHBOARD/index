@@ -1,5 +1,5 @@
-// BUILD: 1785892032
-import { useState, useEffect, useCallback } from "react"
+// BUILD: 1785892031
+import { useState, useEffect, useCallback, useMemo } from "react"
 import Head from "next/head"
 import * as XLSX from "xlsx"
 
@@ -13,6 +13,7 @@ interface Contrato {
   dia_evento: string; dia_entrega: string; dia_desmonte: string
   estado_entrega: string; estado_desmonte: string
   asig_entrega: string[]; asig_desmonte: string[]
+  chofer_entrega: string; chofer_desmonte: string
   checklist: { txt: string; done: boolean }[]
   notas: string; es_duplicado: boolean; carpeta: string
   articulos: Articulo[]
@@ -219,6 +220,469 @@ async function apiCall(url:string,method:string,body?:any,token?:string){
   const res=await fetch(url,{method,headers:{"Content-Type":"application/json",...(token?{Authorization:`Bearer ${token}`}:{})},body:body?JSON.stringify(body):undefined})
   return res.json()
 }
+
+
+const CAT_COLORS:Record<string,string>={
+  MOBILIARIO:"#1a3a5c",
+  FLORES:"#d946a8",
+  VAJILLA:"#92580a",
+  MANTELERIA:"#2d6a4f",
+  CARPAS:"#6d28d9",
+  SERVICIOS:"#374151",
+  "SIN CATEGORÍA":"#9a9590",
+}
+const ALL_CATS=["MOBILIARIO","FLORES","VAJILLA","MANTELERIA","CARPAS","SERVICIOS"]
+
+function AnalyticsGate({token,contratos}:{token:string,contratos:any[]}){
+  const [ok,setOk]=useState(false)
+  const [pwd,setPwd]=useState("")
+  const [err,setErr]=useState(false)
+  if(ok) return <AnalyticsSection token={token} contratos={contratos}/>
+  return(
+    <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",
+      justifyContent:"center",minHeight:"60vh",fontFamily:"Epilogue,sans-serif"}}>
+      <div style={{background:"#fff",borderRadius:16,padding:"40px 48px",
+        boxShadow:"0 4px 24px rgba(0,0,0,.10)",border:"1px solid #e8e5de",
+        textAlign:"center" as const,maxWidth:360,width:"100%"}}>
+        <div style={{fontSize:40,marginBottom:12}}>📊</div>
+        <div style={{fontSize:20,fontWeight:800,marginBottom:4,color:"#0f172a"}}>Analytics</div>
+        <div style={{fontSize:13,color:"#9a9590",marginBottom:28}}>Acceso restringido — ingresa tu contraseña</div>
+        <input type="password" value={pwd} autoFocus
+          onChange={e=>{setPwd(e.target.value);setErr(false)}}
+          onKeyDown={e=>{if(e.key==="Enter"){if(pwd==="POLIFLOR_GERENCIA_2026")setOk(true);else{setErr(true);setPwd("")}}}}
+          placeholder="Contraseña"
+          style={{width:"100%",padding:"10px 14px",borderRadius:8,
+            border:`2px solid ${err?"#dc2626":"#e8e5de"}`,fontSize:14,outline:"none",
+            boxSizing:"border-box" as const,marginBottom:err?6:16}}/>
+        {err&&<div style={{fontSize:12,color:"#dc2626",marginBottom:12,textAlign:"left" as const}}>❌ Contraseña incorrecta</div>}
+        <button onClick={()=>{if(pwd==="POLIFLOR_GERENCIA_2026")setOk(true);else{setErr(true);setPwd("")}}}
+          style={{width:"100%",padding:"10px",borderRadius:8,border:"none",
+            background:"#0f172a",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+          Entrar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AnalyticsSection({token,contratos}:{token:string,contratos:any[]}){
+  const [vista,setVista]=useState<"semana"|"mes"|"año">("mes")
+  const [anioSel,setAnioSel]=useState(new Date().getFullYear().toString())
+  const [tabActiva,setTabActiva]=useState<"dashboard"|"clasificar">("dashboard")
+  // overrides: {articulo_nombre -> categoria}
+  const [overrides,setOverrides]=useState<Record<string,string>>(()=>{
+    try{ return JSON.parse(localStorage.getItem("pf_cat_overrides")||"{}") }catch{return{}}
+  })
+  const [busqClasif,setBusqClasif]=useState("")
+
+  const saveOverride=(nombre:string,cat:string)=>{
+    const next={...overrides,[nombre]:cat}
+    setOverrides(next)
+    localStorage.setItem("pf_cat_overrides",JSON.stringify(next))
+  }
+
+  const getWeek=(dateStr:string)=>{
+    const d=new Date(dateStr+"T12:00:00")
+    const jan4=new Date(d.getFullYear(),0,4)
+    const start=jan4.getTime()-((jan4.getDay()||7)-1)*86400000
+    const week=Math.floor((d.getTime()-start)/604800000)+1
+    return `${d.getFullYear()}-S${String(week).padStart(2,"0")}`
+  }
+
+  const getCat=(a:any)=>{
+    const nombre=(a.nombre||"").trim()
+    if(overrides[nombre]) return overrides[nombre].toUpperCase()
+    const s=(a.seccion||a.categoria||"").toUpperCase().trim()
+    return s||"SIN CATEGORÍA"
+  }
+
+  // Años disponibles
+  const anosDisp=useMemo(()=>{
+    const anos=new Set<string>()
+    contratos.forEach((c:any)=>{
+      const y=(c.fecha_evento||"").slice(0,4)
+      if(y) anos.add(y)
+    })
+    return [...anos].sort().reverse()
+  },[contratos])
+
+  // Datos filtrados por año
+  const contratosFiltrados=useMemo(()=>
+    contratos.filter((c:any)=>(c.fecha_evento||"").startsWith(anioSel))
+  ,[contratos,anioSel])
+
+  // Procesamiento principal
+  const datos=useMemo(()=>{
+    const periodos:Record<string,Record<string,number>>={}
+    const totCat:Record<string,number>={}
+    const totPeriodo:Record<string,number>={}
+    const eventos:Record<string,number>={}
+    const sinClasif:Record<string,{total:number,contratos:number}>= {}
+
+    contratosFiltrados.forEach((c:any)=>{
+      const fe=c.fecha_evento; if(!fe) return
+      let periodo=""
+      if(vista==="semana") periodo=getWeek(fe)
+      else if(vista==="mes") periodo=fe.slice(0,7)
+      else periodo=fe.slice(0,4)
+
+      if(!periodos[periodo]) periodos[periodo]={}
+      if(!totPeriodo[periodo]) totPeriodo[periodo]=0
+      eventos[periodo]=(eventos[periodo]||0)+1
+
+      const arts:any[]=c.articulos||[]
+      if(arts.length===0){
+        // Contrato sin desglose — usar total del contrato
+        const total=Number(c.total)||0
+        const cat="SIN CATEGORÍA"
+        periodos[periodo][cat]=(periodos[periodo][cat]||0)+total
+        totCat[cat]=(totCat[cat]||0)+total
+        totPeriodo[periodo]+=total
+        return
+      }
+      arts.forEach((a:any)=>{
+        const cat=getCat(a)
+        const bruto=(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1)
+        const desc=a.aplica_descuento?Math.round(bruto*(Number(a.descuento_pct_art)||0)/100):0
+        const neto=bruto-desc
+        periodos[periodo][cat]=(periodos[periodo][cat]||0)+neto
+        totCat[cat]=(totCat[cat]||0)+neto
+        totPeriodo[periodo]+=neto
+        if(cat==="SIN CATEGORÍA"){
+          const n=(a.nombre||"Sin nombre").trim()
+          if(!sinClasif[n]) sinClasif[n]={total:0,contratos:0}
+          sinClasif[n].total+=neto
+          sinClasif[n].contratos+=1
+        }
+      })
+    })
+
+    const periodosOrdenados=Object.keys(periodos).sort()
+    const granTotal=Object.values(totCat).reduce((s,v)=>s+v,0)
+    const topCats=Object.entries(totCat).sort((a,b)=>b[1]-a[1])
+    const maxPeriodo=Math.max(...periodosOrdenados.map(p=>totPeriodo[p]||0),1)
+    return{periodos,periodosOrdenados,totCat,totPeriodo,eventos,granTotal,topCats,maxPeriodo,sinClasif}
+  },[contratosFiltrados,vista,overrides])
+
+  const {periodos,periodosOrdenados,totCat,totPeriodo,eventos,granTotal,topCats,maxPeriodo,sinClasif}=datos
+  const fmt=(n:number)=>"$"+Math.round(n).toLocaleString("es-MX")
+  const fmtK=(n:number)=>n>=1000000?"$"+(n/1000000).toFixed(1)+"M":n>=1000?"$"+Math.round(n/1000)+"k":fmt(n)
+
+  // Artículos sin clasificar ordenados por impacto
+  const sinClasifArr=Object.entries(sinClasif).sort((a,b)=>b[1].total-a[1].total)
+  const sinClasifFiltrado=busqClasif
+    ? sinClasifArr.filter(([n])=>n.toLowerCase().includes(busqClasif.toLowerCase()))
+    : sinClasifArr
+
+  const totalSinClasif=sinClasifArr.reduce((s,[,v])=>s+v.total,0)
+  const pctSinClasif=granTotal>0?Math.round(totalSinClasif/granTotal*100):0
+
+  return(
+    <div style={{fontFamily:"Epilogue,sans-serif",color:"#1a1814",maxWidth:1200}}>
+
+      {/* ── Header ejecutivo ── */}
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",
+        flexWrap:"wrap" as const,gap:12,marginBottom:20}}>
+        <div>
+          <h2 style={{fontSize:24,fontWeight:800,margin:0,color:"#0f172a"}}>
+            📊 Analytics de Rentabilidad
+          </h2>
+          <p style={{fontSize:13,color:"#9a9590",margin:"4px 0 0"}}>
+            Ingresos reales por categoría · Poliflor Eventos
+          </p>
+        </div>
+        {/* Controles */}
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" as const}}>
+          {/* Selector de año */}
+          <select value={anioSel} onChange={e=>setAnioSel(e.target.value)}
+            style={{padding:"8px 12px",borderRadius:8,border:"2px solid #0f172a",
+              fontSize:14,fontWeight:700,background:"#0f172a",color:"#fff",cursor:"pointer"}}>
+            {anosDisp.map(a=><option key={a} value={a}>{a}</option>)}
+          </select>
+          {/* Vista */}
+          {(["semana","mes","año"] as const).map(v=>(
+            <button key={v} onClick={()=>setVista(v)}
+              style={{padding:"8px 14px",borderRadius:8,border:"none",cursor:"pointer",
+                fontWeight:700,fontSize:12,
+                background:vista===v?"#1a3a5c":"#f5f4f0",
+                color:vista===v?"#fff":"#4a4640"}}>
+              {v==="semana"?"📅 Semana":v==="mes"?"📆 Mes":"📊 Año"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Tabs ── */}
+      <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"2px solid #e8e5de"}}>
+        {([["dashboard","📈 Dashboard"],["clasificar","🏷️ Clasificar artículos"]] as const).map(([id,label])=>(
+          <button key={id} onClick={()=>setTabActiva(id)}
+            style={{padding:"8px 18px",border:"none",cursor:"pointer",fontWeight:700,
+              fontSize:13,background:"none",
+              borderBottom:tabActiva===id?"3px solid #0f172a":"3px solid transparent",
+              color:tabActiva===id?"#0f172a":"#9a9590",marginBottom:-2}}>
+            {label}
+            {id==="clasificar"&&sinClasifArr.length>0&&(
+              <span style={{marginLeft:6,background:"#dc2626",color:"#fff",
+                borderRadius:10,fontSize:10,padding:"1px 6px"}}>
+                {sinClasifArr.length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {tabActiva==="dashboard"&&(<>
+
+        {/* ── KPI Cards ── */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",
+          gap:12,marginBottom:24}}>
+          {/* Total año */}
+          <div style={{background:"#0f172a",borderRadius:12,padding:"18px 16px",
+            color:"#fff",gridColumn:"span 1"}}>
+            <div style={{fontSize:10,fontWeight:700,opacity:.6,textTransform:"uppercase" as const,
+              letterSpacing:".08em",marginBottom:6}}>Total {anioSel}</div>
+            <div style={{fontSize:26,fontWeight:800}}>{fmtK(granTotal)}</div>
+            <div style={{fontSize:11,opacity:.6,marginTop:4}}>
+              {Object.values(eventos).reduce((s,v)=>s+v,0)} eventos
+            </div>
+          </div>
+          {/* Por categoría */}
+          {ALL_CATS.map(cat=>{
+            const total=totCat[cat]||0
+            const pct=granTotal>0?Math.round(total/granTotal*100):0
+            return(
+              <div key={cat} style={{background:"#fff",borderRadius:12,padding:"16px",
+                border:`2px solid ${CAT_COLORS[cat]||"#e8e5de"}`,
+                boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+                <div style={{fontSize:9,fontWeight:700,color:CAT_COLORS[cat],
+                  textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6}}>
+                  {cat}
+                </div>
+                <div style={{fontSize:20,fontWeight:800,color:"#1a1814"}}>{fmtK(total)}</div>
+                <div style={{display:"flex",justifyContent:"space-between",
+                  alignItems:"center",marginTop:6}}>
+                  <div style={{fontSize:11,color:"#9a9590"}}>{pct}% del total</div>
+                </div>
+                <div style={{marginTop:8,height:4,borderRadius:2,background:"#f0ece4"}}>
+                  <div style={{height:4,borderRadius:2,
+                    background:CAT_COLORS[cat]||"#1a3a5c",width:`${pct}%`}}/>
+                </div>
+              </div>
+            )
+          })}
+          {/* Sin clasificar */}
+          {totalSinClasif>0&&(
+            <div style={{background:"#fef2f2",borderRadius:12,padding:"16px",
+              border:"2px solid #fca5a5"}}>
+              <div style={{fontSize:9,fontWeight:700,color:"#dc2626",
+                textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6}}>
+                ⚠️ Sin clasificar
+              </div>
+              <div style={{fontSize:20,fontWeight:800,color:"#dc2626"}}>{fmtK(totalSinClasif)}</div>
+              <div style={{fontSize:11,color:"#dc2626",marginTop:4}}>
+                {pctSinClasif}% no clasificado
+              </div>
+              <button onClick={()=>setTabActiva("clasificar")}
+                style={{marginTop:8,fontSize:10,padding:"3px 8px",borderRadius:5,
+                  border:"1px solid #dc2626",background:"none",color:"#dc2626",
+                  cursor:"pointer",fontWeight:700}}>
+                Clasificar →
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Gráfica de barras ── */}
+        <div style={{background:"#fff",borderRadius:12,padding:"20px 20px 12px",
+          border:"1px solid #e8e5de",marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+            <h3 style={{fontSize:14,fontWeight:700,margin:0}}>
+              Ingresos por {vista} — {anioSel}
+            </h3>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap" as const}}>
+              {ALL_CATS.map(cat=>(
+                <div key={cat} style={{display:"flex",alignItems:"center",gap:4}}>
+                  <div style={{width:10,height:10,borderRadius:2,background:CAT_COLORS[cat]}}/>
+                  <span style={{fontSize:10,color:"#4a4640"}}>{cat}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{overflowX:"auto" as const}}>
+            <div style={{display:"flex",gap:3,alignItems:"flex-end",
+              minWidth:Math.max(periodosOrdenados.length*56,300),
+              height:180,paddingBottom:4,position:"relative" as const}}>
+              {periodosOrdenados.map(p=>{
+                const total=totPeriodo[p]||0
+                const pct=total/maxPeriodo
+                return(
+                  <div key={p} style={{flex:1,display:"flex",flexDirection:"column" as const,
+                    alignItems:"center",justifyContent:"flex-end",minWidth:50}}>
+                    <div style={{fontSize:9,color:"#1a1814",fontWeight:700,marginBottom:2}}>
+                      {total>0?fmtK(total):""}
+                    </div>
+                    <div style={{width:"100%",height:Math.max(Math.round(pct*140),total>0?2:0),
+                      display:"flex",flexDirection:"column" as const,
+                      borderRadius:"4px 4px 0 0",overflow:"hidden"}}>
+                      {ALL_CATS.map(cat=>{
+                        const v=periodos[p]?.[cat]||0
+                        const h=total>0?v/total*100:0
+                        return h>0.5?<div key={cat} style={{height:`${h}%`,
+                          background:CAT_COLORS[cat]||"#9a9590"}}/>:null
+                      })}
+                    </div>
+                    <div style={{fontSize:8,color:"#9a9590",marginTop:4,textAlign:"center" as const,
+                      whiteSpace:"nowrap" as const}}>
+                      {vista==="semana"?p.split("-S")[1]+"ª":
+                       vista==="mes"?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(p.slice(5))]:p}
+                    </div>
+                    <div style={{fontSize:8,color:"#c4bfb8",textAlign:"center" as const}}>
+                      {eventos[p]?eventos[p]+"ev":""}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Tabla ejecutiva ── */}
+        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",
+          overflow:"hidden",marginBottom:24}}>
+          <div style={{background:"#0f172a",color:"#fff",padding:"10px 16px",
+            display:"grid",
+            gridTemplateColumns:`110px repeat(${ALL_CATS.length},1fr) 90px 60px`}}>
+            <div style={{fontSize:11,fontWeight:700}}>Periodo</div>
+            {ALL_CATS.map(cat=>(
+              <div key={cat} style={{fontSize:9,fontWeight:700,textAlign:"right" as const,
+                color:CAT_COLORS[cat]}}>
+                {cat.slice(0,7)}
+              </div>
+            ))}
+            <div style={{fontSize:11,fontWeight:700,textAlign:"right" as const}}>TOTAL</div>
+            <div style={{fontSize:11,fontWeight:700,textAlign:"right" as const,opacity:.6}}>EVENTOS</div>
+          </div>
+          {[...periodosOrdenados].reverse().map((p,pi)=>(
+            <div key={p} style={{display:"grid",
+              gridTemplateColumns:`110px repeat(${ALL_CATS.length},1fr) 90px 60px`,
+              padding:"7px 16px",borderBottom:"1px solid #f0ece4",
+              background:pi%2===0?"#fff":"#fafaf8",fontSize:11}}>
+              <div style={{fontWeight:700,color:"#1a1814"}}>
+                {vista==="semana"?p:
+                 vista==="mes"?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(p.slice(5))]+" "+p.slice(0,4):
+                 p}
+              </div>
+              {ALL_CATS.map(cat=>{
+                const v=periodos[p]?.[cat]||0
+                return(
+                  <div key={cat} style={{textAlign:"right" as const,fontFamily:"monospace",
+                    fontWeight:v>0?700:400,
+                    color:v>0?(CAT_COLORS[cat]||"#1a1814"):"#e0dbd4"}}>
+                    {v>0?fmtK(v):"—"}
+                  </div>
+                )
+              })}
+              <div style={{textAlign:"right" as const,fontWeight:800,fontFamily:"monospace",
+                color:"#1a1814"}}>{fmtK(totPeriodo[p]||0)}</div>
+              <div style={{textAlign:"right" as const,color:"#9a9590"}}>{eventos[p]||0}</div>
+            </div>
+          ))}
+          {/* Totales */}
+          <div style={{display:"grid",
+            gridTemplateColumns:`110px repeat(${ALL_CATS.length},1fr) 90px 60px`,
+            padding:"10px 16px",background:"#f0ece4",fontWeight:800,fontSize:12,
+            borderTop:"2px solid #0f172a"}}>
+            <div style={{color:"#0f172a"}}>TOTAL {anioSel}</div>
+            {ALL_CATS.map(cat=>(
+              <div key={cat} style={{textAlign:"right" as const,fontFamily:"monospace",
+                color:CAT_COLORS[cat]}}>
+                {(totCat[cat]||0)>0?fmtK(totCat[cat]||0):"—"}
+              </div>
+            ))}
+            <div style={{textAlign:"right" as const,fontFamily:"monospace",color:"#0f172a"}}>
+              {fmtK(granTotal)}
+            </div>
+            <div style={{textAlign:"right" as const,color:"#9a9590",fontSize:11}}>
+              {Object.values(eventos).reduce((s,v)=>s+v,0)}
+            </div>
+          </div>
+        </div>
+      </>)}
+
+      {/* ══ TAB CLASIFICAR ══ */}
+      {tabActiva==="clasificar"&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+            marginBottom:16,flexWrap:"wrap" as const,gap:10}}>
+            <div>
+              <h3 style={{fontSize:16,fontWeight:800,margin:0}}>🏷️ Clasificar artículos</h3>
+              <p style={{fontSize:12,color:"#9a9590",margin:"4px 0 0"}}>
+                {sinClasifArr.length} artículos sin categoría · {fmtK(totalSinClasif)} en riesgo de no clasificar ({pctSinClasif}%)
+              </p>
+            </div>
+            <input value={busqClasif} onChange={e=>setBusqClasif(e.target.value)}
+              placeholder="Buscar artículo..."
+              style={{padding:"8px 12px",borderRadius:8,border:"1px solid #e8e5de",
+                fontSize:12,width:220,outline:"none"}}/>
+          </div>
+
+          {sinClasifFiltrado.length===0&&(
+            <div style={{textAlign:"center" as const,padding:"40px",color:"#9a9590",fontSize:13}}>
+              {busqClasif?"No hay coincidencias":"✅ Todos los artículos están clasificados"}
+            </div>
+          )}
+
+          <div style={{display:"flex",flexDirection:"column" as const,gap:2}}>
+            {sinClasifFiltrado.map(([nombre,info],i)=>(
+              <div key={nombre} style={{display:"grid",gridTemplateColumns:"1fr auto auto",
+                gap:10,alignItems:"center",padding:"10px 16px",
+                background:i%2===0?"#fff":"#fafaf8",
+                border:"1px solid #f0ece4",borderRadius:8}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:600,color:"#1a1814",
+                    lineHeight:1.3}}>{nombre}</div>
+                  <div style={{fontSize:10,color:"#9a9590",marginTop:2}}>
+                    {fmtK(info.total)} · {info.contratos} contrato{info.contratos!==1?"s":""}
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"#dc2626",fontWeight:700,whiteSpace:"nowrap" as const}}>
+                  {fmtK(info.total)}
+                </div>
+                <select
+                  value={overrides[nombre]||""}
+                  onChange={e=>saveOverride(nombre,e.target.value)}
+                  style={{padding:"6px 10px",borderRadius:6,
+                    border:`2px solid ${overrides[nombre]?(CAT_COLORS[overrides[nombre].toUpperCase()]||"#2d6a4f"):"#e8e5de"}`,
+                    fontSize:11,fontWeight:700,background:"#fff",cursor:"pointer",
+                    color:overrides[nombre]?(CAT_COLORS[overrides[nombre].toUpperCase()]||"#2d6a4f"):"#9a9590",
+                    minWidth:140}}>
+                  <option value="">— Seleccionar categoría —</option>
+                  {ALL_CATS.map(c=><option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+
+          {Object.keys(overrides).length>0&&(
+            <div style={{marginTop:20,padding:"12px 16px",background:"#f0fdf4",
+              borderRadius:8,border:"1px solid #b7deca",fontSize:12}}>
+              <strong style={{color:"#2d6a4f"}}>✅ {Object.keys(overrides).length} artículos clasificados manualmente</strong>
+              <span style={{color:"#4a4640",marginLeft:8}}>
+                Las clasificaciones se guardan en este navegador y se aplican al dashboard.
+              </span>
+              <button onClick={()=>{setOverrides({});localStorage.removeItem("pf_cat_overrides")}}
+                style={{marginLeft:12,fontSize:11,padding:"2px 8px",borderRadius:4,
+                  border:"1px solid #dc2626",background:"none",color:"#dc2626",cursor:"pointer"}}>
+                Limpiar todo
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 export default function Dashboard(){
   const [user,setUser]=useState<Usuario|null>(null)
@@ -552,9 +1016,9 @@ export default function Dashboard(){
             {id:"planeacion",label:"Planeación",icon:"cal",subs:[["agenda","Agenda"],["carga","🚚 Carga"],["gantt","Gantt"],["dias","Por Día"]]},
             {id:"catalogo",label:"Catálogo",icon:"box",subs:[["cat-articulos","Artículos"],["cat-clientes","Clientes"],["cat-busqueda","Buscar"]]},
             {id:"inventario",label:"Inventario",icon:"inv"},
+            {id:"analytics",label:"📊 Analytics",icon:"home"},
             {id:"splits",label:"Splits",icon:"cut"},
-            ...(esAdmin?[{id:"finanzas",label:"Finanzas",icon:"money"}]:[]),
-            ...(esAdmin?[{id:"pyl",label:"P&L",icon:"chart"}]:[]),
+            ...(esAdmin?[{id:"finanzas",label:"Finanzas",icon:"money"},{id:"rh",label:"RH",icon:"people"}]:[]),
             {id:"config",label:"Config",icon:"cog",subs:[["cfg-equipo","Equipo"],["cfg-rutas","Rutas"],["cfg-misrutas","Mis Rutas"],["cfg-logo","🖼️ Logo"],["cfg-password","🔑 Contraseña"]]},
           ] as {id:string,label:string,icon:string,subs?:string[][]}[]).map(item=>{
             const isActive=seccion===item.id
@@ -567,7 +1031,6 @@ export default function Dashboard(){
               inv:"M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01",
               money:"M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
               cut:"M6 2a2 2 0 00-2 2v1H3a1 1 0 000 2h1v1a2 2 0 002 2h.172l3.5 6.063A3 3 0 1014 17a3 3 0 00-2.465 1.294L8.086 12H9a2 2 0 002-2V9h1a1 1 0 000-2h-1V6a2 2 0 00-2-2H6z",
-              chart:"M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
               cog:"M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z",
             }
             return(
@@ -839,9 +1302,17 @@ export default function Dashboard(){
 
         {/* ── CONFIG ── */}
         {seccion==="inventario"&&<InventarioSection contratos={cBase} token={token}/>}
-        {seccion==="pyl"&&esAdmin&&(<PYLSection contratos={contratosEnriquecidos}/>)}
         {seccion==="splits"&&(
           <SplitsSection token={token} contratos={contratosEnriquecidos} logoUrl={logoUrl}/>
+        )}
+
+        {seccion==="analytics"&&(
+          <AnalyticsGate token={token} contratos={contratosEnriquecidos}/>
+        )}
+        {seccion==="rh"&&esAdmin&&(
+          <div style={{padding:"20px"}}>
+            <RHSection token={token} isMobile={isMobile}/>
+          </div>
         )}
         {seccion==="config"&&(subTab===""||subTab==="cfg-equipo")&&esAdmin&&(
           <EquipoSection
@@ -2266,7 +2737,7 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
           <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:13}}>
             <thead>
               <tr style={{background:"#fafaf8"}}>
-                {["Cliente","Fecha","Total","Cobrado","Saldo","Estado","Pagos",""].map((h,i)=>(
+                {["Cliente","Folio","Fecha","Total","Cobrado","Saldo","Estado","Pagos",""].map((h,i)=>(
                   <th key={i} style={{padding:"9px 12px",textAlign:"left" as const,fontSize:10,fontWeight:700,textTransform:"uppercase" as const,color:"#9a9590",letterSpacing:".05em",borderBottom:"1px solid #e8e5de"}}>{h}</th>
                 ))}
               </tr>
@@ -2278,6 +2749,7 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
                 return(
                   <tr key={i} style={{borderBottom:"1px solid #e8e5de"}}>
                     <td style={{padding:"10px 12px",fontWeight:600,maxWidth:150,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{c.cliente||c.archivo}</td>
+                    <td style={{padding:"10px 12px",color:"#9a9590",fontFamily:"monospace",fontSize:11,fontWeight:600}}>{c.folio||"—"}</td>
                     <td style={{padding:"10px 12px",color:"#9a9590",fontFamily:"monospace",fontSize:11}}>{c.fecha_evento}</td>
                     <td style={{padding:"10px 12px",fontWeight:700}}>{fmt(c.total||0)}</td>
                     <td style={{padding:"10px 12px",color:"#2d6a4f",fontWeight:600}}>{fmt(c.cobrado||0)}</td>
@@ -2870,6 +3342,7 @@ function ArticulosStatsSection({contratos}:{contratos:Contrato[]}){
   const [vista,setVista]=useState("renta")
   const [busq,setBusq]=useState("")
   const [topN,setTopN]=useState(20)
+  const [statsTopN,setStatsTopN]=useState(25)
   const fmt=(n:number)=>"$"+Math.round(n).toLocaleString("es-MX")
 
   // Consolidate articles across all contracts
@@ -3906,7 +4379,7 @@ _(aplica "Asignación sugerida" para confirmar)
 
 // ─── CATÁLOGO DE ARTÍCULOS ─────────────────────────────────────────
 const CATS_CATALOGO = ["MOBILIARIO","FLORES","MANTELERIA","VAJILLA","SERVICIOS","CARPAS","ILUMINACION"]
-const CAT_COLORS: Record<string,string> = {
+const CAT_COLORS_CATALOGO: Record<string,string> = {
   MOBILIARIO:"#1a3a5c",FLORES:"#2d6a4f",MANTELERIA:"#92580a",
   VAJILLA:"#4a2d6e",SERVICIOS:"#8b2e2e",CARPAS:"#1a5c4a",ILUMINACION:"#5c4a1a"
 }
@@ -4037,7 +4510,7 @@ function CatalogoSection({ token }: { token: string }) {
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
           {[["todos", "Todos", articulos.length], ...CATS_CATALOGO.map(c => [c, `${CAT_ICONS[c]} ${c}`, conteos[c] || 0])].map(([k, l, n]) => (
             <button key={String(k)} onClick={() => { setCatActiva(String(k)); cargarCatalogo(String(k)) }}
-              style={{ padding: "4px 12px", borderRadius: 16, border: `1.5px solid ${catActiva === k ? (CAT_COLORS[String(k)] || "#1a1814") : "#e8e5de"}`, background: catActiva === k ? (CAT_COLORS[String(k)] || "#1a1814") : "#fff", color: catActiva === k ? "#fff" : "#4a4640", fontSize: 11, fontWeight: catActiva === k ? 700 : 400, cursor: "pointer", fontFamily: "Epilogue,sans-serif" }}>
+              style={{ padding: "4px 12px", borderRadius: 16, border: `1.5px solid ${catActiva === k ? (CAT_COLORS_CATALOGO[String(k)] || "#1a1814") : "#e8e5de"}`, background: catActiva === k ? (CAT_COLORS_CATALOGO[String(k)] || "#1a1814") : "#fff", color: catActiva === k ? "#fff" : "#4a4640", fontSize: 11, fontWeight: catActiva === k ? 700 : 400, cursor: "pointer", fontFamily: "Epilogue,sans-serif" }}>
               {String(l)} ({Number(n).toLocaleString()})
             </button>
           ))}
@@ -4087,7 +4560,7 @@ function CatalogoSection({ token }: { token: string }) {
                       {a.color && <div style={{ fontSize: 9, color: "#9a9590" }}>{a.color}{a.material ? ` · ${a.material}` : ""}{a.medidas ? ` · ${a.medidas}` : ""}</div>}
                     </td>
                     <td style={{ padding: "8px 12px" }}>
-                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 8, background: (CAT_COLORS[a.categoria] || "#9a9590") + "18", color: CAT_COLORS[a.categoria] || "#9a9590", fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 8, background: (CAT_COLORS_CATALOGO[a.categoria] || "#9a9590") + "18", color: CAT_COLORS_CATALOGO[a.categoria] || "#9a9590", fontWeight: 700 }}>
                         {CAT_ICONS[a.categoria] || "📦"} {a.categoria}
                       </span>
                     </td>
@@ -4307,7 +4780,7 @@ const COT_VACIA: Omit<Cotizacion,"id"|"folio"|"creado_en"|"actualizado_en"> = {
   fecha_vigencia: new Date(Date.now()+15*86400000).toISOString().slice(0,10),
   estado:"borrador",vendedor:"",subtotal:0,descuento_pct:0,descuento_monto:0,
   aplica_iva:false,iva_monto:0,total:0,notas_cliente:"",
-  condiciones:"El mobiliario debe devolverse en las mismas condiciones en que fue entregado. El cliente es responsable de cualquier daño o pérdida durante el evento. Los precios incluyen montaje y desmontaje. El 50% del total se paga al confirmar y el resto el día del evento.",
+  condiciones:"El mobiliario debe devolverse en las mismas condiciones en que fue entregado. El cliente es responsable de cualquier daño o pérdida durante el evento. La vajilla no se monta. El 50% del total se paga al confirmar y el resto el día del evento.",
   partidas:[]
 }
 
@@ -4343,6 +4816,10 @@ const DELETE_PWD = "LITA2024"
 function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin, contratos: contratosAll = [] }: { token: string, personal: any, logoUrl?: string, vendedorActual?: string, esAdmin?: boolean, contratos?: any[] }) {
   const [cots, setCots] = useState<Cotizacion[]>([])
   const [cargando, setCargando] = useState(true)
+  const [busqCot, setBusqCot] = useState("")
+  const [filtroAno, setFiltroAno] = useState("")
+  const [filtroMes, setFiltroMes] = useState("")
+  const [filtroSem, setFiltroSem] = useState("")
   const [filtroEst, setFiltroEst] = useState("todos")
   const [filtroVendCot, setFiltroVendCot] = useState(vendedorActual||"todos")
   const [vista, setVista] = useState<"lista"|"form"|"detalle"|"calendario">("lista")
@@ -4451,10 +4928,19 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
         _fromExcel: true
       } as any))
     // Cotizaciones: exclude converted ones (they become contratos)
-    // Normalize: estado vacío → "enviada"
+    const hoyMs = Date.now()
     const dbCots = (Array.isArray(fromDB) ? fromDB : [])
       .filter((x:any) => x.estado !== "convertida")
-      .map((x:any) => ({...x, estado: x.estado||"enviada"}))
+      .map((x:any) => {
+        // Auto-marcar expirada si fecha_vigencia pasó y estado sigue activo
+        if(x.fecha_vigencia && ["enviada","vista","pendiente","por_vencer"].includes(x.estado)) {
+          const vigMs = new Date(x.fecha_vigencia+"T23:59:59").getTime()
+          if(vigMs < hoyMs) return {...x, estado:"expirada"}
+        }
+        // Normalize: estado vacío → "enviada"
+        if(!x.estado) return {...x, estado:"enviada"}
+        return x
+      })
     const allCots = [...dbCots, ...cotFromExcel]
       .filter(c => filtroEst === "todos" || (c as any).estado === filtroEst)
       .sort((a,b) => (b.creado_en||"").localeCompare(a.creado_en||""))
@@ -4566,29 +5052,43 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
     setFormGuardado(true)
     const body = { ...cotActual }
     if (estadoNuevo) body.estado = estadoNuevo
+    // Limpiar fechas vacías — Supabase rechaza "" en campos date
+    const DATE_FIELDS = ["fecha_evento","fecha_entrega","fecha_desmonte","fecha_vigencia"]
+    for (const f of DATE_FIELDS) {
+      if ((body as any)[f] === "" || (body as any)[f] === null) (body as any)[f] = null
+    }
     // Add vendedor prefix to body for folio generation
     if (esNueva && body.vendedor) {
       body._prefijo = prefijoVendedor(body.vendedor)
     }
     let res
-    if (esNueva) {
+    // Si viene de Excel (id con prefijo) o es nueva → POST
+    const rawId = String(cotActual.id || "")
+    const uuidClean = (rawId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)||[""])[0]
+    const isExcel = rawId !== uuidClean || rawId.startsWith("_") || rawId.includes("excel")
+    if (esNueva || isExcel) {
+      // Crear nueva — quitar el id del excel para que Supabase genere uno nuevo
+      const { id: _id, fromExcel: _fx, ...bodyClean } = body as any
       res = await fetch("/api/cotizaciones", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body)
+        body: JSON.stringify(bodyClean)
       })
     } else {
-      res = await fetch(`/api/cotizaciones?id=${cotActual.id}`, {
+      res = await fetch(`/api/cotizaciones?id=${uuidClean}`, {
         method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(body)
       })
     }
     const data = await res.json()
     setGuardando(false)
-    if (data.id) {
+    if (res.ok && (data.id || data.folio)) {
       setCotActual(data)
       setEsNueva(false)
       cargar()
       setVista("detalle")
+    } else {
+      alert("Error al guardar: " + (data?.error || data?.message || "Error desconocido"))
+      console.error("Error guardando cotización:", data)
     }
   }
 
@@ -4687,8 +5187,8 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
       const neto=bruto-descArt
       return `
       <tr style="border-bottom:1px solid #f0ece4;background:${i%2===0?"#fff":"#fafaf8"}">
-        <td style="padding:8px 10px;font-weight:600;font-size:13px">${p.nombre}</td>
         <td style="padding:8px 10px;text-align:center;font-size:13px">${p.cantidad}</td>
+        <td style="padding:8px 10px;font-weight:600;font-size:13px">${p.nombre}</td>
         <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:13px">$${(p.precio_unitario||0).toLocaleString("es-MX")}</td>
         <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:700;font-size:13px;color:#1a3a5c">
           $${neto.toLocaleString("es-MX")}
@@ -4756,8 +5256,8 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
   <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
     <thead>
       <tr style="background:#1a1814;color:#fff">
-        <th style="padding:10px;text-align:left;font-size:11px">Descripción</th>
         <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
+        <th style="padding:10px;text-align:left;font-size:11px">Artículo / Descripción</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:100px">P. Unit.</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:110px">Subtotal</th>
       </tr>
@@ -4962,6 +5462,51 @@ document.getElementById("btn-pdf").onclick=function(){
         </div>
       </div>
 
+      {/* Buscador */}
+      <div style={{marginBottom:10}}>
+        <input value={busqCot} onChange={e=>setBusqCot(e.target.value)}
+          placeholder="🔍 Buscar por cliente, folio o lugar..."
+          style={{width:"100%",padding:"8px 12px",border:"1px solid #e8e5de",borderRadius:8,fontFamily:"Epilogue,sans-serif",fontSize:12,outline:"none",boxSizing:"border-box" as const}}/>
+      </div>
+      {/* Filtros año / mes / semana */}
+      {(()=>{
+        const anos=[...new Set(cots.map((c:any)=>(c.fecha_evento||"").slice(0,4)).filter(Boolean))].sort().reverse()
+        const meses=filtroAno?[...new Set(cots.filter((c:any)=>(c.fecha_evento||"").startsWith(filtroAno)).map((c:any)=>(c.fecha_evento||"").slice(5,7)).filter(Boolean))].sort():[]
+        const MESES_N=["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+        // semanas del mes seleccionado
+        const semsSet=new Set<string>()
+        if(filtroAno&&filtroMes){
+          cots.filter((c:any)=>(c.fecha_evento||"").startsWith(filtroAno+"-"+filtroMes)).forEach((c:any)=>{
+            const d=new Date(c.fecha_evento+"T12:00:00");const dow=d.getDay()===0?6:d.getDay()-1;const lun=new Date(d);lun.setDate(d.getDate()-dow);semsSet.add(lun.toISOString().slice(0,10))
+          })
+        }
+        const sems=[...semsSet].sort()
+        return(
+          <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" as const,alignItems:"center"}}>
+            <span style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".06em"}}>Filtrar:</span>
+            {/* Año */}
+            <select value={filtroAno} onChange={e=>{setFiltroAno(e.target.value);setFiltroMes("");setFiltroSem("")}}
+              style={{padding:"3px 8px",borderRadius:8,border:"1px solid #e8e5de",fontFamily:"Epilogue,sans-serif",fontSize:11,background:"#fff",cursor:"pointer"}}>
+              <option value="">Todos los años</option>
+              {anos.map((a:string)=><option key={a} value={a}>{a}</option>)}
+            </select>
+            {/* Mes */}
+            {filtroAno&&<select value={filtroMes} onChange={e=>{setFiltroMes(e.target.value);setFiltroSem("")}}
+              style={{padding:"3px 8px",borderRadius:8,border:"1px solid #e8e5de",fontFamily:"Epilogue,sans-serif",fontSize:11,background:"#fff",cursor:"pointer"}}>
+              <option value="">Todos los meses</option>
+              {meses.map((m:string)=><option key={m} value={m}>{MESES_N[parseInt(m)]}</option>)}
+            </select>}
+            {/* Semana */}
+            {filtroAno&&filtroMes&&<select value={filtroSem} onChange={e=>setFiltroSem(e.target.value)}
+              style={{padding:"3px 8px",borderRadius:8,border:"1px solid #e8e5de",fontFamily:"Epilogue,sans-serif",fontSize:11,background:"#fff",cursor:"pointer"}}>
+              <option value="">Todas las semanas</option>
+              {sems.map((s:string)=>{const d=new Date(s+"T12:00:00");const fin=new Date(d);fin.setDate(d.getDate()+6);return<option key={s} value={s}>{d.getDate()}/{d.getMonth()+1} — {fin.getDate()}/{fin.getMonth()+1}</option>})}
+            </select>}
+            {(filtroAno||filtroMes||filtroSem)&&<button onClick={()=>{setFiltroAno("");setFiltroMes("");setFiltroSem("")}}
+              style={{padding:"3px 10px",borderRadius:8,border:"1px solid #e8e5de",background:"#f5f4f0",fontFamily:"Epilogue,sans-serif",fontSize:11,cursor:"pointer"}}>✕ Limpiar</button>}
+          </div>
+        )
+      })()}
       {/* KPIs operativos - sin montos */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
         {[
@@ -5123,7 +5668,7 @@ document.getElementById("btn-pdf").onclick=function(){
             <div style={{fontSize:32,opacity:.2,marginBottom:8}}>📋</div>
             <div>No hay cotizaciones</div>
           </div>}
-          {cots.filter((cot:any)=>filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot).map(cot=>{
+          {cots.filter((cot:any)=>{const _q=(busqCot||"").toLowerCase().trim();if(_q){return(cot.cliente_nombre||"").toLowerCase().includes(_q)||(cot.folio||"").toLowerCase().includes(_q)||(cot.lugar_evento||"").toLowerCase().includes(_q)||(cot.cliente_tel||"").includes(_q)}const _vend=filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot;const _ano=!filtroAno||((cot.fecha_evento||"").startsWith(filtroAno));const _mes=!filtroMes||((cot.fecha_evento||"").startsWith(filtroAno+"-"+filtroMes));const _sem=!filtroSem||(()=>{if(!cot.fecha_evento)return false;const d=new Date(cot.fecha_evento+"T12:00:00");const dow=d.getDay()===0?6:d.getDay()-1;const lun=new Date(d);lun.setDate(d.getDate()-dow);return lun.toISOString().slice(0,10)===filtroSem})();return _vend&&_ano&&_mes&&_sem}).map(cot=>{
             const dias = diasVigencia(cot.fecha_vigencia)
             const porVencer = dias !== null && dias >= 0 && dias <= 7 && (cot.estado==="enviada"||cot.estado==="pendiente")
             const vencida = dias !== null && dias < 0 && (cot.estado==="enviada"||cot.estado==="pendiente")
@@ -5510,8 +6055,8 @@ document.getElementById("btn-pdf").onclick=function(){
           {/* ── TABLA ESTILO EXCEL ── */}
           <div style={{background:"#fff",border:"1px solid #c7c7c7",borderRadius:8,overflow:"visible",boxShadow:"0 2px 8px rgba(0,0,0,.06)",marginBottom:8}}>
             {/* Header */}
-            <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#0f172a"}}>
-              {["","Artículo / Descripción","Cant.","P. Unitario","Descuento","Subtotal","Nota",""].map((h,hi)=>(
+            <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#0f172a"}}>
+              {["","Cant.","Artículo / Descripción","P. Unitario","Descuento","Subtotal","Nota",""].map((h,hi)=>(
                 <div key={hi} style={{padding:"9px 8px",fontSize:10,fontWeight:700,color:"#94a3b8",textAlign:hi>=2&&hi<=4?"center" as const:"left" as const,letterSpacing:".06em",textTransform:"uppercase" as const,borderRight:hi<6?"1px solid rgba(255,255,255,.07)":"none"}}>
                   {h}
                 </div>
@@ -5527,7 +6072,7 @@ document.getElementById("btn-pdf").onclick=function(){
             ):(
               (cotActual.partidas||[]).map((p:Partida,i:number)=>(
                 <div key={i} style={{position:"relative" as const}}>
-                  <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:i%2===0?"#fff":"#fafafa",borderTop:"1px solid #ebebeb"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:i%2===0?"#fff":"#fafafa",borderTop:"1px solid #ebebeb"}}>
                     {/* Mover ▲▼ */}
                     <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",gap:1,borderRight:"1px solid #ebebeb",minHeight:40,padding:"2px 0",width:22}}>
                       <button onClick={()=>{
@@ -5547,6 +6092,13 @@ document.getElementById("btn-pdf").onclick=function(){
                         setCotActual((prev:any)=>({...prev,partidas:p,...tots}))
                       }} disabled={i>=(cotActual.partidas||[]).length-1}
                         style={{width:18,height:14,background:"none",border:"none",cursor:i>=(cotActual.partidas||[]).length-1?"default":"pointer",fontSize:9,color:i>=(cotActual.partidas||[]).length-1?"#d0cdc8":"#4a4640",padding:0,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>▼</button>
+                    </div>
+
+                    {/* Cantidad */}
+                    <div style={{borderRight:"1px solid #ebebeb",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <input type="number" min="1" value={p.cantidad}
+                        onChange={e=>actualizarPartida(i,"cantidad",Math.max(1,parseInt(e.target.value)||1))}
+                        style={{width:60,padding:"9px 4px",border:"none",background:"transparent",textAlign:"center" as const,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#0f172a",outline:"none"}}/>
                     </div>
 
                     {/* Nombre con autocomplete inline */}
@@ -5604,13 +6156,6 @@ document.getElementById("btn-pdf").onclick=function(){
                           ))}
                         </div>
                       )}
-                    </div>
-
-                    {/* Cantidad */}
-                    <div style={{borderRight:"1px solid #ebebeb",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      <input type="number" min="1" value={p.cantidad}
-                        onChange={e=>actualizarPartida(i,"cantidad",Math.max(1,parseInt(e.target.value)||1))}
-                        style={{width:60,padding:"9px 4px",border:"none",background:"transparent",textAlign:"center" as const,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#0f172a",outline:"none"}}/>
                     </div>
 
                     {/* Precio unitario */}
@@ -5687,7 +6232,7 @@ document.getElementById("btn-pdf").onclick=function(){
             {/* Fila totales */}
             {(cotActual.partidas||[]).length>0&&(
               <>
-                <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#f8fafc",borderTop:"2px solid #0f172a"}}>
+                <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#f8fafc",borderTop:"2px solid #0f172a"}}>
                   <div style={{gridColumn:"1/5",padding:"10px 12px",fontSize:11,fontWeight:600,color:"#4a4640"}}>
                     {(cotActual.partidas||[]).reduce((s:number,p:Partida)=>s+(p.cantidad||0),0)} piezas
                   </div>
@@ -5698,7 +6243,7 @@ document.getElementById("btn-pdf").onclick=function(){
                   <div/>
                 </div>
                 {(cotActual.descuento_pct||0)>0&&(
-                  <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#fffbeb",borderTop:"1px solid #fde68a"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#fffbeb",borderTop:"1px solid #fde68a"}}>
                     <div style={{gridColumn:"1/6",padding:"8px 12px",fontSize:11,color:"#92580a",fontWeight:600}}>Descuento {cotActual.descuento_pct}%</div>
                     <div style={{padding:"8px 10px",fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#92580a",borderLeft:"1px solid #fde68a",textAlign:"right" as const}}>
                       −${(cotActual.descuento_monto||0).toLocaleString("es-MX")}
@@ -5707,7 +6252,7 @@ document.getElementById("btn-pdf").onclick=function(){
                   </div>
                 )}
                 {cotActual.aplica_iva&&(
-                  <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#f0fdf4",borderTop:"1px solid #bbf7d0"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#f0fdf4",borderTop:"1px solid #bbf7d0"}}>
                     <div style={{gridColumn:"1/6",padding:"8px 12px",fontSize:11,color:"#2d6a4f",fontWeight:600}}>IVA 16%</div>
                     <div style={{padding:"8px 10px",fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#2d6a4f",borderLeft:"1px solid #bbf7d0",textAlign:"right" as const}}>
                       +${(cotActual.iva_monto||0).toLocaleString("es-MX")}
@@ -5715,7 +6260,7 @@ document.getElementById("btn-pdf").onclick=function(){
                     <div/>
                   </div>
                 )}
-                <div style={{display:"grid",gridTemplateColumns:"22px 1fr 72px 110px 80px 110px 120px 32px",background:"#0f172a",borderTop:"2px solid #0f172a"}}>
+                <div style={{display:"grid",gridTemplateColumns:"22px 72px 1fr 110px 80px 110px 120px 32px",background:"#0f172a",borderTop:"2px solid #0f172a"}}>
                   <div style={{gridColumn:"1/6",padding:"12px",fontSize:13,fontWeight:800,color:"#fff"}}>TOTAL</div>
                   <div style={{padding:"12px 10px",fontFamily:"monospace",fontSize:16,fontWeight:800,color:"#60a5fa",borderLeft:"1px solid rgba(255,255,255,.15)",textAlign:"right" as const}}>
                     ${(cotActual.total||0).toLocaleString("es-MX")}
@@ -5831,7 +6376,7 @@ document.getElementById("btn-pdf").onclick=function(){
 
       {/* ─ PASO 3: RESUMEN ─ */}
       {paso===3&&(
-        <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr",gap:14}}>
           <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:20}}>
             <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:700,marginBottom:16}}>✅ Resumen final</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16,fontSize:12}}>
@@ -6059,8 +6604,8 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
       const neto=bruto-descArt
       return `
       <tr style="border-bottom:1px solid #f0ece4;background:${i%2===0?"#fff":"#fafaf8"}">
-        <td style="padding:8px 10px;font-weight:600;font-size:13px">${a.nombre||"—"}</td>
         <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:13px;color:#1a3a5c">${a.cantidad||0}</td>
+        <td style="padding:8px 10px;font-weight:600;font-size:13px">${a.nombre||"—"}</td>
         <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:13px">$${(a.pu||a.precio_unitario||0).toLocaleString("es-MX")}</td>
         <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:700;font-size:13px;color:#1a3a5c">
           $${neto.toLocaleString("es-MX")}
@@ -6109,16 +6654,17 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
       <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Evento</div>
       ${x.fecha_evento?`<div style="font-size:13px;font-weight:700;margin-bottom:4px">📅 ${x.fecha_evento}</div>`:""}
       ${x.lugar?`<div style="font-size:12px;color:#4a4640">📍 ${x.lugar}</div>`:""}
-      ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">Entrega: ${x.fecha_entrega}${x.fecha_desmonte?" · Desmonte: "+x.fecha_desmonte:""}</div>`:""}
+      ${x.fecha_entrega?`<div style="font-size:11px;color:#9a9590;margin-top:6px">Entrega: ${x.fecha_entrega?new Date(x.fecha_entrega+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}${x.fecha_desmonte?" · Desmonte: "+new Date(x.fecha_desmonte+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):""}</div>`:""}
     </div>
   </div>
 
+  ${x.cuenta_bancaria?`<div style="margin:16px 0;padding:12px 16px;background:#f0fdf4;border:1px solid #b7deca;border-radius:8px;font-size:12px"><div style="font-weight:700;color:#2d6a4f;margin-bottom:6px">💳 Datos para transferencia</div><div><strong>${x.cuenta_bancaria.banco}</strong> · ${x.cuenta_bancaria.titular}</div>${x.cuenta_bancaria.cuenta?`<div>N° Cuenta: <strong>${x.cuenta_bancaria.cuenta}</strong></div>`:""}${x.cuenta_bancaria.clabe?`<div>CLABE: <strong>${x.cuenta_bancaria.clabe}</strong></div>`:""}</div>`:""}
   <!-- Artículos -->
   <table style="margin-bottom:24px">
     <thead>
       <tr style="background:#1a1814;color:#fff">
-        <th style="padding:10px;text-align:left;font-size:11px">Artículo</th>
         <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
+        <th style="padding:10px;text-align:left;font-size:11px">Artículo / Descripción</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:100px">P. Unit.</th>
         <th style="padding:10px;text-align:right;font-size:11px;width:110px">Importe</th>
       </tr>
@@ -6151,24 +6697,23 @@ function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vend
     </tfoot>
   </table>
 
-  <!-- Pagos -->
-  ${(x.pagos||[]).length>0?`
+  <!-- Pagos y saldo -->
   <div style="margin-bottom:24px;background:#f0fdf4;border-radius:10px;padding:16px">
-    <div style="font-size:10px;font-weight:700;color:#2d6a4f;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Historial de pagos</div>
-    ${(x.pagos||[]).map((p:any)=>`
+    <div style="font-size:10px;font-weight:700;color:#2d6a4f;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Resumen de pagos</div>
+    ${(x.pagos||[]).length>0?(x.pagos||[]).map((p:any)=>`
       <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #dcfce7;font-size:12px">
         <span>${p.fecha} — ${p.metodo||"efectivo"}${p.nota?" ("+p.nota+")":""}</span>
         <span style="font-family:monospace;font-weight:700;color:#2d6a4f">$${(p.monto||0).toLocaleString("es-MX")}</span>
-      </div>`).join("")}
-    <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:4px;font-weight:700">
+      </div>`).join(""):""}
+    <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:4px;font-weight:700;border-top:1px solid #dcfce7">
       <span>Cobrado</span>
       <span style="font-family:monospace;color:#2d6a4f">$${(x.cobrado||0).toLocaleString("es-MX")}</span>
     </div>
-    ${saldo>0?`<div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700">
-      <span style="color:#92580a">Saldo pendiente</span>
-      <span style="font-family:monospace;color:#92580a">$${saldo.toLocaleString("es-MX")}</span>
-    </div>`:""}
-  </div>`:""}
+    <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700">
+      <span style="color:${saldo>0?"#92580a":"#2d6a4f"}">Saldo pendiente</span>
+      <span style="font-family:monospace;color:${saldo>0?"#92580a":"#2d6a4f"}">$${saldo.toLocaleString("es-MX")}</span>
+    </div>
+  </div>
 
   <!-- Firmas -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:1px solid #e8e5de">
@@ -6276,7 +6821,7 @@ document.getElementById("btn-pdfc").onclick=function(){
   const totalArts=(x:Contrato)=>(x.articulos||[]).reduce((s:number,a:Articulo)=>s+(a.cantidad||0),0)
 
   return(
-    <div style={{display:"grid",gridTemplateColumns:selContrato&&!isMobile?"1fr 540px":"1fr",gap:14}}>
+    <div style={{display:"grid",gridTemplateColumns:selContrato&&!isMobile?"38fr 62fr":"1fr",gap:14}}>
       {/* ── LISTA ── */}
       <div>
         {/* Filtros */}
@@ -6375,7 +6920,7 @@ document.getElementById("btn-pdfc").onclick=function(){
 
       {/* ── DETALLE CONTRATO ── */}
       {selContrato&&(
-        <div style={isMobile?{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.6)",zIndex:2000,display:"flex",flexDirection:"column" as const,justifyContent:"flex-end" as const}:{position:"sticky" as const,top:70,alignSelf:"flex-start" as const}}>
+        <div style={isMobile?{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.6)",zIndex:2000,display:"flex",flexDirection:"column" as const,justifyContent:"flex-end" as const}:{position:"sticky" as const,top:70,alignSelf:"flex-start" as const,width:isMobile?"100%":"min(820px,60vw)"}}>
           <div style={{background:"#fff",borderRadius:isMobile?"16px 16px 0 0":"12px",overflow:"hidden",maxHeight:isMobile?"90vh":"85vh",overflowY:"auto" as const,border:isMobile?"none":"1px solid #e8e5de"}}>
             {/* Header rediseñado */}
             <div style={{background:"linear-gradient(135deg,#0f172a 0%,#1e3a5c 100%)",padding:"20px 20px 16px"}}>
@@ -6414,6 +6959,23 @@ document.getElementById("btn-pdfc").onclick=function(){
                 <button onClick={()=>imprimirContrato(selContrato)}
                   style={{padding:"9px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,background:"rgba(255,255,255,.2)",color:"#fff",fontWeight:700}} title="Imprimir contrato">🖨️ PDF</button>
               </div>
+              {/* Declinar contrato */}
+              <button onClick={async()=>{
+                const pwd=window.prompt("Contraseña para declinar contrato:")
+                if(!pwd)return
+                if(pwd!=="LITA2024"){window.alert("❌ Contraseña incorrecta");return}
+                if(!window.confirm(`¿Declinar contrato de ${selContrato.cliente||selContrato.archivo}?\nEsta acción no se puede deshacer.`))return
+                await fetch(`/api/contratos?id=${selContrato.id}`,{
+                  method:"PATCH",
+                  headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+                  body:JSON.stringify({tipo:"declinado"})
+                })
+                onActualizar&&onActualizar(String(selContrato.id),{tipo:"declinado"})
+                setSelContrato(null)
+              }}
+                style={{width:"100%",marginTop:6,padding:"7px",borderRadius:8,border:"1px solid #fca5a5",background:"transparent",color:"#fca5a5",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"Epilogue,sans-serif"}}>
+                ✗ Declinar contrato
+              </button>
             </div>
                         {/* ── MODO EDICIÓN ── */}
             {modoEdicion?(
@@ -6550,9 +7112,9 @@ document.getElementById("btn-pdfc").onclick=function(){
                   {/* Tabla inline */}
                   <div style={{border:"1.5px solid #e8e5de",borderRadius:10,overflow:"hidden",marginBottom:8}}>
                     {/* Header */}
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 58px 90px 58px 60px 24px",background:"#0f172a"}}>
-                      {["Artículo","Cant.","P.U.","Desc%","Subtotal",""].map((h,hi)=>(
-                        <div key={hi} style={{padding:"7px 6px",fontSize:9,fontWeight:700,color:"#94a3b8",textAlign:hi>=2?"center" as const:"left" as const,textTransform:"uppercase" as const,letterSpacing:".05em",borderRight:hi<6?"1px solid rgba(255,255,255,.07)":"none"}}>{h}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"20px 44px 1fr 82px 58px 80px 22px",background:"#0f172a"}}>
+                      {["","Cant.","Artículo / Descripción","P.U.","Desc%","Subtotal",""].map((h,hi)=>(
+                        <div key={hi} style={{padding:"7px 6px",fontSize:9,fontWeight:700,color:"#94a3b8",textAlign:hi===1||hi===5?"center" as const:hi>=2?"right" as const:"left" as const,textTransform:"uppercase" as const,letterSpacing:".05em",borderRight:hi<6?"1px solid rgba(255,255,255,.07)":"none"}}>{h}</div>
                       ))}
                     </div>
                     {/* Filas */}
@@ -6563,24 +7125,31 @@ document.getElementById("btn-pdfc").onclick=function(){
                       const descMonto=a.aplica_descuento?Math.round(bruto*(a.descuento_pct_art||0)/100):0
                       const neto=bruto-descMonto
                       return(
-                        <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 58px 90px 58px 60px 24px",borderBottom:i<editArtsContrato.length-1?"1px solid #f0ece4":"none",background:i%2===0?"#fff":"#fafaf8",alignItems:"center"}}>
+                        <div key={i} style={{display:"grid",gridTemplateColumns:"20px 44px 1fr 82px 58px 80px 22px",borderBottom:i<editArtsContrato.length-1?"1px solid #f0ece4":"none",background:i%2===0?"#fff":"#fafaf8",alignItems:"center"}}>
 
-                          {/* Nombre editable */}
-                          <div style={{borderRight:"1px solid #ebebeb",position:"relative" as const}}>
-                            <input value={a.nombre||""} onChange={e=>setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,nombre:e.target.value}:x))}
-                              style={{width:"100%",padding:"6px 8px",border:"none",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:500,outline:"none",background:"transparent",boxSizing:"border-box" as const}}/>
+                          {/* Mover ▲▼ */}
+                          <div style={{display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",gap:0,borderRight:"1px solid #ebebeb",minHeight:32,padding:"1px 0",width:20}}>
+                            <button onClick={()=>{if(i===0)return;const arr=[...editArtsContrato];[arr[i-1],arr[i]]=[arr[i],arr[i-1]];setEditArtsContrato(arr)}}
+                              style={{background:"none",border:"none",cursor:i===0?"default":"pointer",opacity:i===0?.2:1,fontSize:8,lineHeight:1,padding:"1px 3px",color:"#666"}}>▲</button>
+                            <button onClick={()=>{if(i===editArtsContrato.length-1)return;const arr=[...editArtsContrato];[arr[i],arr[i+1]]=[arr[i+1],arr[i]];setEditArtsContrato(arr)}}
+                              style={{background:"none",border:"none",cursor:i===editArtsContrato.length-1?"default":"pointer",opacity:i===editArtsContrato.length-1?.2:1,fontSize:8,lineHeight:1,padding:"1px 3px",color:"#666"}}>▼</button>
                           </div>
                           {/* Cantidad */}
                           <div style={{borderRight:"1px solid #ebebeb",display:"flex",justifyContent:"center"}}>
                             <input type="number" min="1" value={a.cantidad||1}
                               onChange={e=>{const v=Math.max(1,parseInt(e.target.value)||1);setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,cantidad:v}:x))}}
-                              style={{width:"100%",padding:"6px 4px",border:"none",textAlign:"center" as const,fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#1a3a5c",outline:"none",background:"transparent"}}/>
+                              style={{width:"100%",padding:"4px 2px",border:"none",textAlign:"center" as const,fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#1a3a5c",outline:"none",background:"transparent",boxSizing:"border-box" as const}}/>
+                          </div>
+                          {/* Nombre editable */}
+                          <div style={{borderRight:"1px solid #ebebeb",position:"relative" as const}}>
+                            <input value={a.nombre||""} onChange={e=>setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,nombre:e.target.value}:x))}
+                              style={{width:"100%",padding:"4px 6px",border:"none",fontFamily:"Epilogue,sans-serif",fontSize:11,fontWeight:500,outline:"none",background:"transparent",boxSizing:"border-box" as const,overflow:"hidden",textOverflow:"ellipsis" as const}}/>
                           </div>
                           {/* P.U. */}
                           <div style={{borderRight:"1px solid #ebebeb",display:"flex",justifyContent:"flex-end"}}>
                             <input type="number" min="0" value={a.pu||0}
                               onChange={e=>{const v=parseFloat(e.target.value)||0;setEditArtsContrato(prev=>prev.map((x:any,j:number)=>j===i?{...x,pu:v}:x))}}
-                              style={{width:"100%",padding:"6px 6px",border:"none",textAlign:"right" as const,fontFamily:"monospace",fontSize:11,fontWeight:600,outline:"none",background:"transparent"}}/>
+                              style={{width:"100%",padding:"4px 4px",border:"none",textAlign:"right" as const,fontFamily:"monospace",fontSize:11,fontWeight:600,outline:"none",background:"transparent",boxSizing:"border-box" as const}}/>
                           </div>
                           {/* Descuento % */}
                           <div style={{borderRight:"1px solid #ebebeb",display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center",padding:"3px 2px",gap:1}}>
@@ -6598,7 +7167,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                             )}
                           </div>
                           {/* Subtotal neto */}
-                          <div style={{borderRight:"1px solid #ebebeb",padding:"4px 6px",textAlign:"right" as const}}>
+                          <div style={{padding:"4px 6px",textAlign:"right" as const}}>
                             <div style={{fontFamily:"monospace",fontSize:11,fontWeight:700,color:"#1a3a5c"}}>${neto.toLocaleString("es-MX")}</div>
                             {descMonto>0&&<div style={{fontSize:8,color:"#8b2e2e",fontFamily:"monospace"}}>-${descMonto.toLocaleString("es-MX")}</div>}
                           </div>
@@ -6829,7 +7398,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                             style={{padding:"2px 6px",borderRadius:6,border:"none",background:est.bg,color:est.color,fontFamily:"Epilogue,sans-serif",fontSize:10,fontWeight:700,cursor:"pointer",outline:"none"}}>
                             {SPLIT_ESTADOS.map((e:any)=><option key={e.id} value={e.id}>{e.label}</option>)}
                           </select>
-                          <button onClick={()=>abrirHojaSplit(s,logoUrl)}
+                          <button onClick={()=>abrirHojaSplit(s.tipo==="proveedor"?{...s,fecha_preparacion:selContrato?.fecha_evento||s.fecha_preparacion,fecha_entrega_contrato:selContrato?.fecha_entrega||s.fecha_entrega_contrato||s.fecha_evento,fecha_desmonte_contrato:selContrato?.fecha_desmonte||s.fecha_desmonte_contrato}:s,logoUrl)}
                             style={{padding:"3px 8px",borderRadius:6,border:"none",background:"rgba(255,255,255,.2)",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap" as const}}>
                             🖨️
                           </button>
@@ -6866,6 +7435,7 @@ document.getElementById("btn-pdfc").onclick=function(){
                   <button onClick={async()=>{
                     const nombre=prompt("Nombre del proveedor:")
                     if(!nombre)return
+                    // Leer fechas directo de Supabase para tener datos frescos
                     const r=await fetch("/api/splits",{
                       method:"POST",
                       headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
@@ -6874,7 +7444,11 @@ document.getElementById("btn-pdfc").onclick=function(){
                         contrato_folio:selContrato.folio||selContrato.archivo||"",
                         cliente:selContrato.cliente||selContrato.archivo||"",
                         lugar:selContrato.lugar||"",
-                        fecha_evento:selContrato.fecha_evento||"",
+                        tel:selContrato.tel||selContrato.telefono||"",
+                        fecha_evento:selContrato.fecha_entrega||selContrato.fecha_evento||null,
+                        fecha_preparacion:selContrato.fecha_evento||null,
+                        fecha_entrega_contrato:selContrato.fecha_entrega||selContrato.fecha_evento||null,
+                        fecha_desmonte_contrato:selContrato.fecha_desmonte||null,
                         tipo:"proveedor",nombre:`Proveedor: ${nombre}`,
                         proveedor_nombre:nombre,estado:"pendiente",
                         articulos:[],notas:"",observaciones:"",
@@ -6900,6 +7474,499 @@ document.getElementById("btn-pdfc").onclick=function(){
 
 
 // ─── INICIO DASHBOARD ─────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════
+// RH SECTION — Recursos Humanos
+// ═══════════════════════════════════════════════════════
+const RH_PWD = "POLIFLOR_GERENCIA_2026"
+
+function RHSection({token,isMobile}:{token:string,isMobile?:boolean}){
+  const SB_URL="https://ohxehnsxfbvdflmqlzxq.supabase.co"
+  const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oeGVobnN4ZmJ2ZGZsbXFsenhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk0MDYyMCwiZXhwIjoyMDk2NTE2NjIwfQ.v6Gh1ZmQSSPKc3ESTTsuoiUihZ1LrejFQbxpqDGpjoM"
+
+  const [auth,setAuth]=useState(false)
+  const [pwdInput,setPwdInput]=useState("")
+  const [pwdError,setPwdError]=useState("")
+  const [tab,setTab]=useState("empleados")
+  const [empleados,setEmpleados]=useState<any[]>([])
+  const [vacaciones,setVacaciones]=useState<any[]>([])
+  const [incidencias,setIncidencias]=useState<any[]>([])
+  const [cargando,setCargando]=useState(false)
+  const [busq,setBusq]=useState("")
+  const [selEmp,setSelEmp]=useState<any>(null)
+  const [modoForm,setModoForm]=useState<"emp"|"vac"|"inc"|null>(null)
+  const [form,setForm]=useState<any>({})
+  const [guardando,setGuardando]=useState(false)
+  const [filtroVac,setFiltroVac]=useState("todos")
+
+  const sbFetch=async(path:string,opts:any={})=>{
+    const method=(opts.method||"GET").toUpperCase()
+    const r=await fetch(SB_URL+path,{
+      ...opts,
+      headers:{
+        "apikey":SB_KEY,
+        "Authorization":`Bearer ${SB_KEY}`,
+        "Content-Type":"application/json",
+        ...(method==="PATCH"||method==="DELETE"?{"Prefer":"return=minimal"}:{}),
+        ...(opts.headers||{})
+      }
+    })
+    return r
+  }
+
+  const cargarEmpleados=async()=>{
+    setCargando(true)
+    const r=await sbFetch("/rest/v1/empleados?select=*&order=nombre.asc")
+    const d=await r.json()
+    setEmpleados(Array.isArray(d)?d:[])
+    setCargando(false)
+  }
+
+  const cargarVacaciones=async()=>{
+    const r=await sbFetch("/rest/v1/vacaciones?select=*,empleados(nombre,nss)&order=fecha_inicio.desc")
+    const d=await r.json()
+    setVacaciones(Array.isArray(d)?d:[])
+  }
+
+  const cargarIncidencias=async()=>{
+    const r=await sbFetch("/rest/v1/incidencias?select=*,empleados(nombre)&order=fecha.desc")
+    const d=await r.json()
+    setIncidencias(Array.isArray(d)?d:[])
+  }
+
+  useEffect(()=>{
+    if(auth){cargarEmpleados();cargarVacaciones();cargarIncidencias()}
+  },[auth])
+
+  const calcDias=(ini:string,fin:string)=>{
+    if(!ini||!fin)return 0
+    const d1=new Date(ini+"T12:00:00"),d2=new Date(fin+"T12:00:00")
+    return Math.max(0,Math.round((d2.getTime()-d1.getTime())/86400000)+1)
+  }
+
+  const guardarEmpleado=async()=>{
+    if(!form.nombre?.trim())return
+    setGuardando(true)
+    if(form.id){
+      const {id,...rest}=form
+      await sbFetch(`/rest/v1/empleados?id=eq.${id}`,{method:"PATCH",body:JSON.stringify(rest)})
+    } else {
+      await sbFetch("/rest/v1/empleados",{method:"POST",body:JSON.stringify({...form,activo:true}),headers:{"Prefer":"return=minimal"}})
+    }
+    setGuardando(false);setModoForm(null);setForm({});cargarEmpleados()
+  }
+
+  const guardarVacacion=async()=>{
+    if(!form.empleado_id||!form.fecha_inicio||!form.fecha_fin)return
+    setGuardando(true)
+    const dias=calcDias(form.fecha_inicio,form.fecha_fin)
+    if(form.id){
+      // Edición: calcular diferencia de días para ajustar programados
+      const vacAnterior=vacaciones.find((v:any)=>v.id===form.id)
+      const diasAntes=vacAnterior?.dias||0
+      const diff=dias-diasAntes
+      const {id,...rest}=form
+      await sbFetch(`/rest/v1/vacaciones?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({...rest,dias})})
+      if(diff!==0){
+        const emp=empleados.find((e:any)=>e.id===form.empleado_id)
+        if(emp){
+          const nuevoProg=Math.max(0,(emp.dias_programados||0)+diff)
+          await sbFetch(`/rest/v1/empleados?id=eq.${form.empleado_id}`,{method:"PATCH",body:JSON.stringify({dias_programados:nuevoProg})})
+        }
+      }
+    } else {
+      // Alta: sumar días a programados del empleado
+      await sbFetch("/rest/v1/vacaciones",{method:"POST",body:JSON.stringify({...form,dias,estado:"pendiente"}),headers:{"Prefer":"return=minimal"}})
+      const emp=empleados.find((e:any)=>e.id===form.empleado_id)
+      if(emp){
+        const nuevoProg=(emp.dias_programados||0)+dias
+        await sbFetch(`/rest/v1/empleados?id=eq.${form.empleado_id}`,{method:"PATCH",body:JSON.stringify({dias_programados:nuevoProg})})
+      }
+    }
+    setGuardando(false);setModoForm(null);setForm({});cargarVacaciones();cargarEmpleados()
+  }
+
+  const guardarIncidencia=async()=>{
+    if(!form.empleado_id||!form.tipo)return
+    setGuardando(true)
+    await sbFetch("/rest/v1/incidencias",{method:"POST",body:JSON.stringify(form),headers:{"Prefer":"return=minimal"}})
+    setGuardando(false);setModoForm(null);setForm({});cargarIncidencias()
+  }
+
+  const eliminar=async(tabla:string,id:string,reload:()=>void)=>{
+    if(!window.confirm("¿Eliminar este registro?"))return
+    // Si es vacacion, restaurar días al empleado
+    if(tabla==="vacaciones"){
+      const vac=vacaciones.find((v:any)=>v.id===id)
+      if(vac){
+        const emp=empleados.find((e:any)=>e.id===vac.empleado_id)
+        if(emp){
+          const nuevoProg=Math.max(0,(emp.dias_programados||0)-(vac.dias||0))
+          await sbFetch(`/rest/v1/empleados?id=eq.${vac.empleado_id}`,{method:"PATCH",body:JSON.stringify({dias_programados:nuevoProg})})
+        }
+      }
+    }
+    await sbFetch(`/rest/v1/${tabla}?id=eq.${id}`,{method:"DELETE"})
+    reload()
+    if(tabla==="vacaciones") cargarEmpleados()
+  }
+
+  const actualizarEstadoVac=async(id:string,estado:string)=>{
+    // Si se rechaza, restaurar días al empleado
+    if(estado==="rechazado"){
+      const vac=vacaciones.find((v:any)=>v.id===id)
+      if(vac){
+        const emp=empleados.find((e:any)=>e.id===vac.empleado_id)
+        if(emp){
+          const nuevoProg=Math.max(0,(emp.dias_programados||0)-(vac.dias||0))
+          await sbFetch(`/rest/v1/empleados?id=eq.${vac.empleado_id}`,{method:"PATCH",body:JSON.stringify({dias_programados:nuevoProg})})
+        }
+      }
+    }
+    await sbFetch(`/rest/v1/vacaciones?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({estado})})
+    cargarVacaciones();cargarEmpleados()
+  }
+
+  const empFilt=empleados.filter(e=>!busq||(e.nombre||"").toLowerCase().includes(busq.toLowerCase())||(e.nss||"").includes(busq))
+
+  const DIAS_ES=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"]
+  const fmtFecha=(f:string)=>{
+    if(!f)return "—"
+    const d=new Date(f+"T12:00:00")
+    return `${DIAS_ES[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`
+  }
+
+  const vacPend=vacaciones.filter(v=>v.estado==="pendiente")
+  const vacFilt=filtroVac==="todos"?vacaciones:vacaciones.filter(v=>v.estado===filtroVac)
+
+  const TABS=[
+    {id:"empleados",label:"👥 Empleados",badge:empleados.length},
+    {id:"vacaciones",label:"🏖️ Vacaciones",badge:vacPend.length>0?vacPend.length:null,badgeColor:"#8b2e2e"},
+    {id:"incidencias",label:"⚠️ Incidencias",badge:null},
+    {id:"nomina",label:"💰 Nómina",badge:null},
+  ]
+
+  // ── LOGIN ──
+  if(!auth) return(
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:400}}>
+      <div style={{background:"#fff",borderRadius:16,padding:40,width:"min(360px,90vw)",boxShadow:"0 4px 24px rgba(0,0,0,.10)",textAlign:"center" as const}}>
+        <div style={{fontSize:32,marginBottom:8}}>👥</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:20,fontWeight:700,marginBottom:4}}>Recursos Humanos</div>
+        <div style={{fontSize:12,color:"#9a9590",marginBottom:24}}>Módulo restringido — ingresa la contraseña de gerencia</div>
+        <input type="password" value={pwdInput} onChange={e=>setPwdInput(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter"){if(pwdInput===RH_PWD){setAuth(true);setPwdError("")}else setPwdError("Contraseña incorrecta")}}}
+          placeholder="Contraseña..."
+          style={{width:"100%",padding:"10px 14px",border:`1.5px solid ${pwdError?"#fca5a5":"#e8e5de"}`,borderRadius:9,fontSize:14,outline:"none",boxSizing:"border-box" as const,marginBottom:8,textAlign:"center" as const}}/>
+        {pwdError&&<div style={{fontSize:12,color:"#8b2e2e",marginBottom:8}}>❌ {pwdError}</div>}
+        <button onClick={()=>{if(pwdInput===RH_PWD){setAuth(true);setPwdError("")}else setPwdError("Contraseña incorrecta")}}
+          style={{width:"100%",padding:"10px",borderRadius:9,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:14,fontWeight:700}}>
+          Entrar
+        </button>
+      </div>
+    </div>
+  )
+
+  return(
+    <div style={{maxWidth:1100,margin:"0 auto",padding:isMobile?"10px":"0 0 40px"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap" as const,gap:10}}>
+        <div>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:22,fontWeight:700}}>👥 Recursos Humanos</div>
+          <div style={{fontSize:12,color:"#9a9590",marginTop:2}}>{empleados.length} empleados · {vacPend.length} vacaciones pendientes</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {tab==="empleados"&&<button onClick={()=>{setModoForm("emp");setForm({})}}
+            style={{padding:"8px 16px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>+ Empleado</button>}
+          {tab==="vacaciones"&&<button onClick={()=>{setModoForm("vac");setForm({})}}
+            style={{padding:"8px 16px",borderRadius:8,background:"#1a3a5c",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>+ Vacaciones</button>}
+          {tab==="incidencias"&&<button onClick={()=>{setModoForm("inc");setForm({})}}
+            style={{padding:"8px 16px",borderRadius:8,background:"#92580a",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>+ Incidencia</button>}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:4,marginBottom:16,borderBottom:"2px solid #f0ece4",paddingBottom:0}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{padding:"8px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===t.id?700:400,
+              color:tab===t.id?"#1a1814":"#9a9590",borderBottom:`2px solid ${tab===t.id?"#1a1814":"transparent"}`,
+              marginBottom:-2,position:"relative" as const,display:"flex",alignItems:"center",gap:6}}>
+            {t.label}
+            {t.badge!=null&&<span style={{background:t.badgeColor||"#4a2d6e",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:10,fontWeight:700}}>{t.badge}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Modal Form */}
+      {modoForm&&(
+        <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:"#fff",borderRadius:16,padding:28,width:"min(520px,100%)",maxHeight:"90vh",overflowY:"auto" as const}}>
+
+            {/* Empleado Form */}
+            {modoForm==="emp"&&(
+              <>
+                <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>{form.id?"✏️ Editar empleado":"👤 Nuevo empleado"}</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  {[
+                    {k:"nombre",l:"Nombre completo",full:true},
+                    {k:"nss",l:"NSS"},
+                    {k:"curp",l:"CURP"},
+                    {k:"puesto",l:"Puesto"},
+                    {k:"departamento",l:"Departamento"},
+                    {k:"fecha_ingreso",l:"Fecha ingreso",type:"date"},
+                    {k:"dias_vacaciones",l:"Días vacaciones",type:"number"},
+                    {k:"dias_programados",l:"Días programados",type:"number"},
+                  ].map((f:any)=>(
+                    <div key={f.k} style={{gridColumn:f.full?"1/-1":"auto"}}>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>{f.l}</label>
+                      <input type={f.type||"text"} value={form[f.k]||""}
+                        onChange={e=>setForm((p:any)=>({...p,[f.k]:f.type==="number"?parseInt(e.target.value)||0:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+                    </div>
+                  ))}
+                  <div style={{gridColumn:"1/-1"}}>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Notas</label>
+                    <textarea value={form.notas||""} onChange={e=>setForm((p:any)=>({...p,notas:e.target.value}))} rows={2}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Vacaciones Form */}
+            {modoForm==="vac"&&(
+              <>
+                <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>🏖️ Registrar vacaciones</div>
+                <div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
+                  <div>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Empleado</label>
+                    <select value={form.empleado_id||""} onChange={e=>setForm((p:any)=>({...p,empleado_id:e.target.value}))}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none"}}>
+                      <option value="">Seleccionar empleado...</option>
+                      {empleados.map((e:any)=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Fecha inicio</label>
+                      <input type="date" value={form.fecha_inicio||""} onChange={e=>setForm((p:any)=>({...p,fecha_inicio:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Fecha fin</label>
+                      <input type="date" value={form.fecha_fin||""} onChange={e=>setForm((p:any)=>({...p,fecha_fin:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+                    </div>
+                  </div>
+                  {form.fecha_inicio&&form.fecha_fin&&(
+                    <div style={{padding:"8px 12px",background:"#f0fdf4",borderRadius:8,fontSize:13,color:"#2d6a4f",fontWeight:700}}>
+                      📅 {calcDias(form.fecha_inicio,form.fecha_fin)} días hábiles · {fmtFecha(form.fecha_inicio)} → {fmtFecha(form.fecha_fin)}
+                    </div>
+                  )}
+                  <div>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Notas</label>
+                    <textarea value={form.notas||""} onChange={e=>setForm((p:any)=>({...p,notas:e.target.value}))} rows={2}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Incidencia Form */}
+            {modoForm==="inc"&&(
+              <>
+                <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>⚠️ Registrar incidencia</div>
+                <div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
+                  <div>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Empleado</label>
+                    <select value={form.empleado_id||""} onChange={e=>setForm((p:any)=>({...p,empleado_id:e.target.value}))}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none"}}>
+                      <option value="">Seleccionar empleado...</option>
+                      {empleados.map((e:any)=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Tipo</label>
+                      <select value={form.tipo||""} onChange={e=>setForm((p:any)=>({...p,tipo:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none"}}>
+                        <option value="">Seleccionar...</option>
+                        {["Falta","Retardo","Permiso con goce","Permiso sin goce","Incapacidad","Sanción","Otro"].map(t=><option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Fecha</label>
+                      <input type="date" value={form.fecha||""} onChange={e=>setForm((p:any)=>({...p,fecha:e.target.value}))}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",boxSizing:"border-box" as const}}/>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,fontWeight:700,color:"#4a4640",display:"block",marginBottom:3}}>Descripción</label>
+                    <textarea value={form.descripcion||""} onChange={e=>setForm((p:any)=>({...p,descripcion:e.target.value}))} rows={3}
+                      style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e8e5de",borderRadius:7,fontSize:13,outline:"none",resize:"none" as const,boxSizing:"border-box" as const}}/>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div style={{display:"flex",gap:8,marginTop:20,justifyContent:"flex-end" as const}}>
+              <button onClick={()=>{setModoForm(null);setForm({})}}
+                style={{padding:"8px 18px",borderRadius:8,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:13}}>Cancelar</button>
+              <button onClick={modoForm==="emp"?guardarEmpleado:modoForm==="vac"?guardarVacacion:guardarIncidencia} disabled={guardando}
+                style={{padding:"8px 22px",borderRadius:8,background:"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>
+                {guardando?"Guardando...":"Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── EMPLEADOS TAB ── */}
+      {tab==="empleados"&&(
+        <div>
+          <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar por nombre o NSS..."
+            style={{width:"100%",padding:"9px 14px",border:"1.5px solid #e8e5de",borderRadius:9,fontSize:13,outline:"none",marginBottom:14,boxSizing:"border-box" as const}}/>
+          {cargando?<div style={{textAlign:"center" as const,padding:40,color:"#9a9590"}}>Cargando...</div>:(
+            <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 130px 110px 70px 70px 70px 60px",background:"#f8f6f2",padding:"8px 14px",fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".04em"}}>
+                <div>Nombre / CURP</div><div>NSS</div><div>Puesto</div><div>Vac.</div><div>Prog.</div><div>Pend.</div><div></div>
+              </div>
+              {empFilt.length===0&&<div style={{padding:30,textAlign:"center" as const,color:"#9a9590"}}>Sin empleados</div>}
+              {empFilt.map((e:any)=>{
+                const pend=(e.dias_vacaciones||0)-(e.dias_programados||0)
+                return(
+                  <div key={e.id} style={{display:"grid",gridTemplateColumns:"1fr 130px 110px 70px 70px 70px 60px",padding:"10px 14px",borderTop:"1px solid #f0ece4",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontWeight:600,fontSize:13}}>{e.nombre}</div>
+                      {e.curp&&<div style={{fontSize:10,color:"#9a9590",fontFamily:"monospace"}}>{e.curp}</div>}
+                    </div>
+                    <div style={{fontSize:11,fontFamily:"monospace",color:"#4a4640"}}>{e.nss||"—"}</div>
+                    <div style={{fontSize:11,color:"#4a4640"}}>{e.puesto||"—"}</div>
+                    <div style={{textAlign:"center" as const}}>
+                      <span style={{background:"#f0fdf4",color:"#2d6a4f",padding:"2px 8px",borderRadius:10,fontWeight:700,fontSize:12}}>{e.dias_vacaciones||0}</span>
+                    </div>
+                    <div style={{textAlign:"center" as const}}>
+                      <span style={{background:"#eff6ff",color:"#1a3a5c",padding:"2px 8px",borderRadius:10,fontWeight:700,fontSize:12}}>{e.dias_programados||0}</span>
+                    </div>
+                    <div style={{textAlign:"center" as const}}>
+                      <span style={{background:pend<0?"#fef2f2":pend===0?"#f8f6f2":"#fffbeb",color:pend<0?"#8b2e2e":pend===0?"#9a9590":"#92580a",padding:"2px 8px",borderRadius:10,fontWeight:700,fontSize:12}}>{pend}</span>
+                    </div>
+                    <div style={{display:"flex",gap:4,justifyContent:"flex-end" as const}}>
+                      <button onClick={()=>{setForm({...e});setModoForm("emp")}}
+                        style={{padding:"3px 7px",borderRadius:5,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:11}}>✏️</button>
+                      <button onClick={()=>eliminar("empleados",e.id,cargarEmpleados)}
+                        style={{padding:"3px 7px",borderRadius:5,border:"1px solid #fca5a5",background:"#fef2f2",color:"#8b2e2e",cursor:"pointer",fontSize:11}}>🗑️</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── VACACIONES TAB ── */}
+      {tab==="vacaciones"&&(
+        <div>
+          {vacPend.length>0&&(
+            <div style={{background:"#fffbeb",border:"1px solid #f59e0b",borderRadius:10,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#92580a",fontWeight:600}}>
+              ⚠️ {vacPend.length} solicitud{vacPend.length>1?"es":""} pendiente{vacPend.length>1?"s":""} de aprobación
+            </div>
+          )}
+          <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap" as const}}>
+            {["todos","pendiente","aprobado","rechazado"].map(f=>(
+              <button key={f} onClick={()=>setFiltroVac(f)}
+                style={{padding:"5px 12px",borderRadius:16,border:`1.5px solid ${filtroVac===f?"#1a1814":"#e8e5de"}`,
+                  background:filtroVac===f?"#1a1814":"#fff",color:filtroVac===f?"#fff":"#4a4640",
+                  cursor:"pointer",fontSize:12,fontWeight:600,textTransform:"capitalize" as const}}>
+                {f==="todos"?"Todos":f.charAt(0).toUpperCase()+f.slice(1)}
+                {f!=="todos"&&<span style={{marginLeft:4,opacity:.7}}>({vacaciones.filter(v=>v.estado===f).length})</span>}
+              </button>
+            ))}
+          </div>
+          <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 120px 120px 50px 110px 100px",background:"#f8f6f2",padding:"8px 14px",fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const}}>
+              <div>Empleado</div><div>Inicio</div><div>Fin</div><div>Días</div><div>Estado</div><div>Acciones</div>
+            </div>
+            {vacFilt.length===0&&<div style={{padding:30,textAlign:"center" as const,color:"#9a9590"}}>Sin registros</div>}
+            {vacFilt.map((v:any)=>(
+              <div key={v.id} style={{display:"grid",gridTemplateColumns:"1fr 120px 120px 50px 110px 100px",padding:"10px 14px",borderTop:"1px solid #f0ece4",alignItems:"center",fontSize:12}}>
+                <div>
+                  <div style={{fontWeight:600}}>{v.empleados?.nombre||"—"}</div>
+                  {v.notas&&<div style={{fontSize:10,color:"#9a9590"}}>{v.notas}</div>}
+                </div>
+                <div style={{color:"#4a4640"}}>{fmtFecha(v.fecha_inicio)}</div>
+                <div style={{color:"#4a4640"}}>{fmtFecha(v.fecha_fin)}</div>
+                <div style={{textAlign:"center" as const,fontWeight:700,color:"#1a3a5c"}}>{v.dias||0}</div>
+                <div>
+                  <span style={{padding:"3px 10px",borderRadius:12,fontSize:11,fontWeight:700,
+                    background:v.estado==="aprobado"?"#f0fdf4":v.estado==="rechazado"?"#fef2f2":"#fffbeb",
+                    color:v.estado==="aprobado"?"#2d6a4f":v.estado==="rechazado"?"#8b2e2e":"#92580a"}}>
+                    {v.estado||"pendiente"}
+                  </span>
+                </div>
+                <div style={{display:"flex",gap:4}}>
+                  {v.estado==="pendiente"&&<>
+                    <button onClick={()=>actualizarEstadoVac(v.id,"aprobado")}
+                      style={{padding:"2px 7px",borderRadius:5,border:"1px solid #b7deca",background:"#f0fdf4",color:"#2d6a4f",cursor:"pointer",fontSize:11,fontWeight:700}}>✓</button>
+                    <button onClick={()=>actualizarEstadoVac(v.id,"rechazado")}
+                      style={{padding:"2px 7px",borderRadius:5,border:"1px solid #fca5a5",background:"#fef2f2",color:"#8b2e2e",cursor:"pointer",fontSize:11,fontWeight:700}}>✗</button>
+                  </>}
+                  <button onClick={()=>eliminar("vacaciones",v.id,cargarVacaciones)}
+                    style={{padding:"2px 7px",borderRadius:5,border:"1px solid #e8e5de",background:"#fff",cursor:"pointer",fontSize:10}}>🗑️</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── INCIDENCIAS TAB ── */}
+      {tab==="incidencias"&&(
+        <div>
+          <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5de",overflow:"hidden"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 120px 100px 1fr 60px",background:"#f8f6f2",padding:"8px 14px",fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const}}>
+              <div>Empleado</div><div>Fecha</div><div>Tipo</div><div>Descripción</div><div></div>
+            </div>
+            {incidencias.length===0&&<div style={{padding:30,textAlign:"center" as const,color:"#9a9590"}}>Sin incidencias registradas</div>}
+            {incidencias.map((inc:any)=>(
+              <div key={inc.id} style={{display:"grid",gridTemplateColumns:"1fr 120px 100px 1fr 60px",padding:"10px 14px",borderTop:"1px solid #f0ece4",alignItems:"center",fontSize:12}}>
+                <div style={{fontWeight:600}}>{inc.empleados?.nombre||"—"}</div>
+                <div style={{color:"#4a4640"}}>{fmtFecha(inc.fecha)}</div>
+                <div>
+                  <span style={{padding:"2px 8px",borderRadius:10,background:"#fffbeb",color:"#92580a",fontWeight:700,fontSize:11}}>{inc.tipo||"—"}</span>
+                </div>
+                <div style={{color:"#4a4640",fontSize:11}}>{inc.descripcion||"—"}</div>
+                <div>
+                  <button onClick={()=>eliminar("incidencias",inc.id,cargarIncidencias)}
+                    style={{padding:"2px 7px",borderRadius:5,border:"1px solid #fca5a5",background:"#fef2f2",color:"#8b2e2e",cursor:"pointer",fontSize:10}}>🗑️</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── NÓMINA TAB — PLACEHOLDER ── */}
+      {tab==="nomina"&&(
+        <div style={{textAlign:"center" as const,padding:"60px 20px"}}>
+          <div style={{fontSize:48,marginBottom:16}}>💰</div>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:24,fontWeight:700,marginBottom:8}}>Módulo de Nómina</div>
+          <div style={{fontSize:14,color:"#9a9590",maxWidth:400,margin:"0 auto",lineHeight:1.6}}>
+            Este módulo está en construcción. Utilizará el catálogo de empleados de RH como base para el procesamiento de nómina.
+          </div>
+          <div style={{marginTop:24,display:"flex",gap:10,justifyContent:"center" as const,flexWrap:"wrap" as const}}>
+            {["Cálculo de nómina","Percepciones y deducciones","IMSS / INFONAVIT","Recibos de pago","Timbrado CFDI","Reportes fiscales"].map(f=>(
+              <span key={f} style={{padding:"6px 14px",borderRadius:20,background:"#f0ece4",color:"#9a9590",fontSize:12,fontWeight:600}}>{f}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contrato[],esAdmin:boolean,vendedorActual:string,token:string}){
   const [vistaMode,setVistaMode]=useState<"semana"|"mes">("semana")
   const [alertaVisible,setAlertaVisible]=useState(true)
@@ -6936,14 +8003,16 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
   const rangoFin=vistaMode==="semana"?isoDomSem:isoDate(new Date(mesRef.getFullYear(),mesRef.getMonth()+1,0))
 
   const eventosDia=(f:string)=>contratos.filter(x=>x.fecha_entrega===f||x.fecha_evento===f||x.fecha_desmonte===f)
-  const entregasDia=contratos.filter(x=>x.fecha_entrega===diaActivo)
-  const eventosDiaAct=contratos.filter(x=>x.fecha_evento===diaActivo)
-  const desmontesDia=contratos.filter(x=>x.fecha_desmonte===diaActivo)
+  const noDeclinado=(x:any)=>x.tipo!=="declinado"&&x.tipo!=="cotizacion"
+  const entregasDia=contratos.filter(x=>x.fecha_entrega===diaActivo&&noDeclinado(x))
+  const eventosDiaAct=contratos.filter(x=>x.fecha_evento===diaActivo&&noDeclinado(x))
+  const desmontesDia=contratos.filter(x=>x.fecha_desmonte===diaActivo&&noDeclinado(x))
 
   const contratosRango=contratos.filter(x=>
+    noDeclinado(x)&&(
     (x.fecha_evento>=rangoInicio&&x.fecha_evento<=rangoFin)||
     (x.fecha_entrega>=rangoInicio&&x.fecha_entrega<=rangoFin)||
-    (x.fecha_desmonte>=rangoInicio&&x.fecha_desmonte<=rangoFin)
+    (x.fecha_desmonte>=rangoInicio&&x.fecha_desmonte<=rangoFin))
   )
 
   const [cotsPend,setCotsPend]=useState<any[]>([])
@@ -7028,9 +8097,35 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
   }
 
   // ── FICHA CONTRATO MODAL ──────────────────────────────────────────
-  const FichaModal=({x,onClose}:{x:Contrato,onClose:()=>void})=>{
+  const FichaModal=({x,onClose,token,onUpdate}:{x:Contrato,onClose:()=>void,token?:string,onUpdate?:()=>void})=>{
     const totalArts=(x.articulos||[]).reduce((s:number,a:Articulo)=>s+(a.cantidad||0),0)
     const saldo=(x.total||0)-(x.cobrado||0)
+    const CHOFERES_LIST=["PILLO","JORDAN","ISRAEL","MARCOS"]
+    const [choferEnt,setChoferEnt]=useState<string>((x.asig_entrega||[])[0]||"")
+    const [choferDes,setChoferDes]=useState<string>((x.asig_desmonte||[])[0]||"")
+    const [guardandoChofer,setGuardandoChofer]=useState(false)
+    const [choferOk,setChoferOk]=useState(false)
+    const guardarChofer=async()=>{
+      if(!token)return
+      const contratoId=String(x.id).replace(/^excel_/,"")
+      setGuardandoChofer(true)
+      try{
+        const res=await fetch(`/api/contratos?id=${contratoId}`,{
+          method:"PATCH",
+          headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+          body:JSON.stringify({
+            chofer_entrega:choferEnt||"",
+            chofer_desmonte:choferDes||""
+          })
+        })
+        const data=await res.json()
+        if(data&&data.error){alert("Error: "+data.error);setGuardandoChofer(false);return}
+        setChoferOk(true)
+        if(onUpdate) onUpdate()
+        setTimeout(()=>{ onClose() },2000)
+      }catch(e){alert("Error: "+e)}
+      setGuardandoChofer(false)
+    }
     return(
       <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.6)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
         onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
@@ -7067,23 +8162,31 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
               {x.lugar&&<div style={{fontSize:12,color:"#4a4640"}}>📍 {x.lugar}</div>}
               {x.tel&&<div style={{fontSize:12,color:"#4a4640"}}>📞 {x.tel}</div>}
             </div>
-            {/* Piezas asignadas */}
-            {((x.asig_entrega||[]).length>0||(x.asig_desmonte||[]).length>0)&&(
-              <div style={{display:"flex",gap:8,marginBottom:14}}>
-                {(x.asig_entrega||[]).length>0&&(
-                  <div style={{background:"#edf3fa",borderRadius:8,padding:"6px 10px",fontSize:11}}>
-                    <span style={{fontWeight:700,color:"#1a3a5c"}}>🚚 Entrega: </span>
-                    <span style={{color:"#1a3a5c"}}>{(x.asig_entrega||[]).join(", ")}</span>
+            {/* Chofer / Asignación */}
+            <div style={{background:"#fafaf8",border:"1px solid #e8e5de",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:10}}>🚛 Asignación de chofer</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                {[{label:"Entrega",val:choferEnt,set:setChoferEnt,col:"#1a3a5c",bg:"#edf3fa"},{label:"Desmonte",val:choferDes,set:setChoferDes,col:"#4a2d6e",bg:"#f5f0fc"}].map(({label,val,set,col,bg})=>(
+                  <div key={label}>
+                    <div style={{fontSize:10,fontWeight:700,color:col,marginBottom:5}}>{label==="Entrega"?"🚚":"📦"} {label}</div>
+                    <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginBottom:5}}>
+                      {CHOFERES_LIST.map(c=>(
+                        <button key={c} onClick={()=>set(val===c?"":c)}
+                          style={{padding:"3px 8px",borderRadius:6,border:`1.5px solid ${val===c?col:"#e8e5de"}`,background:val===c?col:"#fff",color:val===c?"#fff":"#4a4640",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Epilogue,sans-serif"}}>
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    <input value={val} onChange={e=>set(e.target.value)} placeholder="Otro chofer..."
+                      style={{width:"100%",padding:"5px 8px",border:"1px solid #e8e5de",borderRadius:6,fontFamily:"Epilogue,sans-serif",fontSize:11,outline:"none",boxSizing:"border-box" as const,background:"#fff"}}/>
                   </div>
-                )}
-                {(x.asig_desmonte||[]).length>0&&(
-                  <div style={{background:"#f5f0fc",borderRadius:8,padding:"6px 10px",fontSize:11}}>
-                    <span style={{fontWeight:700,color:"#4a2d6e"}}>📦 Desmonte: </span>
-                    <span style={{color:"#4a2d6e"}}>{(x.asig_desmonte||[]).join(", ")}</span>
-                  </div>
-                )}
+                ))}
               </div>
-            )}
+              <button onClick={guardarChofer} disabled={guardandoChofer}
+                style={{width:"100%",padding:"7px",borderRadius:8,background:choferOk?"#2d6a4f":guardandoChofer?"#9a9590":"#1a1814",color:"#fff",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:12,fontWeight:700,transition:"background .3s"}}>
+                {choferOk?"✓ Guardado":guardandoChofer?"Guardando...":"💾 Guardar asignación"}
+              </button>
+            </div>
             {/* Artículos */}
             <div style={{marginBottom:14}}>
               <div style={{fontSize:10,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:8}}>
@@ -7167,8 +8270,8 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
               {x.folio&&<span style={{fontSize:9,background:"#f5f4f0",color:"#9a9590",padding:"1px 5px",borderRadius:4,fontFamily:"monospace"}}>{x.folio}</span>}
               {vendedor&&<span style={{fontSize:9,background:"#fafaf8",color:"#4a4640",padding:"1px 5px",borderRadius:4}}>👤 {vendedor}</span>}
               {totalArts>0&&<span style={{fontSize:9,background:col.bg,color:col.borde,padding:"1px 5px",borderRadius:4,fontWeight:600}}>📦 {totalArts} pzas</span>}
-              {(x.asig_entrega||[]).length>0&&tipo==="entrega"&&<span style={{fontSize:9,background:"#edf7f2",color:"#2d6a4f",padding:"1px 5px",borderRadius:4}}>🚛 {(x.asig_entrega||[]).join(", ")}</span>}
-              {!(x.asig_entrega||[]).length&&tipo==="entrega"&&<span style={{fontSize:9,background:"#fdf0f0",color:"#8b2e2e",padding:"1px 5px",borderRadius:4,fontWeight:700}}>⚠️ Sin asignar</span>}
+              {(x.chofer_entrega||(x.asig_entrega||[]).length>0)&&tipo==="entrega"&&<span style={{fontSize:9,background:"#edf7f2",color:"#2d6a4f",padding:"1px 5px",borderRadius:4}}>🚛 {x.chofer_entrega||(x.asig_entrega||[]).join(", ")}</span>}
+              {!x.chofer_entrega&&!(x.asig_entrega||[]).length&&tipo==="entrega"&&<span style={{fontSize:9,background:"#fdf0f0",color:"#8b2e2e",padding:"1px 5px",borderRadius:4,fontWeight:700}}>⚠️ Sin asignar</span>}
             </div>
           </div>
           <div style={{textAlign:"right" as const,flexShrink:0}}>
@@ -7228,7 +8331,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
     <div style={{display:"flex",flexDirection:"column" as const,gap:14}}>
 
       {/* ── MODAL FICHA ── */}
-      {fichaContrato&&<FichaModal x={fichaContrato} onClose={()=>setFichaContrato(null)}/>}
+      {fichaContrato&&<FichaModal x={fichaContrato} onClose={()=>setFichaContrato(null)} token={token}/>}
 
       {/* ── HEADER NAV ── */}
       <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap" as const}}>
@@ -7525,6 +8628,9 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
                         </button>
                         <button onClick={async(e)=>{
                           e.stopPropagation()
+                          const pwd=window.prompt("Contraseña para declinar:")
+                          if(!pwd)return
+                          if(pwd!=="LITA2024"){window.alert("❌ Contraseña incorrecta");return}
                           if(!window.confirm("¿Marcar como declinado?\n\n"+x.cliente_nombre+"\n"+x.fecha_evento)) return
                           await fetch("/api/contratos?id="+x.id,{
                             method:"PATCH",
@@ -7532,8 +8638,7 @@ function InicioSection({contratos,esAdmin,vendedorActual,token}:{contratos:Contr
                             body:JSON.stringify({tipo:"declinado"})
                           })
                           window.location.reload()
-                        }}
-                          style={{fontSize:10,padding:"4px 8px",borderRadius:6,background:"#fff",color:"#8b2e2e",border:"1px solid #8b2e2e",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontWeight:700,whiteSpace:"nowrap" as const}}>
+                        }} style={{fontSize:10,padding:"4px 8px",borderRadius:6,background:"#fff",color:"#8b2e2e",border:"1px solid #8b2e2e",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontWeight:700,whiteSpace:"nowrap" as const}}>
                           ✗ Declinar
                         </button>
                       </div>
@@ -8120,7 +9225,7 @@ function CambiarPasswordSection({token,user}:{token:string,user:any}){
 // SPLITS — Configuración de tipos (escalable)
 // ═══════════════════════════════════════════════════════════════
 const SPLIT_TIPOS=[
-  {id:"rutas",       nombre:"Rutas",            icono:"🚚",color:"#1a3a5c",bg:"#eff6ff",  cats:["__ALL__"], mostrarPrecio:false,mostrarDir:true},
+  {id:"rutas",       nombre:"Entrega",            icono:"🚚",color:"#1a3a5c",bg:"#eff6ff",  cats:["__ALL__"], mostrarPrecio:false,mostrarDir:true},
   {id:"carpinteria", nombre:"Carpintería",      icono:"🪚",color:"#92580a",bg:"#fffbeb",  cats:["MOBILIARIO"],                                                mostrarPrecio:false,mostrarDir:false},
   {id:"vajilla",     nombre:"Vajilla",           icono:"🍽️",color:"#4a2d6e",bg:"#faf5ff",  cats:["VAJILLA"],                                                   mostrarPrecio:false,mostrarDir:false},
   {id:"flores",      nombre:"Flores",            icono:"🌸",color:"#2d6a4f",bg:"#f0fdf4",  cats:["FLORES"],                                                    mostrarPrecio:true, mostrarDir:false},
@@ -8163,10 +9268,12 @@ function generarSplitsDesdeContrato(contrato:any):any[]{
   }
   return SPLIT_TIPOS.filter(t=>t.id!=="proveedor").map(tipo=>({
     ...base,
-    // Desmonte usa fecha_desmonte (o evento+1), resto usa fecha_evento del contrato
-    fecha_evento:tipo.id==="desmonte"?fechaDesmonteFinal:fechaEvento,
-    // Para desmonte: guardar fecha REAL del evento en fecha_preparacion (columna existente)
-    fecha_preparacion:tipo.id==="desmonte"?fechaEvento:(tipo.id==="rutas"?fechaEvento:fechaPrep),
+    // prep areas: fecha_evento = día de prep (antes), rutas: evento, desmonte: fecha desmonte
+    fecha_evento:tipo.id==="desmonte"?fechaDesmonteFinal:tipo.id==="rutas"?fechaEvento:fechaPrep,
+    fecha_preparacion:tipo.id==="desmonte"?fechaEvento:tipo.id==="rutas"?fechaEvento:fechaEvento,
+    // Fechas del contrato (inmodificables) para mostrar en hoja
+    fecha_entrega_contrato:contrato.fecha_entrega||addDaysStr(fechaEvento,-1),
+    fecha_desmonte_contrato:contrato.fecha_desmonte||addDaysStr(fechaEvento,1),
     tipo:tipo.id,nombre:tipo.nombre,
     mostrar_precios:tipo.mostrarPrecio,mostrar_direccion:tipo.mostrarDir,
     proveedor_nombre:"",
@@ -8193,25 +9300,35 @@ function abrirHojaSplit(split:any,logoSrc:string){
   // Para desmonte: el evento es el día ANTES de la fecha de desmonte (split.fecha_evento)
   // Prioridad: fecha_preparacion (si existe) → fecha_evento - 1 día
   // fecha_preparacion guarda la fecha REAL del evento del contrato para rutas y desmonte
+  // fechaEventoReal = fecha REAL del evento del contrato (para mostrar en "📅 Evento:")
+  // Para prep areas: split.fecha_evento es la fecha de preparación (día antes), entonces evento = fecha_evento + 1
+  // Para rutas: fecha_preparacion tiene el evento real, o entrega + 1
+  // Para desmonte: fecha_preparacion tiene el evento real, o desmonte - 1
+  // Para prep areas: si tiene fecha_entrega_contrato, el evento = entrega + 1 día
+  // Si no, calcular desde fecha_evento del split
   const fechaEventoReal=(()=>{
-    // Primero: si tiene fecha_preparacion guardada, usarla (dato más confiable)
-    if((split.tipo==="rutas"||split.tipo==="desmonte")&&split.fecha_preparacion)
-      return split.fecha_preparacion
-    // Rutas sin fecha_preparacion: evento = entrega + 1 día
-    if(split.tipo==="rutas"){
+    if(split.tipo==="rutas"||split.tipo==="desmonte"){
+      if(split.fecha_preparacion) return split.fecha_preparacion
       if(!split.fecha_evento) return ""
       const d=new Date(split.fecha_evento+"T12:00:00")
+      d.setDate(d.getDate()+(split.tipo==="rutas"?1:-1))
+      return d.toISOString().slice(0,10)
+    }
+    // Proveedor: fecha_preparacion = evento real, fecha_evento = prep
+    if(split.tipo==="proveedor") return split.fecha_preparacion||split.fecha_evento||""
+    // Prep areas: fecha_preparacion = evento real del contrato
+    if(split.fecha_preparacion) return split.fecha_preparacion
+    // Fallback: fecha_entrega_contrato + 1
+    if(split.fecha_entrega_contrato){
+      const d=new Date(split.fecha_entrega_contrato+"T12:00:00")
       d.setDate(d.getDate()+1)
       return d.toISOString().slice(0,10)
     }
-    // Desmonte sin fecha_preparacion: evento = desmonte - 1 día
-    if(split.tipo==="desmonte"){
-      if(!split.fecha_evento) return ""
-      const d=new Date(split.fecha_evento+"T12:00:00")
-      d.setDate(d.getDate()-1)
-      return d.toISOString().slice(0,10)
-    }
-    return split.fecha_evento
+    // Ultimo fallback: fecha_evento + 1
+    if(!split.fecha_evento) return ""
+    const d=new Date(split.fecha_evento+"T12:00:00")
+    d.setDate(d.getDate()+1)
+    return d.toISOString().slice(0,10)
   })()
   const fecha=fechaEventoReal
     ?new Date(fechaEventoReal+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})
@@ -8220,9 +9337,9 @@ function abrirHojaSplit(split:any,logoSrc:string){
   // - rutas: fecha del split (ya es la entrega)
   // - desmonte: fecha del split (ya es desmonte)
   // - resto: fechaPrep (día antes del evento)
-  const esPrepArea=split.tipo!=="rutas"&&split.tipo!=="desmonte"&&split.tipo!=="proveedor"
+  const esPrepArea=split.tipo!=="rutas"&&split.tipo!=="desmonte"
   const fechaTrabajo=esPrepArea
-    ?(split.fecha_preparacion||(split.fecha_evento?new Date(new Date(split.fecha_evento+"T12:00:00").getTime()-86400000).toISOString().slice(0,10):""))
+    ?(split.fecha_evento||split.fecha_entrega_contrato||split.fecha_preparacion)
     :split.fecha_evento
   const fechaTrabajoFmt=fechaTrabajo
     ?new Date(fechaTrabajo+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})
@@ -8231,7 +9348,7 @@ function abrirHojaSplit(split:any,logoSrc:string){
     ?DIAS_ES[new Date(fechaTrabajo+"T12:00:00").getDay()]
     :"—"
   // Etiqueta del tipo de actividad
-  const etiquetaTipo=split.tipo==="rutas"?"Entrega":split.tipo==="desmonte"?"Desmontaje":"Preparación"
+  const etiquetaTipo=split.tipo==="rutas"?"Entrega":split.tipo==="desmonte"?"Desmontaje":split.tipo==="carpinteria"?"Cargan":split.tipo==="proveedor"?"Proveedor":"Preparación"
   // Fecha de preparación = día antes del evento
   const fechaPrep=(()=>{
     const base=split.fecha_preparacion||(split.fecha_evento?new Date(new Date(split.fecha_evento+"T12:00:00").getTime()-86400000).toISOString().slice(0,10):"")
@@ -8239,80 +9356,103 @@ function abrirHojaSplit(split:any,logoSrc:string){
   })()
   const filas=arts.map((a:any,i:number)=>`
     <tr style="border-bottom:1px solid #f0f0f0;background:${i%2===0?"#fff":"#fafafa"}">
-      <td style="padding:8px 10px;font-size:13px;font-weight:600">${a.nombre||"—"}</td>
       <td style="padding:8px 10px;font-size:14px;font-weight:800;text-align:center;color:${tipo.color}">${a.cantidad||0}</td>
+      <td style="padding:8px 10px;font-size:13px;font-weight:600">${a.nombre||"—"}</td>
       ${mostrarPrecio?`<td style="padding:8px 10px;font-size:13px;font-weight:700;text-align:right;font-family:monospace">$${(a.pu||a.precio_unitario||0).toLocaleString("es-MX")}</td>`:""}
       ${a.notas?`<td style="padding:8px 10px;font-size:11px;color:#64748b;font-style:italic">${a.notas}</td>`:"<td></td>"}
     </tr>`).join("")
   const totalPiezas=arts.reduce((s:number,a:any)=>s+(a.cantidad||0),0)
   const totalImporte=arts.reduce((s:number,a:any)=>s+(a.importe||a.subtotal||0),0)
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${tipo.icono} ${tipo.nombre} — ${split.contrato_folio||split.cliente}</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,Arial,sans-serif;color:#1a1814;background:#fff}
-@media print{.np{display:none!important}@page{margin:12mm 15mm;size:A4}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
-table{border-collapse:collapse;width:100%}</style></head>
-<body style="padding:32px;max-width:820px;margin:0 auto">
-<div class="np" style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:20px">
-  <button onclick="window.print()" style="padding:10px 24px;background:#1a1814;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
-  <button onclick="window.close()" style="padding:10px 20px;background:#f5f4f0;border:1px solid #ccc;border-radius:8px;cursor:pointer">✕</button>
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>${tipo.nombre} — ${split.contrato_folio||split.cliente}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,Arial,sans-serif;color:#1a1814;background:#fff;font-size:13px}
+table{border-collapse:collapse;width:100%}
+th,td{vertical-align:middle}
+@media print{
+  .no-print{display:none!important}
+  @page{margin:12mm 14mm;size:A4}
+  body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
+</style></head>
+<body style="padding:24px 28px;max-width:820px;margin:0 auto">
+
+<!-- Botones pantalla -->
+<div class="no-print" style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:16px">
+  <button onclick="window.print()" style="padding:8px 20px;background:#1a1814;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif">🖨️ Imprimir</button>
+  <button onclick="window.close()" style="padding:8px 14px;background:#f5f4f0;border:1px solid #ccc;border-radius:8px;cursor:pointer;font-family:Inter,sans-serif;font-size:13px">✕</button>
 </div>
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid ${tipo.color}">
-  <div><img src="${logoSrc}" alt="Poliflor" style="height:50px;width:auto;object-fit:contain" onerror="this.style.display='none'"></div>
+
+<!-- ══ FILA 1: Logo | Preparación/Entrega/Desmontaje + día ══ -->
+<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;margin-bottom:12px;border-bottom:2.5px solid ${tipo.color}">
+  <!-- Logo -->
+  <img src="${logoSrc}" alt="Poliflor" style="height:40px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
+  <!-- Etiqueta + día + fecha (compacto, derecha) -->
   <div style="text-align:right">
-    <div style="display:inline-flex;align-items:center;gap:8px;background:${tipo.bg};border:2px solid ${tipo.color};border-radius:10px;padding:8px 16px">
-      <span style="font-size:24px">${tipo.icono}</span>
-      <div>
-        <div style="font-size:10px;font-weight:700;color:${tipo.color};text-transform:uppercase;letter-spacing:.08em">Hoja de trabajo</div>
-        <div style="font-size:20px;font-weight:800;color:${tipo.color}">${tipo.nombre}</div>
-      </div>
-    </div>
+    <div style="font-size:11px;font-weight:700;color:${tipo.color};text-transform:uppercase;letter-spacing:.1em">${etiquetaTipo}</div>
+    <div style="font-size:22px;font-weight:800;color:${tipo.color};line-height:1.1">${diaSemana}</div>
+    <div style="font-size:11px;color:#4a4640;font-weight:500">${fechaTrabajoFmt}</div>
   </div>
 </div>
-<div style="display:grid;grid-template-columns:auto 1fr;gap:14px;margin-bottom:20px;align-items:start">
-  <!-- Bloque día de trabajo -->
-  <div style="background:${tipo.color};border-radius:12px;padding:12px 18px;text-align:center;min-width:120px">
-    <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">${etiquetaTipo}</div>
-    <div style="font-size:32px;font-weight:800;color:#fff;line-height:1;margin-bottom:2px">${diaSemana}</div>
-    <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.9)">${fechaTrabajoFmt}</div>
+
+<!-- ══ FILA 2: Cliente | Hoja de Trabajo / Área ══ -->
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e8e5de">
+  <!-- Cliente -->
+  <div>
+    <div style="font-size:9px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Cliente</div>
+    <div style="font-size:22px;font-weight:800;color:#1a1814">${split.cliente||"—"}</div>
+    ${split.contrato_folio?`<div style="font-size:13px;color:#9a9590;font-family:monospace;font-weight:700">${split.contrato_folio}</div>`:""}
+    <div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:6px">📅 Evento: ${fecha}</div>
+    ${mostrarDir&&split.lugar?`<div style="font-size:13px;color:#4a4640;font-weight:600;margin-top:4px">📍 ${split.lugar}</div>`:""}
+    ${(split.tipo==="rutas"||split.tipo==="desmonte"||split.tipo==="proveedor")&&split.tel?`<div style="font-size:14px;color:#1a1814;font-weight:700;margin-top:4px">📞 ${split.tel}</div>`:""}
+    ${["vajilla","carpinteria","bases","flores","proveedor"].includes(split.tipo)&&split.fecha_entrega_contrato?`<div style="font-size:11px;color:#9a9590;margin-top:3px">🚚 Entrega: ${new Date(split.fecha_entrega_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}\n    ${["vajilla","carpinteria","bases","flores","proveedor"].includes(split.tipo)&&split.fecha_desmonte_contrato?`<div style="font-size:11px;color:#9a9590;margin-top:2px">📦 Desmonte: ${new Date(split.fecha_desmonte_contrato+"T12:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>`:""}
   </div>
-  <!-- Info cliente y evento -->
-  <div style="display:flex;flex-direction:column;gap:6px">
-    <div>
-      <div style="font-size:10px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.06em">Cliente</div>
-      <div style="font-size:16px;font-weight:800;color:#1a1814">${split.cliente||"—"}</div>
-      ${split.contrato_folio?`<div style="font-size:11px;color:#9a9590;font-family:monospace;font-weight:700">${split.contrato_folio}</div>`:""}
+  <!-- Hoja de Trabajo / Área -->
+  <div style="text-align:right">
+    <div style="font-size:9px;font-weight:700;color:#9a9590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Hoja de Trabajo</div>
+    <div style="display:inline-flex;align-items:center;gap:6px;background:${tipo.bg};border:2px solid ${tipo.color};border-radius:8px;padding:5px 12px">
+      <span style="font-size:18px">${tipo.icono}</span>
+      <span style="font-size:15px;font-weight:800;color:${tipo.color}">${tipo.nombre}</span>
     </div>
-    <div style="font-size:11px;color:#9a9590">📅 Evento: ${fecha}</div>
-    ${(split.tipo==="rutas"||split.tipo==="desmonte")&&split.tel?`<div style="font-size:12px;color:#1a1814;font-weight:700">📞 ${split.tel}</div>`:""}
-    ${mostrarDir&&split.lugar?`<div style="font-size:12px;color:#4a4640;font-weight:600">📍 ${split.lugar}</div>`:""}
-    ${split.responsable?`<div style="font-size:11px;color:#9a9590">👤 ${split.responsable}</div>`:""}
+    ${split.responsable?`<div style="font-size:11px;color:#9a9590;margin-top:4px">👤 ${split.responsable}</div>`:""}
   </div>
 </div>
-<table style="margin-bottom:20px;border:1px solid #e8e5de;border-radius:8px;overflow:hidden">
-  <thead><tr style="background:${tipo.color};color:#fff">
-    <th style="padding:10px;text-align:left;font-size:11px">Artículo</th>
-    <th style="padding:10px;text-align:center;font-size:11px;width:70px">Cant.</th>
-    ${mostrarPrecio?`<th style="padding:10px;text-align:right;font-size:11px;width:110px">P.U.</th>`:""}
-    <th style="padding:10px;text-align:left;font-size:11px">Nota</th>
-  </tr></thead>
-  <tbody>${filas||`<tr><td colspan="10" style="padding:24px;text-align:center;color:#9a9590;font-style:italic">Sin artículos asignados</td></tr>`}</tbody>
-  <tfoot><tr style="background:#f8f6f2;border-top:2px solid ${tipo.color}">
-    <td colspan="2" style="padding:10px;font-weight:700;font-size:12px">Total: ${totalPiezas} piezas</td>
-    <td></td>
-    ${mostrarPrecio?`<td></td><td style="padding:10px;text-align:right;font-weight:800;font-family:monospace;font-size:14px;color:${tipo.color}">$${totalImporte.toLocaleString("es-MX")}</td>`:""}
-    <td></td>
-  </tr></tfoot>
+
+<!-- ══ TABLA DE ARTÍCULOS ══ -->
+<table style="margin-bottom:14px;border:1.5px solid #e8e5de;overflow:hidden">
+  <thead>
+    <tr style="background:${tipo.color};color:#fff">
+      <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;width:56px">Cant.</th>
+      <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700">Artículo / Descripción</th>
+      ${mostrarPrecio?`<th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;width:90px">P.U.</th>`:""}
+      <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;width:120px">Nota</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${filas||`<tr><td colspan="10" style="padding:20px;text-align:center;color:#9a9590;font-style:italic">Sin artículos asignados</td></tr>`}
+  </tbody>
+  
 </table>
-${split.notas?`<div style="background:${tipo.bg};border:1px solid ${tipo.color}33;border-radius:8px;padding:12px;margin-bottom:12px">
-  <div style="font-size:10px;font-weight:700;color:${tipo.color};text-transform:uppercase;margin-bottom:4px">Notas del área</div>
-  <div style="font-size:12px">${split.notas}</div></div>`:""}
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:16px;border-top:1px solid #e8e5de">
-  <div style="text-align:center"><div style="border-top:1px solid #1a1814;padding-top:8px;margin-top:50px;font-size:11px;color:#9a9590">Responsable — ${tipo.nombre}</div></div>
-  <div style="text-align:center"><div style="border-top:1px solid #1a1814;padding-top:8px;margin-top:50px;font-size:11px;color:#9a9590">Autorizado por Poliflor</div></div>
+
+${split.notas?`<div style="background:${tipo.bg};border:1px solid ${tipo.color}44;border-radius:7px;padding:8px 12px;margin-bottom:14px;font-size:11px"><span style="font-weight:700;color:${tipo.color}">Notas: </span>${split.notas}</div>`:""}
+
+<!-- ══ FIRMAS ══ -->
+<div style="border-top:1.5px solid #e8e5de;padding-top:12px;margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:48px">
+  <div style="text-align:center">
+    <div style="height:40px;border-bottom:1.5px solid #1a1814;margin-bottom:7px"></div>
+    <div style="font-size:10px;color:#9a9590">Responsable — ${tipo.nombre}</div>
+    ${split.responsable?`<div style="font-size:11px;font-weight:700;color:#1a1814;margin-top:1px">${split.responsable}</div>`:""}
+  </div>
+  <div style="text-align:center">
+    <div style="height:40px;border-bottom:1.5px solid #1a1814;margin-bottom:7px"></div>
+    <div style="font-size:10px;color:#9a9590">Autorizado por Poliflor</div>
+  </div>
 </div>
+
 </body></html>`
-  const w=window.open("","_blank","width=1000,height=820")
+    const w=window.open("","_blank","width=1000,height=820")
   if(w){w.document.write(html);w.document.close()}
 }
 
@@ -8355,7 +9495,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
   const cargar=useCallback(async()=>{
     setCargando(true)
-    const r=await fetch(`/api/splits?fecha_desde=${isoD(lunesBase)}&fecha_hasta=${(()=>{const d=new Date(finBase);d.setDate(d.getDate()+1);return isoD(d)})()} `,{headers:{Authorization:`Bearer ${token}`}})
+    const r=await fetch(`/api/splits?fecha_desde=${isoD(lunesBase)}&fecha_hasta=${isoD(finBase)}`,{headers:{Authorization:`Bearer ${token}`}})
     const data=await r.json()
     setSplits(Array.isArray(data)?data:[])
     setCargando(false)
@@ -8392,10 +9532,10 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
   const gruposPorContrato=splits.reduce((acc:any,s:any)=>{
     const key=s.contrato_id||"sin_contrato"
-    if(!acc[key]) acc[key]={contrato_id:s.contrato_id,folio:s.contrato_folio||"Sin folio",cliente:s.cliente||"—",fecha:s.fecha_evento||"—",splits:[]}
-    // Usar la fecha más temprana (evento, no desmonte) como fecha del grupo
-    if(s.tipo!=="desmonte"&&s.fecha_evento&&s.fecha_evento<acc[key].fecha)
-      acc[key].fecha=s.fecha_evento
+    // Usar fecha_evento_original si existe, sino fecha_evento del split no-desmonte
+    const fechaGrupo=s.fecha_evento_original||(s.tipo!=="desmonte"?s.fecha_evento:null)||s.fecha_evento
+    if(!acc[key]) acc[key]={contrato_id:s.contrato_id,folio:s.contrato_folio||"Sin folio",cliente:s.cliente||"—",fecha:fechaGrupo||"—",splits:[]}
+    if(fechaGrupo&&fechaGrupo<acc[key].fecha) acc[key].fecha=fechaGrupo
     acc[key].splits.push(s)
     return acc
   },{})
@@ -8448,7 +9588,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
   const abrirModalProv=(g:any)=>{
     const ct=contratos.find((x:any)=>x.id===g.contrato_id)
-    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:g.fecha,lugarContrato:ct?.lugar||""})
+    setModalProv({contratoId:g.contrato_id,folio:g.folio,cliente:g.cliente,fecha:g.fecha,fechaEvento:ct?.fecha_evento||g.fecha,fechaEntrega:ct?.fecha_entrega||g.fecha,fechaDesmonte:ct?.fecha_desmonte||"",lugarContrato:ct?.lugar||""})
     setProvNombre(""); setProvArts([]); setProvBusq(""); setProvMostrarDir(false); setProvDireccion("")
   }
 
@@ -8458,7 +9598,11 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
     const nuevo={
       contrato_id:modalProv.contratoId,contrato_folio:modalProv.folio,cliente:modalProv.cliente,
       lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",
-      fecha_evento:modalProv.fecha,tipo:"proveedor",nombre:`📦 ${provNombre}`,
+      fecha_evento:modalProv.fecha,
+      fecha_preparacion:modalProv.fechaEvento||null,
+      fecha_entrega_contrato:modalProv.fechaEntrega||null,
+      fecha_desmonte_contrato:modalProv.fechaDesmonte||null,
+      tipo:"proveedor",nombre:`📦 ${provNombre}`,
       proveedor_nombre:provNombre,estado:"pendiente",articulos:provArts,notas:"",observaciones:"",
       mostrar_precios:false,mostrar_direccion:provMostrarDir,
     }
@@ -8472,6 +9616,7 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
     if(!provNombre.trim()||!modalProv)return
     abrirHojaSplit({tipo:"proveedor",nombre:provNombre,cliente:modalProv.cliente,contrato_folio:modalProv.folio,
       lugar:provMostrarDir?(provDireccion||modalProv.lugarContrato||""):"",fecha_evento:modalProv.fecha,
+      fecha_preparacion:modalProv.fecha,
       articulos:provArts,notas:"",mostrar_direccion:provMostrarDir,mostrar_precios:false,responsable:""},logoUrl)
   }
 
@@ -8843,7 +9988,17 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
                       <span style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:800,color:"#fff"}}>{g.cliente}</span>
                       <span style={{fontFamily:"monospace",fontSize:11,color:"#60a5fa",background:"rgba(96,165,250,.15)",padding:"2px 8px",borderRadius:6,fontWeight:700}}>{g.folio}</span>
                     </div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,.5)",marginTop:3}}>📅 {g.fecha}</div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,.7)",marginTop:4,display:"flex",flexWrap:"wrap" as const,gap:8}}>
+                      {(()=>{
+                        const ct=contratos.find((x:any)=>x.id===g.contrato_id)
+                        const fmt=(f:string)=>f?new Date(f+"T12:00:00").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):""
+                        return(<>
+                          {ct?.fecha_evento&&<span>🎉 {fmt(ct.fecha_evento)}</span>}
+                          {ct?.fecha_entrega&&<span style={{color:"#93c5fd"}}>🚚 {fmt(ct.fecha_entrega)}</span>}
+                          {ct?.fecha_desmonte&&<span style={{color:"#fca5a5"}}>📦 {fmt(ct.fecha_desmonte)}</span>}
+                        </>)
+                      })()}
+                    </div>
                   </div>
                   <button onClick={()=>{
                     const ct=contratos.find((x:any)=>x.id===g.contrato_id)
@@ -9111,249 +10266,6 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 }
 
 
-
-// ─── P&L SECTION ──────────────────────────────────────────────────────
-function PYLSection({contratos}:{contratos:any[]}){
-  const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
-  const MESES_FULL=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
-  const [anio,setAnio]=React.useState(new Date().getFullYear().toString())
-  const [vista,setVista]=React.useState<"mensual"|"trimestral"|"vendedor">("mensual")
-
-  const fmt=(n:number)=>"$"+Math.round(n).toLocaleString("es-MX")
-  const fmtK=(n:number)=>n>=1000000?"$"+(n/1000000).toFixed(1)+"M":n>=1000?"$"+Math.round(n/1000)+"k":fmt(n)
-
-  const cotAnio=contratos.filter((c:any)=>{
-    const fe=c.fecha_evento||""
-    return fe.startsWith(anio)&&(c.tipo==="contrato"||c.estado==="confirmado"||c.estado==="anticipo_recibido"||c.estado==="en_produccion"||c.estado==="en_montaje"||c.estado==="evento_realizado"||c.estado==="liquidado")
-  })
-
-  // KPIs globales
-  const totalVendido=cotAnio.reduce((s:number,c:any)=>s+(c.total||c.precio_final||0),0)
-  const totalCobrado=cotAnio.reduce((s:number,c:any)=>s+((c.pagos||[]).reduce((ps:number,p:any)=>ps+(p.monto||0),0)),0)
-  const totalPendiente=totalVendido-totalCobrado
-  const totalEventos=cotAnio.length
-  const ticketProm=totalEventos>0?totalVendido/totalEventos:0
-
-  // Por mes
-  const porMes=Array.from({length:12},(_,i)=>{
-    const mes=String(i+1).padStart(2,"0")
-    const cots=cotAnio.filter((c:any)=>(c.fecha_evento||"").startsWith(anio+"-"+mes))
-    const vendido=cots.reduce((s:number,c:any)=>s+(c.total||c.precio_final||0),0)
-    const cobrado=cots.reduce((s:number,c:any)=>s+((c.pagos||[]).reduce((ps:number,p:any)=>ps+(p.monto||0),0)),0)
-    return{mes:MESES[i],vendido,cobrado,pendiente:vendido-cobrado,eventos:cots.length}
-  })
-
-  // Por trimestre
-  const porQ=[0,1,2,3].map(q=>{
-    const meses=porMes.slice(q*3,(q+1)*3)
-    return{
-      label:"Q"+(q+1),
-      vendido:meses.reduce((s,m)=>s+m.vendido,0),
-      cobrado:meses.reduce((s,m)=>s+m.cobrado,0),
-      pendiente:meses.reduce((s,m)=>s+m.pendiente,0),
-      eventos:meses.reduce((s,m)=>s+m.eventos,0),
-    }
-  })
-
-  // Por vendedor
-  const vendedores:Record<string,{vendido:number,cobrado:number,eventos:number}>={};
-  cotAnio.forEach((c:any)=>{
-    const v=c.vendedor||c.vendedor_nombre||"Sin asignar"
-    if(!vendedores[v]) vendedores[v]={vendido:0,cobrado:0,eventos:0}
-    vendedores[v].vendido+=(c.total||c.precio_final||0)
-    vendedores[v].cobrado+=((c.pagos||[]).reduce((s:number,p:any)=>s+(p.monto||0),0))
-    vendedores[v].eventos++
-  })
-  const listaVend=Object.entries(vendedores).sort((a,b)=>b[1].vendido-a[1].vendido)
-  const maxVend=listaVend[0]?.[1]?.vendido||1
-
-  // Max mensual para barras
-  const maxVendidoMes=Math.max(...porMes.map(m=>m.vendido),1)
-
-  const anioOpts=[String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)]
-
-  return(
-    <div style={{padding:"24px 28px",maxWidth:1100,margin:"0 auto"}}>
-      {/* Header */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24,flexWrap:"wrap",gap:12}}>
-        <div>
-          <h2 style={{fontFamily:"Playfair Display,serif",fontSize:22,fontWeight:800,color:"#1a1814",marginBottom:2}}>📈 P&L — Estado de Resultados</h2>
-          <p style={{fontSize:12,color:"#9a9590"}}>Ingresos, cobros y pendientes por período</p>
-        </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <select value={anio} onChange={e=>setAnio(e.target.value)}
-            style={{padding:"7px 12px",border:"1px solid #e8e5de",borderRadius:8,fontFamily:"Epilogue,sans-serif",fontSize:13,background:"#fff",color:"#1a1814",cursor:"pointer"}}>
-            {anioOpts.map(a=><option key={a} value={a}>{a}</option>)}
-          </select>
-          <div style={{display:"flex",background:"#fff",border:"1px solid #e8e5de",borderRadius:8,overflow:"hidden"}}>
-            {(["mensual","trimestral","vendedor"] as const).map(v=>(
-              <button key={v} onClick={()=>setVista(v)}
-                style={{padding:"7px 14px",border:"none",background:vista===v?"#1a1814":"transparent",color:vista===v?"#fff":"#9a9590",fontFamily:"Epilogue,sans-serif",fontSize:11.5,fontWeight:500,cursor:"pointer",borderRight:"1px solid #e8e5de"}}>
-                {v==="mensual"?"Mensual":v==="trimestral"?"Trimestral":"Vendedor"}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* KPI strip */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:1,background:"#e8e5de",borderRadius:12,overflow:"hidden",marginBottom:24,border:"1px solid #e8e5de",boxShadow:"0 1px 3px rgba(26,24,20,.06)"}}>
-        {[
-          {label:"Total vendido",val:fmtK(totalVendido),sub:`${totalEventos} eventos`,color:"#1a1814"},
-          {label:"Total cobrado",val:fmtK(totalCobrado),sub:`${totalVendido>0?Math.round(totalCobrado/totalVendido*100):0}% cobrado`,color:"#2d6a4f"},
-          {label:"Por cobrar",val:fmtK(totalPendiente),sub:"pendiente de pago",color:"#c05c28"},
-          {label:"Ticket promedio",val:fmtK(ticketProm),sub:`por evento ${anio}`,color:"#92580a"},
-        ].map(k=>(
-          <div key={k.label} style={{background:"#fff",padding:"18px 20px"}}>
-            <div style={{fontFamily:"Playfair Display,serif",fontSize:26,fontWeight:800,color:k.color,lineHeight:1,marginBottom:4}}>{k.val}</div>
-            <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase" as const,letterSpacing:".07em",color:"#9a9590"}}>{k.label}</div>
-            <div style={{fontSize:10,color:"#c4bfb8",marginTop:2}}>{k.sub}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Vista mensual */}
-      {vista==="mensual"&&(
-        <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 3px rgba(26,24,20,.06)"}}>
-          <div style={{padding:"16px 20px",borderBottom:"1px solid #e8e5de",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <span style={{fontWeight:700,fontSize:14,color:"#1a1814"}}>Detalle mensual {anio}</span>
-            <div style={{display:"flex",gap:16,fontSize:11,color:"#9a9590"}}>
-              <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{width:10,height:10,borderRadius:2,background:"#2d6a4f",display:"inline-block"}}></span>Cobrado</span>
-              <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{width:10,height:10,borderRadius:2,background:"#e8e5de",display:"inline-block"}}></span>Pendiente</span>
-            </div>
-          </div>
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-              <thead>
-                <tr style={{background:"#f5f4f0"}}>
-                  <th style={{padding:"10px 16px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:".07em",textTransform:"uppercase",color:"#9a9590",width:80}}>Mes</th>
-                  <th style={{padding:"10px 16px",textAlign:"right",fontWeight:700,fontSize:10,letterSpacing:".07em",textTransform:"uppercase",color:"#9a9590"}}>Eventos</th>
-                  <th style={{padding:"10px 16px",textAlign:"right",fontWeight:700,fontSize:10,letterSpacing:".07em",textTransform:"uppercase",color:"#9a9590"}}>Vendido</th>
-                  <th style={{padding:"10px 16px",textAlign:"right",fontWeight:700,fontSize:10,letterSpacing:".07em",textTransform:"uppercase",color:"#9a9590"}}>Cobrado</th>
-                  <th style={{padding:"10px 16px",textAlign:"right",fontWeight:700,fontSize:10,letterSpacing:".07em",textTransform:"uppercase",color:"#9a9590"}}>Pendiente</th>
-                  <th style={{padding:"10px 16px",textAlign:"left",fontWeight:700,fontSize:10,letterSpacing:".07em",textTransform:"uppercase",color:"#9a9590",minWidth:120}}>Avance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {porMes.map((m,i)=>{
-                  const pct=m.vendido>0?Math.round(m.cobrado/m.vendido*100):0
-                  const barW=m.vendido>0?Math.round(m.vendido/maxVendidoMes*100):0
-                  return(
-                    <tr key={m.mes} style={{borderTop:"1px solid #f5f4f0",background:m.eventos>0?"#fff":"#fafaf8"}}>
-                      <td style={{padding:"12px 16px",fontWeight:600,color:m.eventos>0?"#1a1814":"#c4bfb8"}}>{MESES_FULL[i]}</td>
-                      <td style={{padding:"12px 16px",textAlign:"right",color:m.eventos>0?"#4a4640":"#c4bfb8"}}>{m.eventos>0?m.eventos:"—"}</td>
-                      <td style={{padding:"12px 16px",textAlign:"right",fontWeight:600,color:m.eventos>0?"#1a1814":"#c4bfb8"}}>{m.eventos>0?fmt(m.vendido):"—"}</td>
-                      <td style={{padding:"12px 16px",textAlign:"right",color:"#2d6a4f",fontWeight:m.eventos>0?600:400}}>{m.eventos>0?fmt(m.cobrado):"—"}</td>
-                      <td style={{padding:"12px 16px",textAlign:"right",color:m.pendiente>0?"#c05c28":"#9a9590"}}>{m.eventos>0?fmt(m.pendiente):"—"}</td>
-                      <td style={{padding:"12px 16px"}}>
-                        {m.eventos>0&&(
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <div style={{flex:1,height:6,background:"#f5f4f0",borderRadius:3,overflow:"hidden"}}>
-                              <div style={{height:"100%",width:barW+"%",background:"#e8e5de",borderRadius:3,position:"relative"}}>
-                                <div style={{position:"absolute",left:0,top:0,height:"100%",width:pct+"%",background:"#2d6a4f",borderRadius:3}}></div>
-                              </div>
-                            </div>
-                            <span style={{fontSize:11,color:"#9a9590",minWidth:28,textAlign:"right"}}>{pct}%</span>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot>
-                <tr style={{borderTop:"2px solid #e8e5de",background:"#f5f4f0"}}>
-                  <td style={{padding:"12px 16px",fontWeight:700,color:"#1a1814"}}>Total {anio}</td>
-                  <td style={{padding:"12px 16px",textAlign:"right",fontWeight:700,color:"#1a1814"}}>{totalEventos}</td>
-                  <td style={{padding:"12px 16px",textAlign:"right",fontWeight:700,color:"#1a1814"}}>{fmt(totalVendido)}</td>
-                  <td style={{padding:"12px 16px",textAlign:"right",fontWeight:700,color:"#2d6a4f"}}>{fmt(totalCobrado)}</td>
-                  <td style={{padding:"12px 16px",textAlign:"right",fontWeight:700,color:"#c05c28"}}>{fmt(totalPendiente)}</td>
-                  <td style={{padding:"12px 16px",fontSize:12,color:"#9a9590"}}>{totalVendido>0?Math.round(totalCobrado/totalVendido*100):0}% cobrado</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Vista trimestral */}
-      {vista==="trimestral"&&(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:16}}>
-          {porQ.map(q=>{
-            const pct=q.vendido>0?Math.round(q.cobrado/q.vendido*100):0
-            return(
-              <div key={q.label} style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"20px 22px",boxShadow:"0 1px 3px rgba(26,24,20,.06)"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-                  <span style={{fontFamily:"Playfair Display,serif",fontSize:18,fontWeight:800,color:"#1a1814"}}>{q.label}</span>
-                  <span style={{fontSize:11,color:"#9a9590",background:"#f5f4f0",padding:"3px 8px",borderRadius:6}}>{q.eventos} eventos</span>
-                </div>
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase" as const,letterSpacing:".07em",color:"#9a9590",marginBottom:4}}>Vendido</div>
-                  <div style={{fontFamily:"Playfair Display,serif",fontSize:22,fontWeight:800,color:"#1a1814"}}>{fmtK(q.vendido)}</div>
-                </div>
-                <div style={{display:"flex",gap:12,marginBottom:14}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:10,color:"#9a9590",marginBottom:2}}>Cobrado</div>
-                    <div style={{fontSize:14,fontWeight:700,color:"#2d6a4f"}}>{fmtK(q.cobrado)}</div>
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:10,color:"#9a9590",marginBottom:2}}>Pendiente</div>
-                    <div style={{fontSize:14,fontWeight:700,color:"#c05c28"}}>{fmtK(q.pendiente)}</div>
-                  </div>
-                </div>
-                <div style={{height:6,background:"#f5f4f0",borderRadius:3,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:pct+"%",background:"#2d6a4f",borderRadius:3,transition:"width .4s"}}></div>
-                </div>
-                <div style={{fontSize:11,color:"#9a9590",marginTop:6,textAlign:"right"}}>{pct}% cobrado</div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Vista por vendedor */}
-      {vista==="vendedor"&&(
-        <div style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 3px rgba(26,24,20,.06)"}}>
-          <div style={{padding:"16px 20px",borderBottom:"1px solid #e8e5de"}}>
-            <span style={{fontWeight:700,fontSize:14,color:"#1a1814"}}>Ventas por vendedor {anio}</span>
-          </div>
-          {listaVend.length===0?(
-            <div style={{padding:40,textAlign:"center",color:"#9a9590",fontSize:13}}>No hay datos de vendedores para este año</div>
-          ):(
-            <div style={{padding:"8px 0"}}>
-              {listaVend.map(([vend,datos])=>{
-                const pct=datos.vendido>0?Math.round(datos.cobrado/datos.vendido*100):0
-                const barW=Math.round(datos.vendido/maxVend*100)
-                return(
-                  <div key={vend} style={{padding:"14px 20px",borderBottom:"1px solid #f5f4f0"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                      <div>
-                        <span style={{fontWeight:600,color:"#1a1814",fontSize:14}}>{vend}</span>
-                        <span style={{marginLeft:10,fontSize:11,color:"#9a9590"}}>{datos.eventos} eventos · ticket prom. {datos.eventos>0?fmtK(datos.vendido/datos.eventos):"—"}</span>
-                      </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontFamily:"Playfair Display,serif",fontSize:16,fontWeight:800,color:"#1a1814"}}>{fmt(datos.vendido)}</div>
-                        <div style={{fontSize:11,color:"#2d6a4f"}}>{fmt(datos.cobrado)} cobrado · <span style={{color:"#c05c28"}}>{fmt(datos.vendido-datos.cobrado)} pend.</span></div>
-                      </div>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{flex:1,height:8,background:"#f5f4f0",borderRadius:4,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:barW+"%",background:"#e8e5de",borderRadius:4,position:"relative"}}>
-                          <div style={{position:"absolute",left:0,top:0,height:"100%",width:pct+"%",background:"#2d6a4f",borderRadius:4}}></div>
-                        </div>
-                      </div>
-                      <span style={{fontSize:11,color:"#9a9590",minWidth:40,textAlign:"right"}}>{pct}% cob.</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─── STYLES ───────────────────────────────────────────────────────────
 const S: any = {
