@@ -4462,7 +4462,7 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
     setCargando(false)
   }
 
-  useState(() => { cargar() })
+  useEffect(() => { cargar() }, [])
 
   // Buscar artículos del catálogo
   const buscarArticulos = async (q: string, cat?: string) => {
