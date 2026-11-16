@@ -265,7 +265,9 @@ function AnalyticsGate({token,contratos}:{token:string,contratos:any[]}){
   )
 }
 
-function AnalyticsSection({token,contratos}:{token:string,contratos:any[]}){
+function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos:any[]}){
+  // Solo contratos confirmados (tipo="contrato"), excluir cotizaciones
+  const contratos = contratosRaw.filter((c:any)=>(c.tipo||"contrato")==="contrato")
   const [vista,setVista]=useState<"semana"|"mes"|"año">("mes")
   const [anioSel,setAnioSel]=useState(new Date().getFullYear().toString())
   const [tabActiva,setTabActiva]=useState<"dashboard"|"clasificar">("dashboard")
