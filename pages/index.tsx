@@ -1,4 +1,4 @@
-// BUILD: 1785892031
+// BUILD: 1785892032
 import { useState, useEffect, useCallback, useMemo } from "react"
 import Head from "next/head"
 import * as XLSX from "xlsx"
@@ -349,11 +349,13 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
 
       const arts:any[]=c.articulos||[]
       const totalContrato=Number(c.total)||0
-      // Intentar sumar desde artículos usando importe directo
-      const sumaArts=arts.reduce((s:number,a:any)=>{
-        return s+(Number(a.importe)||Number(a.subtotal)||(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1))
-      },0)
-      // Si no hay artículos o la suma es 0, usar total del contrato como bloque
+      // Calcular importe por artículo
+      const artConNeto=arts.map((a:any)=>({
+        ...a,
+        _neto:Number(a.importe)||Number(a.subtotal)||(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1)
+      }))
+      const sumaArts=artConNeto.reduce((s:number,a:any)=>s+a._neto,0)
+      // Si no hay artículos o la suma es 0, usar total del contrato como bloque único
       if(arts.length===0||sumaArts===0){
         const cat=overrides[c.id]?overrides[c.id].toUpperCase():"SIN CATEGORÍA"
         periodos[periodo][cat]=(periodos[periodo][cat]||0)+totalContrato
@@ -367,17 +369,20 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
         }
         return
       }
-      arts.forEach((a:any)=>{
+      // Distribuir el totalContrato proporcionalmente según importe de cada artículo
+      // Esto garantiza que la suma de categorías siempre == totalContrato
+      const factor=sumaArts>0?totalContrato/sumaArts:1
+      artConNeto.forEach((a:any)=>{
         const cat=getCat(a,c.id)
-        const neto=Number(a.importe)||Number(a.subtotal)||(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1)
+        const neto=a._neto*factor  // ajustado para que sume == totalContrato
         periodos[periodo][cat]=(periodos[periodo][cat]||0)+neto
         totCat[cat]=(totCat[cat]||0)+neto
         totPeriodo[periodo]+=neto
         if(cat==="SIN CATEGORÍA"){
-          const n=(a.nombre||"Sin nombre").trim()
-          if(!sinClasif[n]) sinClasif[n]={total:0,contratos:0,cliente:"",fecha:"",folio:""}
-          sinClasif[n].total+=neto
-          sinClasif[n].contratos+=1
+          const key=c.id
+          if(!sinClasif[key]) sinClasif[key]={total:0,contratos:0,cliente:c.cliente||"Sin cliente",fecha:c.fecha_evento||"",folio:c.folio||""}
+          sinClasif[key].total+=neto
+          sinClasif[key].contratos+=1
         }
       })
     })
