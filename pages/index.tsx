@@ -280,6 +280,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
   const [expandidos,setExpandidos]=useState<Record<string,boolean>>({})
   const scrollRef=useRef<HTMLDivElement>(null)
   const [listaFija,setListaFija]=useState<null>(null) // kept for compat, unused
+  const [filtroCat,setFiltroCat]=useState<string|null>(null)
 
   const saveOverride=(id:string,cat:string)=>{
     const scrollTop=scrollRef.current?.scrollTop??0
@@ -486,6 +487,29 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
   const totalSinClasif=sinClasifArr.reduce((s,[,v])=>s+v.total,0)
   const pctSinClasif=granTotal>0?Math.round(totalSinClasif/granTotal*100):0
 
+  // Top contratos para ranking lateral (filtrado por filtroCat)
+  const topContratosCat=useMemo(()=>{
+    if(!filtroCat) return contratosFiltrados
+      .map((c:any)=>({folio:c.folio||"",cliente:c.cliente||"",total:Number(c.total)||0,catEfectiva:""}))
+      .sort((a:any,b:any)=>b.total-a.total).slice(0,15)
+    return contratosFiltrados
+      .filter((c:any)=>{
+        const arts:any[]=c.articulos||[]
+        if(overrides[c.id]) return overrides[c.id].toUpperCase()===filtroCat
+        if(arts.length===0) return filtroCat==="SIN CATEGORÍA"
+        const catCount:Record<string,number>={}
+        arts.forEach((a:any,ai:number)=>{
+          const k=`${c.id}::${ai}`
+          const cat=overrides[k]?overrides[k].toUpperCase():normalizarCat(a.seccion||a.categoria||"")
+          catCount[cat]=(catCount[cat]||0)+1
+        })
+        // Incluir si tiene al menos un artículo de esa categoría
+        return (catCount[filtroCat]||0)>0
+      })
+      .map((c:any)=>({folio:c.folio||"",cliente:c.cliente||"",total:Number(c.total)||0,catEfectiva:filtroCat}))
+      .sort((a:any,b:any)=>b.total-a.total).slice(0,15)
+  },[filtroCat,contratosFiltrados,overrides])
+
   return(
     <div style={{fontFamily:"Epilogue,sans-serif",color:"#1a1814",maxWidth:1200}}>
 
@@ -542,30 +566,40 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
 
       {tabActiva==="dashboard"&&(<>
 
-        {/* ── KPI Cards ── */}
+        {/* ── KPI Cards clickeables ── */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",
           gap:12,marginBottom:24}}>
-          {/* Total año */}
-          <div style={{background:"#0f172a",borderRadius:12,padding:"18px 16px",
-            color:"#fff",gridColumn:"span 1"}}>
+          {/* Total año — click limpia filtro */}
+          <div onClick={()=>setFiltroCat(null)}
+            style={{background:"#0f172a",borderRadius:12,padding:"18px 16px",
+            color:"#fff",gridColumn:"span 1",cursor:"pointer",
+            outline:filtroCat===null?"3px solid #60a5fa":"none",
+            transition:"outline .15s"}}>
             <div style={{fontSize:10,fontWeight:700,opacity:.6,textTransform:"uppercase" as const,
               letterSpacing:".08em",marginBottom:6}}>Total {anioSel}</div>
             <div style={{fontSize:26,fontWeight:800}}>{fmtK(granTotal)}</div>
             <div style={{fontSize:11,opacity:.6,marginTop:4}}>
               {Object.values(eventos).reduce((s,v)=>s+v,0)} eventos
             </div>
+            {filtroCat===null&&<div style={{fontSize:9,marginTop:6,opacity:.7,fontWeight:700}}>✓ TODOS</div>}
           </div>
           {/* Por categoría */}
           {ALL_CATS.map(cat=>{
             const total=totCat[cat]||0
             const pct=granTotal>0?Math.round(total/granTotal*100):0
+            const activo=filtroCat===cat
+            const color=CAT_COLORS[cat]||"#9a9590"
             return(
-              <div key={cat} style={{background:"#fff",borderRadius:12,padding:"16px",
-                border:`2px solid ${CAT_COLORS[cat]||"#e8e5de"}`,
-                boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
-                <div style={{fontSize:9,fontWeight:700,color:CAT_COLORS[cat],
+              <div key={cat} onClick={()=>setFiltroCat(activo?null:cat)}
+                style={{background:"#fff",borderRadius:12,padding:"16px",
+                border:`2px solid ${color}`,cursor:"pointer",
+                outline:activo?`3px solid ${color}`:"none",
+                boxShadow:activo?`0 0 0 2px ${color}33,0 2px 8px rgba(0,0,0,.12)`:"0 1px 4px rgba(0,0,0,.06)",
+                transform:activo?"translateY(-2px)":"none",
+                transition:"all .15s"}}>
+                <div style={{fontSize:9,fontWeight:700,color,
                   textTransform:"uppercase" as const,letterSpacing:".06em",marginBottom:6}}>
-                  {cat}
+                  {cat}{activo&&" ✓"}
                 </div>
                 <div style={{fontSize:20,fontWeight:800,color:"#1a1814"}}>{fmtK(total)}</div>
                 <div style={{display:"flex",justifyContent:"space-between",
@@ -573,8 +607,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
                   <div style={{fontSize:11,color:"#9a9590"}}>{pct}% del total</div>
                 </div>
                 <div style={{marginTop:8,height:4,borderRadius:2,background:"#f0ece4"}}>
-                  <div style={{height:4,borderRadius:2,
-                    background:CAT_COLORS[cat]||"#1a3a5c",width:`${pct}%`}}/>
+                  <div style={{height:4,borderRadius:2,background:color,width:`${pct}%`}}/>
                 </div>
               </div>
             )
@@ -601,58 +634,113 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
           )}
         </div>
 
-        {/* ── Gráfica de barras ── */}
-        <div style={{background:"#fff",borderRadius:12,padding:"20px 20px 12px",
-          border:"1px solid #e8e5de",marginBottom:20}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-            <h3 style={{fontSize:14,fontWeight:700,margin:0}}>
-              Ingresos por {vista} — {anioSel}
-            </h3>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap" as const}}>
-              {ALL_CATS.map(cat=>(
-                <div key={cat} style={{display:"flex",alignItems:"center",gap:4}}>
-                  <div style={{width:10,height:10,borderRadius:2,background:CAT_COLORS[cat]}}/>
-                  <span style={{fontSize:10,color:"#4a4640"}}>{cat}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{overflowX:"auto" as const}}>
-            <div style={{display:"flex",gap:3,alignItems:"flex-end",
-              minWidth:Math.max(periodosOrdenados.length*56,300),
-              height:180,paddingBottom:4,position:"relative" as const}}>
-              {periodosOrdenados.map(p=>{
-                const total=totPeriodo[p]||0
-                const pct=total/maxPeriodo
-                return(
-                  <div key={p} style={{flex:1,display:"flex",flexDirection:"column" as const,
-                    alignItems:"center",justifyContent:"flex-end",minWidth:50}}>
-                    <div style={{fontSize:9,color:"#1a1814",fontWeight:700,marginBottom:2}}>
-                      {total>0?fmtK(total):""}
-                    </div>
-                    <div style={{width:"100%",height:Math.max(Math.round(pct*140),total>0?2:0),
-                      display:"flex",flexDirection:"column" as const,
-                      borderRadius:"4px 4px 0 0",overflow:"hidden"}}>
-                      {ALL_CATS.map(cat=>{
-                        const v=periodos[p]?.[cat]||0
-                        const h=total>0?v/total*100:0
-                        return h>0.5?<div key={cat} style={{height:`${h}%`,
-                          background:CAT_COLORS[cat]||"#9a9590"}}/>:null
-                      })}
-                    </div>
-                    <div style={{fontSize:8,color:"#9a9590",marginTop:4,textAlign:"center" as const,
-                      whiteSpace:"nowrap" as const}}>
-                      {vista==="semana"?p.split("-S")[1]+"ª":
-                       vista==="mes"?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(p.slice(5))]:p}
-                    </div>
-                    <div style={{fontSize:8,color:"#c4bfb8",textAlign:"center" as const}}>
-                      {eventos[p]?eventos[p]+"ev":""}
-                    </div>
+        {/* ── Gráfica + Ranking lateral ── */}
+        <div style={{display:"grid",gridTemplateColumns:filtroCat?"1fr 300px":"1fr",gap:16,marginBottom:20}}>
+
+          {/* Gráfica de barras */}
+          <div style={{background:"#fff",borderRadius:12,padding:"20px 20px 12px",
+            border:"1px solid #e8e5de"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{fontSize:14,fontWeight:700,margin:0}}>
+                {filtroCat?<span>Ingresos <span style={{color:CAT_COLORS[filtroCat]||"#1a1814"}}>{filtroCat}</span> por {vista}</span>:`Ingresos por ${vista} — ${anioSel}`}
+              </h3>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap" as const}}>
+                {(filtroCat?[filtroCat]:ALL_CATS).map(cat=>(
+                  <div key={cat} style={{display:"flex",alignItems:"center",gap:4}}>
+                    <div style={{width:10,height:10,borderRadius:2,background:CAT_COLORS[cat]||"#9a9590"}}/>
+                    <span style={{fontSize:10,color:"#4a4640"}}>{cat}</span>
                   </div>
-                )
-              })}
+                ))}
+              </div>
+            </div>
+            <div style={{overflowX:"auto" as const}}>
+              <div style={{display:"flex",gap:3,alignItems:"flex-end",
+                minWidth:Math.max(periodosOrdenados.length*56,300),
+                height:180,paddingBottom:4,position:"relative" as const}}>
+                {periodosOrdenados.map(p=>{
+                  const totalP=totPeriodo[p]||0
+                  // Si hay filtro, mostrar solo esa cat; si no, todas
+                  const valFiltro=filtroCat?(periodos[p]?.[filtroCat]||0):totalP
+                  const maxRef=filtroCat?Math.max(...periodosOrdenados.map(pp=>periodos[pp]?.[filtroCat]||0),1):maxPeriodo
+                  const pct=valFiltro/maxRef
+                  return(
+                    <div key={p} style={{flex:1,display:"flex",flexDirection:"column" as const,
+                      alignItems:"center",justifyContent:"flex-end",minWidth:50}}>
+                      <div style={{fontSize:9,color:"#1a1814",fontWeight:700,marginBottom:2}}>
+                        {valFiltro>0?fmtK(valFiltro):""}
+                      </div>
+                      <div style={{width:"100%",height:Math.max(Math.round(pct*140),valFiltro>0?2:0),
+                        display:"flex",flexDirection:"column" as const,
+                        borderRadius:"4px 4px 0 0",overflow:"hidden"}}>
+                        {filtroCat
+                          ? <div style={{height:"100%",background:CAT_COLORS[filtroCat]||"#1a3a5c"}}/>
+                          : ALL_CATS.map(cat=>{
+                              const v=periodos[p]?.[cat]||0
+                              const h=totalP>0?v/totalP*100:0
+                              return h>0.5?<div key={cat} style={{height:`${h}%`,
+                                background:CAT_COLORS[cat]||"#9a9590"}}/>:null
+                            })
+                        }
+                      </div>
+                      <div style={{fontSize:8,color:"#9a9590",marginTop:4,textAlign:"center" as const,
+                        whiteSpace:"nowrap" as const}}>
+                        {vista==="semana"?p.split("-S")[1]+"ª":
+                         vista==="mes"?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(p.slice(5))]:p}
+                      </div>
+                      <div style={{fontSize:8,color:"#c4bfb8",textAlign:"center" as const}}>
+                        {eventos[p]?eventos[p]+"ev":""}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
+
+          {/* Ranking lateral (solo visible cuando hay filtroCat) */}
+          {filtroCat&&(
+            <div style={{background:"#fff",borderRadius:12,border:`2px solid ${CAT_COLORS[filtroCat]||"#e8e5de"}`,
+              overflow:"hidden",display:"flex",flexDirection:"column" as const}}>
+              <div style={{background:CAT_COLORS[filtroCat]||"#1a3a5c",color:"#fff",
+                padding:"12px 14px"}}>
+                <div style={{fontSize:10,fontWeight:700,opacity:.8,textTransform:"uppercase" as const,letterSpacing:".06em"}}>
+                  Top contratos
+                </div>
+                <div style={{fontSize:13,fontWeight:800,marginTop:2}}>{filtroCat}</div>
+              </div>
+              <div style={{overflowY:"auto" as const,flex:1,maxHeight:280}}>
+                {topContratosCat.length===0
+                  ? <div style={{padding:20,color:"#9a9590",fontSize:12,textAlign:"center" as const}}>Sin contratos</div>
+                  : topContratosCat.map((c:any,i:number)=>(
+                    <div key={c.folio||i} style={{display:"flex",alignItems:"center",gap:10,
+                      padding:"8px 14px",borderBottom:"1px solid #f0ece4",
+                      background:i%2===0?"#fff":"#fafaf8"}}>
+                      <div style={{fontSize:11,fontWeight:800,color:CAT_COLORS[filtroCat]||"#1a3a5c",
+                        minWidth:18,textAlign:"right" as const}}>{i+1}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:11,fontWeight:700,color:"#1a1814",
+                          whiteSpace:"nowrap" as const,overflow:"hidden",textOverflow:"ellipsis"}}>
+                          {c.cliente||"Sin cliente"}
+                        </div>
+                        <div style={{fontSize:9,color:"#9a9590"}}>{c.folio}</div>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:800,fontFamily:"monospace",
+                        color:"#1a1814",flexShrink:0}}>{fmtK(c.total)}</div>
+                    </div>
+                  ))
+                }
+              </div>
+              <div style={{padding:"8px 14px",background:"#f0ece4",borderTop:"1px solid #e8e5de",
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:10,color:"#4a4640",fontWeight:700}}>
+                  {topContratosCat.length} contratos
+                </span>
+                <span style={{fontSize:11,fontWeight:800,fontFamily:"monospace",color:"#1a1814"}}>
+                  {fmtK(topContratosCat.reduce((s:number,c:any)=>s+c.total,0))}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Tabla ejecutiva ── */}
@@ -664,7 +752,8 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
             <div style={{fontSize:11,fontWeight:700}}>Periodo</div>
             {ALL_CATS.map(cat=>(
               <div key={cat} style={{fontSize:9,fontWeight:700,textAlign:"right" as const,
-                color:CAT_COLORS[cat]}}>
+                color:filtroCat===cat?"#fff":(CAT_COLORS[cat]||"rgba(255,255,255,.4)"),
+                opacity:filtroCat&&filtroCat!==cat?.4:1}}>
                 {cat.slice(0,7)}
               </div>
             ))}
@@ -683,9 +772,11 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
               </div>
               {ALL_CATS.map(cat=>{
                 const v=periodos[p]?.[cat]||0
+                const dim=filtroCat&&filtroCat!==cat
                 return(
                   <div key={cat} style={{textAlign:"right" as const,fontFamily:"monospace",
                     fontWeight:v>0?700:400,
+                    opacity:dim?.3:1,
                     color:v>0?(CAT_COLORS[cat]||"#1a1814"):"#e0dbd4"}}>
                     {v>0?fmtK(v):"—"}
                   </div>
@@ -704,6 +795,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
             <div style={{color:"#0f172a"}}>TOTAL {anioSel}</div>
             {ALL_CATS.map(cat=>(
               <div key={cat} style={{textAlign:"right" as const,fontFamily:"monospace",
+                opacity:filtroCat&&filtroCat!==cat?.3:1,
                 color:CAT_COLORS[cat]}}>
                 {(totCat[cat]||0)>0?fmtK(totCat[cat]||0):"—"}
               </div>
