@@ -291,13 +291,26 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
     return `${d.getFullYear()}-S${String(week).padStart(2,"0")}`
   }
 
+  const normalizarCat=(raw:string):string=>{
+    const s=raw.toUpperCase().trim()
+    if(!s||s==="GENERAL"||s.startsWith("EMAIL")||s.startsWith("OPCIÓN")||s.startsWith("OPCION")||s.startsWith("ADULTO")) return "SIN CATEGORÍA"
+    if(s.startsWith("MOBIL")) return "MOBILIARIO"
+    if(s.startsWith("FLOR")) return "FLORES"
+    if(s.startsWith("CARPA")) return "CARPAS"
+    if(s.startsWith("SERVIC")) return "SERVICIOS"
+    if(s.includes("VAJILLA")&&s.includes("MANTEL")) return "VAJILLA"
+    if(s.startsWith("VAJILLA")||s.startsWith("VAJILL")) return "VAJILLA"
+    if(s.startsWith("MANTEL")) return "MANTELERIA"
+    return "SIN CATEGORÍA"
+  }
+
   const getCat=(a:any,contratoId?:string)=>{
     // Override por contrato tiene prioridad
     if(contratoId&&overrides[contratoId]) return overrides[contratoId].toUpperCase()
     const nombre=(a.nombre||"").trim()
     if(overrides[nombre]) return overrides[nombre].toUpperCase()
-    const s=(a.seccion||a.categoria||"").toUpperCase().trim()
-    return s||"SIN CATEGORÍA"
+    const s=(a.seccion||a.categoria||"").trim()
+    return normalizarCat(s)
   }
 
   // Años disponibles
@@ -336,11 +349,9 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
 
       const arts:any[]=c.articulos||[]
       const totalContrato=Number(c.total)||0
-      // Intentar sumar desde artículos
+      // Intentar sumar desde artículos usando importe directo
       const sumaArts=arts.reduce((s:number,a:any)=>{
-        const bruto=(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1)
-        const desc=a.aplica_descuento?Math.round(bruto*(Number(a.descuento_pct_art)||0)/100):0
-        return s+(bruto-desc)
+        return s+(Number(a.importe)||Number(a.subtotal)||(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1))
       },0)
       // Si no hay artículos o la suma es 0, usar total del contrato como bloque
       if(arts.length===0||sumaArts===0){
@@ -358,9 +369,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
       }
       arts.forEach((a:any)=>{
         const cat=getCat(a,c.id)
-        const bruto=(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1)
-        const desc=a.aplica_descuento?Math.round(bruto*(Number(a.descuento_pct_art)||0)/100):0
-        const neto=bruto-desc
+        const neto=Number(a.importe)||Number(a.subtotal)||(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1)
         periodos[periodo][cat]=(periodos[periodo][cat]||0)+neto
         totCat[cat]=(totCat[cat]||0)+neto
         totPeriodo[periodo]+=neto
