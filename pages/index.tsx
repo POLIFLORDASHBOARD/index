@@ -721,7 +721,7 @@ export default function Dashboard(){
       })
   },[])
   const esAdmin = user?.rol==="admin"
-  const vendedorActual = VENDEDORES.find(v=>v.nombre===user?.nombre)?.nombre || ""
+  const vendedorActual = VENDEDORES.find(v=>v.nombre===user?.nombre)?.nombre || user?.nombre || ""
 
   // Detect mobile on mount and resize
   useEffect(()=>{
@@ -10494,7 +10494,7 @@ function PlantillasSection({ token, vendedorActual, esAdmin }:
               {/* Tabla artículos */}
               <div style={{marginBottom:10}}>
                 <label style={{fontSize:11,fontWeight:700,color:"#4a4640",textTransform:"uppercase" as const,letterSpacing:".05em",display:"block",marginBottom:6}}>Artículos</label>
-                <div style={{border:"1px solid #e8e5de",borderRadius:8,overflow:"hidden"}}>
+                <div style={{border:"1px solid #e8e5de",borderRadius:8,overflow:"visible"}}>
                   <div style={{display:"grid",gridTemplateColumns:"60px 1fr 100px 32px",background:"#0f172a"}}>
                     {["Cant.","Artículo","P. Unitario",""].map((h,hi)=>(
                       <div key={hi} style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase" as const,letterSpacing:".05em"}}>{h}</div>
@@ -10527,7 +10527,7 @@ function PlantillasSection({ token, vendedorActual, esAdmin }:
                             placeholder="Escribe el artículo..."
                             style={{width:"100%",padding:"8px 10px",border:"none",background:"transparent",fontSize:12,outline:"none"}}/>
                           {activeRow===i&&rowSugeridos.length>0&&(
-                            <div style={{position:"absolute" as const,top:"100%",left:0,right:0,background:"#fff",border:"2px solid #2563eb",borderRadius:"0 0 8px 8px",zIndex:500,maxHeight:200,overflowY:"auto" as const,boxShadow:"0 8px 24px rgba(37,99,235,.15)"}}>
+                            <div style={{position:"absolute" as const,top:"100%",left:0,right:0,background:"#fff",border:"2px solid #2563eb",borderRadius:"0 0 8px 8px",zIndex:1500,maxHeight:200,overflowY:"auto" as const,boxShadow:"0 8px 24px rgba(37,99,235,.15)"}}>
                               {rowSugeridos.map((a:any,ai:number)=>(
                                 <div key={ai} onMouseDown={e=>{
                                   e.preventDefault()

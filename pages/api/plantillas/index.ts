@@ -29,10 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // POST — crear plantilla
   if (req.method === "POST") {
     const { vendedor, nombre, partidas } = req.body
-    if (!vendedor || !nombre) return res.status(400).json({ error: "vendedor y nombre son requeridos" })
+    const vendedorFinal = vendedor?.trim() || "Sin vendedor"
+    if (!nombre) return res.status(400).json({ error: "nombre es requerido" })
     const { data, error } = await supabase
       .from("plantillas_cotizacion")
-      .insert({ vendedor, nombre, partidas: partidas || [] })
+      .insert({ vendedor: vendedorFinal, nombre, partidas: partidas || [] })
       .select().single()
     if (error) return res.status(500).json({ error: error.message })
     return res.status(201).json(data)
