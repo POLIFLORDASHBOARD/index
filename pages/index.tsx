@@ -10301,10 +10301,10 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 // ─────────────────────────────────────────────────────────────
 function ModalSeleccionarPlantilla({ token, vendedorActual, esAdmin, onSeleccionar, onCerrar }:
   { token:string, vendedorActual:string, esAdmin:boolean, onSeleccionar:(p:Partida[])=>void, onCerrar:()=>void }) {
-  const [plantillas, setPlantillas] = React.useState<any[]>([])
-  const [cargando, setCargando] = React.useState(true)
+  const [plantillas, setPlantillas] = useState<any[]>([])
+  const [cargando, setCargando] = useState(true)
 
-  React.useEffect(()=>{
+  useEffect(()=>{
     const params = new URLSearchParams({ vendedor: vendedorActual })
     if(esAdmin) params.append("esAdmin","true")
     fetch(`/api/plantillas?${params}`,{ headers:{ Authorization:"Bearer "+token }})
@@ -10353,17 +10353,17 @@ function ModalSeleccionarPlantilla({ token, vendedorActual, esAdmin, onSeleccion
 // ─────────────────────────────────────────────────────────────
 function PlantillasSection({ token, vendedorActual, esAdmin }:
   { token:string, vendedorActual?:string, esAdmin?:boolean }) {
-  const [plantillas, setPlantillas] = React.useState<any[]>([])
-  const [cargando, setCargando] = React.useState(true)
-  const [modalAbierto, setModalAbierto] = React.useState(false)
-  const [editando, setEditando] = React.useState<any|null>(null)
-  const [nombre, setNombre] = React.useState("")
-  const [partidas, setPartidas] = React.useState<Partida[]>([])
-  const [guardando, setGuardando] = React.useState(false)
-  const [busqArt, setBusqArt] = React.useState("")
-  const [sugeridos, setSugeridos] = React.useState<any[]>([])
-  const [activeRow, setActiveRow] = React.useState<number|null>(null)
-  const [rowSugeridos, setRowSugeridos] = React.useState<any[]>([])
+  const [plantillas, setPlantillas] = useState<any[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [editando, setEditando] = useState<any|null>(null)
+  const [nombre, setNombre] = useState("")
+  const [partidas, setPartidas] = useState<Partida[]>([])
+  const [guardando, setGuardando] = useState(false)
+  const [busqArt, setBusqArt] = useState("")
+  const [sugeridos, setSugeridos] = useState<any[]>([])
+  const [activeRow, setActiveRow] = useState<number|null>(null)
+  const [rowSugeridos, setRowSugeridos] = useState<any[]>([])
 
   const cargar = async () => {
     setCargando(true)
@@ -10375,7 +10375,7 @@ function PlantillasSection({ token, vendedorActual, esAdmin }:
     setCargando(false)
   }
 
-  React.useEffect(()=>{ cargar() },[])
+  useEffect(()=>{ cargar() },[])
 
   const abrirNueva = () => {
     setEditando(null); setNombre(""); setPartidas([]); setModalAbierto(true)
