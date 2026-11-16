@@ -1012,7 +1012,7 @@ export default function Dashboard(){
         <nav style={{flex:1,overflowY:"auto" as const,padding:"10px 8px"}}>
           {([
             {id:"inicio",label:"Panel",icon:"home"},
-            {id:"ventas",label:"Ventas",icon:"clip",subs:[["cotizaciones","Cotizaciones"],["contratos-conf","Contratos"]]},
+            {id:"ventas",label:"Ventas",icon:"clip",subs:[["cotizaciones","Cotizaciones"],["contratos-conf","Contratos"],["plantillas","Plantillas"]]},
             {id:"planeacion",label:"Planeación",icon:"cal",subs:[["agenda","Agenda"],["carga","🚚 Carga"],["gantt","Gantt"],["dias","Por Día"]]},
             {id:"catalogo",label:"Catálogo",icon:"box",subs:[["cat-articulos","Artículos"],["cat-clientes","Clientes"],["cat-busqueda","Buscar"]]},
             {id:"inventario",label:"Inventario",icon:"inv"},
@@ -1169,7 +1169,7 @@ export default function Dashboard(){
         {(seccion==="ventas"||seccion==="planeacion"||seccion==="catalogo"||seccion==="config")&&(
           <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"2px solid #e8e5de",paddingBottom:0}}>
             {(
-              seccion==="ventas"?[["cotizaciones","📋 Cotizaciones"],["contratos-conf","📄 Contratos"]] :
+              seccion==="ventas"?[["cotizaciones","📋 Cotizaciones"],["contratos-conf","📄 Contratos"],["plantillas","📌 Plantillas"]] :
               seccion==="planeacion"?[["agenda","📅 Agenda"],["carga","🚚 Carga"],["gantt","Gantt"],["dias","Por Día"]] :
               seccion==="catalogo"?[["cat-articulos","📦 Artículos"],["cat-clientes","👥 Clientes"],["cat-busqueda","🔍 Buscar"]] :
               [["cfg-equipo","👥 Equipo"],["cfg-rutas","🗺️ Rutas"],["cfg-misrutas","Mis Rutas"],["cfg-logo","🖼️ Logo"]]
@@ -1241,6 +1241,9 @@ export default function Dashboard(){
         )}
         {seccion==="ventas"&&subTab==="contratos-conf"&&(
           <ContratosConfirmadosSection token={token} contratos={cBase} onActualizar={actualizarContrato} isMobile={isMobile} vendedorActual={vendedorActual} esAdmin={esAdmin}/>
+        )}
+        {seccion==="ventas"&&subTab==="plantillas"&&(
+          <PlantillasSection token={token} vendedorActual={vendedorActual} esAdmin={esAdmin}/>
         )}
 
         {/* ── PLANEACIÓN ── */}
@@ -4842,6 +4845,7 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
   const [clientesSug, setClientesSug] = useState<{nombre:string,tel:string,lugar:string,email:string}[]>([])
   const [mostrarSug, setMostrarSug] = useState(false)
   const [formGuardado, setFormGuardado] = useState(false)
+  const [modalPlantilla, setModalPlantilla] = useState(false)
 
   // Dirty = tiene cliente o artículos y no se ha guardado
   const formTieneDatos = !!(
@@ -6271,15 +6275,39 @@ document.getElementById("btn-pdf").onclick=function(){
             )}
           </div>
 
-          {/* Botón agregar fila */}
-          <button onClick={()=>{
-            const nueva:Partida={articulo_id:"",nombre:"",cantidad:1,precio_unitario:0,subtotal:0,notas:""}
-            const partidas=[...(cotActual.partidas||[]),nueva]
-            const tots=calcularTotales(partidas,cotActual.descuento_pct||0,cotActual.aplica_iva||false)
-            setCotActual((prev:any)=>({...prev,partidas,...tots}))
-          }} style={{width:"100%",padding:"12px",borderRadius:8,background:"#fff",border:"2px dashed #2563eb",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:13,color:"#2563eb",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:12}}>
-            <span style={{fontSize:20,lineHeight:1}}>+</span> Agregar artículo
-          </button>
+          {/* Botones agregar fila + cargar plantilla */}
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            <button onClick={()=>{
+              const nueva:Partida={articulo_id:"",nombre:"",cantidad:1,precio_unitario:0,subtotal:0,notas:""}
+              const partidas=[...(cotActual.partidas||[]),nueva]
+              const tots=calcularTotales(partidas,cotActual.descuento_pct||0,cotActual.aplica_iva||false)
+              setCotActual((prev:any)=>({...prev,partidas,...tots}))
+            }} style={{flex:1,padding:"12px",borderRadius:8,background:"#fff",border:"2px dashed #2563eb",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:13,color:"#2563eb",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <span style={{fontSize:20,lineHeight:1}}>+</span> Agregar artículo
+            </button>
+            <button onClick={()=>setModalPlantilla(true)}
+              style={{padding:"12px 18px",borderRadius:8,background:"#1a3a5c",border:"none",cursor:"pointer",fontFamily:"Epilogue,sans-serif",fontSize:13,color:"#fff",fontWeight:700,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap" as const}}>
+              📌 Cargar plantilla
+            </button>
+          </div>
+          {/* Modal seleccionar plantilla */}
+          {modalPlantilla&&(
+            <ModalSeleccionarPlantilla
+              token={token}
+              vendedorActual={vendedorActual||""}
+              esAdmin={!!esAdmin}
+              onSeleccionar={(partidas:Partida[])=>{
+                const confirmar = (cotActual.partidas||[]).length>0
+                  ? window.confirm("¿Reemplazar los artículos actuales con la plantilla?")
+                  : true
+                if(!confirmar) return
+                const tots=calcularTotales(partidas,cotActual.descuento_pct||0,cotActual.aplica_iva||false)
+                setCotActual((prev:any)=>({...prev,partidas,...tots}))
+                setModalPlantilla(false)
+              }}
+              onCerrar={()=>setModalPlantilla(false)}
+            />
+          )}
 
           {/* Opciones descuento + IVA */}
           <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap" as const}}>
@@ -10268,6 +10296,290 @@ function SplitsSection({token,contratos,logoUrl}:{token:string,contratos:any[],l
 
 
 // ─── STYLES ───────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// MODAL: Seleccionar plantilla (usado en paso 2 de cotización)
+// ─────────────────────────────────────────────────────────────
+function ModalSeleccionarPlantilla({ token, vendedorActual, esAdmin, onSeleccionar, onCerrar }:
+  { token:string, vendedorActual:string, esAdmin:boolean, onSeleccionar:(p:Partida[])=>void, onCerrar:()=>void }) {
+  const [plantillas, setPlantillas] = React.useState<any[]>([])
+  const [cargando, setCargando] = React.useState(true)
+
+  React.useEffect(()=>{
+    const params = new URLSearchParams({ vendedor: vendedorActual })
+    if(esAdmin) params.append("esAdmin","true")
+    fetch(`/api/plantillas?${params}`,{ headers:{ Authorization:"Bearer "+token }})
+      .then(r=>r.json()).then(d=>{ setPlantillas(Array.isArray(d)?d:[]); setCargando(false) })
+  },[])
+
+  return (
+    <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:520,boxShadow:"0 24px 60px rgba(0,0,0,.2)",overflow:"hidden"}}>
+        <div style={{background:"#1a3a5c",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:16,fontWeight:700,color:"#fff"}}>📌 Seleccionar plantilla</div>
+          <button onClick={onCerrar} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer",lineHeight:1}}>×</button>
+        </div>
+        <div style={{padding:20,maxHeight:420,overflowY:"auto" as const}}>
+          {cargando ? (
+            <div style={{textAlign:"center" as const,padding:40,color:"#9a9590"}}>Cargando...</div>
+          ) : plantillas.length===0 ? (
+            <div style={{textAlign:"center" as const,padding:40,color:"#9a9590"}}>
+              <div style={{fontSize:32,marginBottom:8}}>📌</div>
+              <div style={{fontSize:13}}>No tienes plantillas guardadas.</div>
+              <div style={{fontSize:11,marginTop:4,color:"#c4bfb8"}}>Crea una desde Ventas → Plantillas</div>
+            </div>
+          ) : (
+            plantillas.map((p:any)=>(
+              <div key={p.id} onClick={()=>onSeleccionar(p.partidas||[])}
+                style={{border:"1px solid #e8e5de",borderRadius:10,padding:"12px 16px",marginBottom:8,cursor:"pointer",background:"#fafaf8",transition:"all .15s"}}
+                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="#eff6ff"}
+                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background="#fafaf8"}>
+                <div style={{fontWeight:700,fontSize:13,color:"#1a1814",marginBottom:3}}>📌 {p.nombre}</div>
+                <div style={{fontSize:11,color:"#9a9590"}}>
+                  {esAdmin && p.vendedor !== vendedorActual && <span style={{marginRight:8,fontWeight:600,color:"#4a4640"}}>👤 {p.vendedor}</span>}
+                  {(p.partidas||[]).length} artículos
+                  {(p.partidas||[]).length>0 && " · "+p.partidas.map((x:any)=>x.nombre).slice(0,3).join(", ")+(p.partidas.length>3?"...":"")}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// SECCIÓN: Plantillas de cotización
+// ─────────────────────────────────────────────────────────────
+function PlantillasSection({ token, vendedorActual, esAdmin }:
+  { token:string, vendedorActual?:string, esAdmin?:boolean }) {
+  const [plantillas, setPlantillas] = React.useState<any[]>([])
+  const [cargando, setCargando] = React.useState(true)
+  const [modalAbierto, setModalAbierto] = React.useState(false)
+  const [editando, setEditando] = React.useState<any|null>(null)
+  const [nombre, setNombre] = React.useState("")
+  const [partidas, setPartidas] = React.useState<Partida[]>([])
+  const [guardando, setGuardando] = React.useState(false)
+  const [busqArt, setBusqArt] = React.useState("")
+  const [sugeridos, setSugeridos] = React.useState<any[]>([])
+  const [activeRow, setActiveRow] = React.useState<number|null>(null)
+  const [rowSugeridos, setRowSugeridos] = React.useState<any[]>([])
+
+  const cargar = async () => {
+    setCargando(true)
+    const params = new URLSearchParams({ vendedor: vendedorActual||"" })
+    if(esAdmin) params.append("esAdmin","true")
+    const res = await fetch(`/api/plantillas?${params}`,{ headers:{ Authorization:"Bearer "+token }})
+    const d = await res.json()
+    setPlantillas(Array.isArray(d)?d:[])
+    setCargando(false)
+  }
+
+  React.useEffect(()=>{ cargar() },[])
+
+  const abrirNueva = () => {
+    setEditando(null); setNombre(""); setPartidas([]); setModalAbierto(true)
+  }
+  const abrirEditar = (p:any) => {
+    setEditando(p); setNombre(p.nombre); setPartidas(p.partidas||[]); setModalAbierto(true)
+  }
+  const cerrar = () => { setModalAbierto(false); setEditando(null); setNombre(""); setPartidas([]) }
+
+  const agregarFila = () => setPartidas(prev=>[...prev,{articulo_id:"",nombre:"",cantidad:1,precio_unitario:0,subtotal:0,notas:""}])
+
+  const actualizarFila = (i:number, campo:string, valor:any) => {
+    setPartidas(prev=>{
+      const p=[...prev]
+      p[i]={...p[i],[campo]:valor}
+      if(campo==="cantidad"||campo==="precio_unitario"){
+        p[i].subtotal=(p[i].cantidad||0)*(p[i].precio_unitario||0)
+      }
+      return p
+    })
+  }
+  const eliminarFila = (i:number) => setPartidas(prev=>prev.filter((_,j)=>j!==i))
+
+  const guardar = async () => {
+    if(!nombre.trim()){ alert("Escribe un nombre para la plantilla"); return }
+    if(partidas.length===0){ alert("Agrega al menos un artículo"); return }
+    setGuardando(true)
+    const body = { vendedor: vendedorActual||"", nombre: nombre.trim(), partidas }
+    let res:Response
+    if(editando){
+      res = await fetch(`/api/plantillas?id=${editando.id}`,{ method:"PATCH", headers:{ Authorization:"Bearer "+token,"Content-Type":"application/json" }, body:JSON.stringify(body) })
+    } else {
+      res = await fetch(`/api/plantillas`,{ method:"POST", headers:{ Authorization:"Bearer "+token,"Content-Type":"application/json" }, body:JSON.stringify(body) })
+    }
+    setGuardando(false)
+    if(res.ok){ cerrar(); cargar() }
+    else alert("Error al guardar. Intenta de nuevo.")
+  }
+
+  const eliminar = async (p:any) => {
+    if(!window.confirm(`¿Eliminar la plantilla "${p.nombre}"?`)) return
+    await fetch(`/api/plantillas?id=${p.id}`,{ method:"DELETE", headers:{ Authorization:"Bearer "+token }})
+    cargar()
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+        <div>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:20,fontWeight:800}}>📌 Plantillas de cotización</div>
+          <div style={{fontSize:11,color:"#9a9590",marginTop:2}}>Guarda artículos frecuentes para cotizar más rápido</div>
+        </div>
+        <button onClick={abrirNueva}
+          style={{padding:"10px 18px",background:"#1a3a5c",color:"#fff",border:"none",borderRadius:9,fontFamily:"Epilogue,sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+          + Nueva plantilla
+        </button>
+      </div>
+
+      {cargando ? (
+        <div style={{textAlign:"center" as const,padding:60,color:"#9a9590"}}>Cargando...</div>
+      ) : plantillas.length===0 ? (
+        <div style={{textAlign:"center" as const,padding:60,background:"#fff",borderRadius:12,border:"1px solid #e8e5de"}}>
+          <div style={{fontSize:40,marginBottom:12,opacity:.3}}>📌</div>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:16,fontWeight:700,marginBottom:6}}>Sin plantillas</div>
+          <div style={{fontSize:12,color:"#9a9590",marginBottom:16}}>Crea tu primera plantilla para agilizar tus cotizaciones</div>
+          <button onClick={abrirNueva} style={{padding:"10px 24px",background:"#1a3a5c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nueva plantilla</button>
+        </div>
+      ) : (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+          {plantillas.map((p:any)=>(
+            <div key={p.id} style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"16px 18px",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
+                <div>
+                  <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:700,color:"#1a1814"}}>{p.nombre}</div>
+                  {esAdmin && <div style={{fontSize:10,color:"#9a9590",marginTop:2}}>👤 {p.vendedor}</div>}
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>abrirEditar(p)} style={{padding:"5px 10px",border:"1px solid #e8e5de",borderRadius:6,background:"#fff",fontSize:11,cursor:"pointer",color:"#4a4640",fontWeight:600}}>✏️ Editar</button>
+                  <button onClick={()=>eliminar(p)} style={{padding:"5px 10px",border:"1px solid #fecaca",borderRadius:6,background:"#fff",fontSize:11,cursor:"pointer",color:"#8b2e2e",fontWeight:600}}>🗑️</button>
+                </div>
+              </div>
+              <div style={{fontSize:11,color:"#4a4640"}}>
+                <strong>{(p.partidas||[]).length}</strong> artículos
+                {(p.partidas||[]).slice(0,4).map((x:any,i:number)=>(
+                  <div key={i} style={{color:"#9a9590",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
+                    · {x.cantidad}x {x.nombre} {x.precio_unitario>0?"— $"+x.precio_unitario.toLocaleString("es-MX"):""}
+                  </div>
+                ))}
+                {(p.partidas||[]).length>4&&<div style={{color:"#c4bfb8",marginTop:2}}>+{(p.partidas||[]).length-4} más...</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal crear/editar plantilla */}
+      {modalAbierto&&(
+        <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:680,maxHeight:"90vh",display:"flex",flexDirection:"column" as const,boxShadow:"0 24px 60px rgba(0,0,0,.2)"}}>
+            {/* Header */}
+            <div style={{background:"#1a3a5c",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+              <div style={{fontFamily:"Playfair Display,serif",fontSize:16,fontWeight:700,color:"#fff"}}>{editando?"✏️ Editar plantilla":"+ Nueva plantilla"}</div>
+              <button onClick={cerrar} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",lineHeight:1}}>×</button>
+            </div>
+            {/* Body */}
+            <div style={{padding:20,overflowY:"auto" as const,flex:1}}>
+              {/* Nombre */}
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:11,fontWeight:700,color:"#4a4640",textTransform:"uppercase" as const,letterSpacing:".05em",display:"block",marginBottom:4}}>Nombre de la plantilla</label>
+                <input value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Ej. Boda completa, Montaje básico..."
+                  style={{width:"100%",padding:"10px 12px",border:"1px solid #e8e5de",borderRadius:8,fontSize:13,fontFamily:"Epilogue,sans-serif",outline:"none"}}/>
+              </div>
+              {/* Tabla artículos */}
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:11,fontWeight:700,color:"#4a4640",textTransform:"uppercase" as const,letterSpacing:".05em",display:"block",marginBottom:6}}>Artículos</label>
+                <div style={{border:"1px solid #e8e5de",borderRadius:8,overflow:"hidden"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"60px 1fr 100px 32px",background:"#0f172a"}}>
+                    {["Cant.","Artículo","P. Unitario",""].map((h,hi)=>(
+                      <div key={hi} style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase" as const,letterSpacing:".05em"}}>{h}</div>
+                    ))}
+                  </div>
+                  {partidas.length===0?(
+                    <div style={{padding:"24px",textAlign:"center" as const,color:"#9a9590",fontSize:12}}>Agrega artículos a tu plantilla</div>
+                  ):(
+                    partidas.map((p:Partida,i:number)=>(
+                      <div key={i} style={{display:"grid",gridTemplateColumns:"60px 1fr 100px 32px",borderTop:"1px solid #ebebeb",background:i%2===0?"#fff":"#fafafa"}}>
+                        <div style={{padding:"4px 6px",display:"flex",alignItems:"center"}}>
+                          <input type="number" min="1" value={p.cantidad}
+                            onChange={e=>actualizarFila(i,"cantidad",Math.max(1,parseInt(e.target.value)||1))}
+                            style={{width:"100%",padding:"6px 4px",border:"none",background:"transparent",textAlign:"center" as const,fontFamily:"monospace",fontSize:13,fontWeight:700,outline:"none"}}/>
+                        </div>
+                        <div style={{position:"relative" as const,borderLeft:"1px solid #ebebeb"}}>
+                          <input value={p.nombre}
+                            onChange={async(e)=>{
+                              const v=e.target.value
+                              actualizarFila(i,"nombre",v)
+                              setActiveRow(i)
+                              if(v.trim().length>=1){
+                                const res=await fetch("/api/catalogo?busq="+encodeURIComponent(v.trim())+"&activo=true",{headers:{Authorization:"Bearer "+token}})
+                                const d=await res.json()
+                                setRowSugeridos(Array.isArray(d)?d.slice(0,8):[])
+                              } else { setRowSugeridos([]) }
+                            }}
+                            onFocus={()=>setActiveRow(i)}
+                            onBlur={()=>setTimeout(()=>{setActiveRow(null);setRowSugeridos([])},200)}
+                            placeholder="Escribe el artículo..."
+                            style={{width:"100%",padding:"8px 10px",border:"none",background:"transparent",fontSize:12,outline:"none"}}/>
+                          {activeRow===i&&rowSugeridos.length>0&&(
+                            <div style={{position:"absolute" as const,top:"100%",left:0,right:0,background:"#fff",border:"2px solid #2563eb",borderRadius:"0 0 8px 8px",zIndex:500,maxHeight:200,overflowY:"auto" as const,boxShadow:"0 8px 24px rgba(37,99,235,.15)"}}>
+                              {rowSugeridos.map((a:any,ai:number)=>(
+                                <div key={ai} onMouseDown={e=>{
+                                  e.preventDefault()
+                                  setPartidas(prev=>{
+                                    const pp=[...prev]
+                                    pp[i]={...pp[i],nombre:a.nombre,precio_unitario:a.precio_renta||0,subtotal:(pp[i].cantidad||1)*(a.precio_renta||0)}
+                                    return pp
+                                  })
+                                  setActiveRow(null); setRowSugeridos([])
+                                }}
+                                style={{padding:"7px 12px",cursor:"pointer",borderBottom:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12}}
+                                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="#eff6ff"}
+                                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background="#fff"}>
+                                  <span>{a.nombre}</span>
+                                  {(a.precio_renta||0)>0&&<span style={{fontFamily:"monospace",fontSize:11,color:"#1a3a5c",fontWeight:700}}>${a.precio_renta.toLocaleString("es-MX")}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{borderLeft:"1px solid #ebebeb",display:"flex",alignItems:"center",padding:"0 6px"}}>
+                          <span style={{fontSize:10,color:"#9a9590"}}>$</span>
+                          <input type="number" min="0" value={p.precio_unitario||""}
+                            onChange={e=>actualizarFila(i,"precio_unitario",parseFloat(e.target.value)||0)}
+                            placeholder="0"
+                            style={{width:"100%",padding:"6px 2px",border:"none",background:"transparent",textAlign:"right" as const,fontFamily:"monospace",fontSize:12,fontWeight:600,outline:"none"}}/>
+                        </div>
+                        <div style={{borderLeft:"1px solid #ebebeb",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <button onClick={()=>eliminarFila(i)} style={{width:24,height:24,borderRadius:4,background:"#fdf0f0",border:"none",cursor:"pointer",color:"#8b2e2e",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <button onClick={agregarFila}
+                  style={{width:"100%",marginTop:8,padding:"10px",borderRadius:8,background:"#fff",border:"2px dashed #2563eb",cursor:"pointer",fontSize:12,color:"#2563eb",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  + Agregar artículo
+                </button>
+              </div>
+            </div>
+            {/* Footer */}
+            <div style={{padding:"14px 20px",borderTop:"1px solid #e8e5de",display:"flex",justifyContent:"flex-end",gap:8,flexShrink:0}}>
+              <button onClick={cerrar} style={{padding:"10px 20px",border:"1px solid #e8e5de",borderRadius:8,background:"#fff",fontSize:13,cursor:"pointer",color:"#4a4640",fontWeight:600}}>Cancelar</button>
+              <button onClick={guardar} disabled={guardando}
+                style={{padding:"10px 24px",background:"#1a3a5c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:guardando?"wait":"pointer",opacity:guardando?.6:1}}>
+                {guardando?"Guardando...":"💾 Guardar plantilla"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const S: any = {
   loginWrap:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f4f0"},
   loginBox:{background:"#fff",border:"1px solid #e8e5de",borderRadius:16,padding:36,width:360,display:"flex",flexDirection:"column" as const,gap:12,boxShadow:"0 12px 40px rgba(26,24,20,.12)"},
