@@ -335,17 +335,23 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
       eventos[periodo]=(eventos[periodo]||0)+1
 
       const arts:any[]=c.articulos||[]
-      if(arts.length===0){
-        // Contrato sin desglose — usar override por id o "SIN CATEGORÍA"
-        const total=Number(c.total)||0
+      const totalContrato=Number(c.total)||0
+      // Intentar sumar desde artículos
+      const sumaArts=arts.reduce((s:number,a:any)=>{
+        const bruto=(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1)
+        const desc=a.aplica_descuento?Math.round(bruto*(Number(a.descuento_pct_art)||0)/100):0
+        return s+(bruto-desc)
+      },0)
+      // Si no hay artículos o la suma es 0, usar total del contrato como bloque
+      if(arts.length===0||sumaArts===0){
         const cat=overrides[c.id]?overrides[c.id].toUpperCase():"SIN CATEGORÍA"
-        periodos[periodo][cat]=(periodos[periodo][cat]||0)+total
-        totCat[cat]=(totCat[cat]||0)+total
-        totPeriodo[periodo]+=total
+        periodos[periodo][cat]=(periodos[periodo][cat]||0)+totalContrato
+        totCat[cat]=(totCat[cat]||0)+totalContrato
+        totPeriodo[periodo]+=totalContrato
         if(cat==="SIN CATEGORÍA"){
           const key=c.id
           if(!sinClasif[key]) sinClasif[key]={total:0,contratos:0,cliente:c.cliente||"Sin cliente",fecha:c.fecha_evento||"",folio:c.folio||""}
-          sinClasif[key].total+=total
+          sinClasif[key].total+=totalContrato
           sinClasif[key].contratos+=1
         }
         return
