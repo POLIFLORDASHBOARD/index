@@ -1,5 +1,5 @@
-// BUILD: 1785892034
-import { useState, useEffect, useCallback, useMemo } from "react"
+// BUILD: 1785892035
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import Head from "next/head"
 import * as XLSX from "xlsx"
 
@@ -277,11 +277,16 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
   })
   const [busqClasif,setBusqClasif]=useState("")
   const [expandidos,setExpandidos]=useState<Record<string,boolean>>({})
+  const scrollRef=useRef<HTMLDivElement>(null)
+  // Snapshot de la lista al entrar al tab para no hacer jumps mientras clasificas
+  const [listaFija,setListaFija]=useState<[string,{total:number,contratos:number,cliente:string,fecha:string,folio:string}][]|null>(null)
 
   const saveOverride=(id:string,cat:string)=>{
+    const scrollTop=scrollRef.current?.scrollTop??0
     const next={...overrides,[id]:cat}
     setOverrides(next)
     localStorage.setItem("pf_cat_overrides_v2",JSON.stringify(next))
+    requestAnimationFrame(()=>{ if(scrollRef.current) scrollRef.current.scrollTop=scrollTop })
   }
 
   const getWeek=(dateStr:string)=>{
@@ -406,11 +411,13 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
 
   // Artículos sin clasificar ordenados por impacto
   const sinClasifArr=Object.entries(sinClasif).sort((a,b)=>b[1].total-a[1].total)
+  // Usar snapshot fijo mientras el usuario está clasificando (evita jumps al re-render)
+  const listaBase=listaFija||sinClasifArr
   const sinClasifFiltrado=busqClasif
-    ? sinClasifArr.filter(([id,info])=>
+    ? listaBase.filter(([id,info])=>
         (info.cliente||"").toLowerCase().includes(busqClasif.toLowerCase())||
         (info.folio||"").toLowerCase().includes(busqClasif.toLowerCase()))
-    : sinClasifArr
+    : listaBase
 
   const totalSinClasif=sinClasifArr.reduce((s,[,v])=>s+v.total,0)
   const pctSinClasif=granTotal>0?Math.round(totalSinClasif/granTotal*100):0
@@ -453,7 +460,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
       {/* ── Tabs ── */}
       <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"2px solid #e8e5de"}}>
         {([["dashboard","📈 Dashboard"],["clasificar","🏷️ Clasificar contratos"]] as const).map(([id,label])=>(
-          <button key={id} onClick={()=>setTabActiva(id)}
+          <button key={id} onClick={()=>{setTabActiva(id);if(id==="clasificar")setListaFija(sinClasifArr)}}
             style={{padding:"8px 18px",border:"none",cursor:"pointer",fontWeight:700,
               fontSize:13,background:"none",
               borderBottom:tabActiva===id?"3px solid #0f172a":"3px solid transparent",
@@ -681,7 +688,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
             <div style={{textAlign:"center" as const}}>CATEGORÍA</div>
           </div>
 
-          <div style={{display:"flex",flexDirection:"column" as const,gap:0,
+          <div ref={scrollRef} style={{display:"flex",flexDirection:"column" as const,gap:0,
             maxHeight:600,overflowY:"auto" as const,border:"1px solid #e8e5de",
             borderTop:"none",borderRadius:"0 0 8px 8px"}}>
             {sinClasifFiltrado.map(([id,info],i)=>{
