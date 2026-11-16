@@ -271,16 +271,16 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
   const [vista,setVista]=useState<"semana"|"mes"|"año">("mes")
   const [anioSel,setAnioSel]=useState(new Date().getFullYear().toString())
   const [tabActiva,setTabActiva]=useState<"dashboard"|"clasificar">("dashboard")
-  // overrides: {articulo_nombre -> categoria}
+  // overrides por contrato id: {contrato_id -> categoria}
   const [overrides,setOverrides]=useState<Record<string,string>>(()=>{
-    try{ return JSON.parse(localStorage.getItem("pf_cat_overrides")||"{}") }catch{return{}}
+    try{ return JSON.parse(localStorage.getItem("pf_cat_overrides_v2")||"{}") }catch{return{}}
   })
   const [busqClasif,setBusqClasif]=useState("")
 
-  const saveOverride=(nombre:string,cat:string)=>{
-    const next={...overrides,[nombre]:cat}
+  const saveOverride=(id:string,cat:string)=>{
+    const next={...overrides,[id]:cat}
     setOverrides(next)
-    localStorage.setItem("pf_cat_overrides",JSON.stringify(next))
+    localStorage.setItem("pf_cat_overrides_v2",JSON.stringify(next))
   }
 
   const getWeek=(dateStr:string)=>{
@@ -291,7 +291,9 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
     return `${d.getFullYear()}-S${String(week).padStart(2,"0")}`
   }
 
-  const getCat=(a:any)=>{
+  const getCat=(a:any,contratoId?:string)=>{
+    // Override por contrato tiene prioridad
+    if(contratoId&&overrides[contratoId]) return overrides[contratoId].toUpperCase()
     const nombre=(a.nombre||"").trim()
     if(overrides[nombre]) return overrides[nombre].toUpperCase()
     const s=(a.seccion||a.categoria||"").toUpperCase().trim()
@@ -319,7 +321,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
     const totCat:Record<string,number>={}
     const totPeriodo:Record<string,number>={}
     const eventos:Record<string,number>={}
-    const sinClasif:Record<string,{total:number,contratos:number}>= {}
+    const sinClasif:Record<string,{total:number,contratos:number,cliente:string,fecha:string,folio:string}>= {}
 
     contratosFiltrados.forEach((c:any)=>{
       const fe=c.fecha_evento; if(!fe) return
@@ -334,16 +336,22 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
 
       const arts:any[]=c.articulos||[]
       if(arts.length===0){
-        // Contrato sin desglose — usar total del contrato
+        // Contrato sin desglose — usar override por id o "SIN CATEGORÍA"
         const total=Number(c.total)||0
-        const cat="SIN CATEGORÍA"
+        const cat=overrides[c.id]?overrides[c.id].toUpperCase():"SIN CATEGORÍA"
         periodos[periodo][cat]=(periodos[periodo][cat]||0)+total
         totCat[cat]=(totCat[cat]||0)+total
         totPeriodo[periodo]+=total
+        if(cat==="SIN CATEGORÍA"){
+          const key=c.id
+          if(!sinClasif[key]) sinClasif[key]={total:0,contratos:0,cliente:c.cliente||"Sin cliente",fecha:c.fecha_evento||"",folio:c.folio||""}
+          sinClasif[key].total+=total
+          sinClasif[key].contratos+=1
+        }
         return
       }
       arts.forEach((a:any)=>{
-        const cat=getCat(a)
+        const cat=getCat(a,c.id)
         const bruto=(Number(a.pu)||Number(a.precio_unitario)||0)*(Number(a.cantidad)||1)
         const desc=a.aplica_descuento?Math.round(bruto*(Number(a.descuento_pct_art)||0)/100):0
         const neto=bruto-desc
@@ -352,7 +360,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
         totPeriodo[periodo]+=neto
         if(cat==="SIN CATEGORÍA"){
           const n=(a.nombre||"Sin nombre").trim()
-          if(!sinClasif[n]) sinClasif[n]={total:0,contratos:0}
+          if(!sinClasif[n]) sinClasif[n]={total:0,contratos:0,cliente:"",fecha:"",folio:""}
           sinClasif[n].total+=neto
           sinClasif[n].contratos+=1
         }
@@ -373,7 +381,9 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
   // Artículos sin clasificar ordenados por impacto
   const sinClasifArr=Object.entries(sinClasif).sort((a,b)=>b[1].total-a[1].total)
   const sinClasifFiltrado=busqClasif
-    ? sinClasifArr.filter(([n])=>n.toLowerCase().includes(busqClasif.toLowerCase()))
+    ? sinClasifArr.filter(([id,info])=>
+        (info.cliente||"").toLowerCase().includes(busqClasif.toLowerCase())||
+        (info.folio||"").toLowerCase().includes(busqClasif.toLowerCase()))
     : sinClasifArr
 
   const totalSinClasif=sinClasifArr.reduce((s,[,v])=>s+v.total,0)
@@ -416,7 +426,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
 
       {/* ── Tabs ── */}
       <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"2px solid #e8e5de"}}>
-        {([["dashboard","📈 Dashboard"],["clasificar","🏷️ Clasificar artículos"]] as const).map(([id,label])=>(
+        {([["dashboard","📈 Dashboard"],["clasificar","🏷️ Clasificar contratos"]] as const).map(([id,label])=>(
           <button key={id} onClick={()=>setTabActiva(id)}
             style={{padding:"8px 18px",border:"none",cursor:"pointer",fontWeight:700,
               fontSize:13,background:"none",
@@ -617,48 +627,62 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
             marginBottom:16,flexWrap:"wrap" as const,gap:10}}>
             <div>
-              <h3 style={{fontSize:16,fontWeight:800,margin:0}}>🏷️ Clasificar artículos</h3>
+              <h3 style={{fontSize:16,fontWeight:800,margin:0}}>🏷️ Clasificar contratos</h3>
               <p style={{fontSize:12,color:"#9a9590",margin:"4px 0 0"}}>
-                {sinClasifArr.length} artículos sin categoría · {fmtK(totalSinClasif)} en riesgo de no clasificar ({pctSinClasif}%)
+                {sinClasifArr.length} contratos sin categoría · {fmtK(totalSinClasif)} sin clasificar ({pctSinClasif}%)
               </p>
             </div>
             <input value={busqClasif} onChange={e=>setBusqClasif(e.target.value)}
-              placeholder="Buscar artículo..."
+              placeholder="Buscar cliente o folio..."
               style={{padding:"8px 12px",borderRadius:8,border:"1px solid #e8e5de",
                 fontSize:12,width:220,outline:"none"}}/>
           </div>
 
           {sinClasifFiltrado.length===0&&(
             <div style={{textAlign:"center" as const,padding:"40px",color:"#9a9590",fontSize:13}}>
-              {busqClasif?"No hay coincidencias":"✅ Todos los artículos están clasificados"}
+              {busqClasif?"No hay coincidencias":"✅ Todos los contratos están clasificados"}
             </div>
           )}
 
-          <div style={{display:"flex",flexDirection:"column" as const,gap:2}}>
-            {sinClasifFiltrado.map(([nombre,info],i)=>(
-              <div key={nombre} style={{display:"grid",gridTemplateColumns:"1fr auto auto",
-                gap:10,alignItems:"center",padding:"10px 16px",
+          {/* Cabecera tabla */}
+          <div style={{display:"grid",gridTemplateColumns:"120px 1fr 100px 90px 160px",
+            gap:8,padding:"8px 16px",background:"#0f172a",color:"#fff",
+            borderRadius:"8px 8px 0 0",fontSize:11,fontWeight:700}}>
+            <div>FOLIO</div>
+            <div>CLIENTE</div>
+            <div>FECHA</div>
+            <div style={{textAlign:"right" as const}}>TOTAL</div>
+            <div style={{textAlign:"center" as const}}>CATEGORÍA</div>
+          </div>
+
+          <div style={{display:"flex",flexDirection:"column" as const,gap:0,
+            maxHeight:500,overflowY:"auto" as const,border:"1px solid #e8e5de",
+            borderTop:"none",borderRadius:"0 0 8px 8px"}}>
+            {sinClasifFiltrado.map(([id,info],i)=>(
+              <div key={id} style={{display:"grid",gridTemplateColumns:"120px 1fr 100px 90px 160px",
+                gap:8,alignItems:"center",padding:"8px 16px",
                 background:i%2===0?"#fff":"#fafaf8",
-                border:"1px solid #f0ece4",borderRadius:8}}>
-                <div>
-                  <div style={{fontSize:12,fontWeight:600,color:"#1a1814",
-                    lineHeight:1.3}}>{nombre}</div>
-                  <div style={{fontSize:10,color:"#9a9590",marginTop:2}}>
-                    {fmtK(info.total)} · {info.contratos} contrato{info.contratos!==1?"s":""}
-                  </div>
+                borderBottom:"1px solid #f0ece4"}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#1a3a5c"}}>{info.folio||"—"}</div>
+                <div style={{fontSize:12,fontWeight:600,color:"#1a1814",
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
+                  {info.cliente}
                 </div>
-                <div style={{fontSize:10,color:"#dc2626",fontWeight:700,whiteSpace:"nowrap" as const}}>
+                <div style={{fontSize:11,color:"#9a9590"}}>
+                  {info.fecha?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(info.fecha.slice(5,7))]+" "+info.fecha.slice(8,10)+" "+info.fecha.slice(0,4):"—"}
+                </div>
+                <div style={{fontSize:11,fontWeight:700,color:"#dc2626",textAlign:"right" as const}}>
                   {fmtK(info.total)}
                 </div>
                 <select
-                  value={overrides[nombre]||""}
-                  onChange={e=>saveOverride(nombre,e.target.value)}
-                  style={{padding:"6px 10px",borderRadius:6,
-                    border:`2px solid ${overrides[nombre]?(CAT_COLORS[overrides[nombre].toUpperCase()]||"#2d6a4f"):"#e8e5de"}`,
+                  value={overrides[id]||""}
+                  onChange={e=>saveOverride(id,e.target.value)}
+                  style={{padding:"5px 8px",borderRadius:6,
+                    border:`2px solid ${overrides[id]?(CAT_COLORS[overrides[id].toUpperCase()]||"#2d6a4f"):"#e8e5de"}`,
                     fontSize:11,fontWeight:700,background:"#fff",cursor:"pointer",
-                    color:overrides[nombre]?(CAT_COLORS[overrides[nombre].toUpperCase()]||"#2d6a4f"):"#9a9590",
-                    minWidth:140}}>
-                  <option value="">— Seleccionar categoría —</option>
+                    color:overrides[id]?(CAT_COLORS[overrides[id].toUpperCase()]||"#2d6a4f"):"#9a9590",
+                    width:"100%"}}>
+                  <option value="">— Categoría —</option>
                   {ALL_CATS.map(c=><option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
@@ -666,14 +690,15 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
           </div>
 
           {Object.keys(overrides).length>0&&(
-            <div style={{marginTop:20,padding:"12px 16px",background:"#f0fdf4",
-              borderRadius:8,border:"1px solid #b7deca",fontSize:12}}>
-              <strong style={{color:"#2d6a4f"}}>✅ {Object.keys(overrides).length} artículos clasificados manualmente</strong>
-              <span style={{color:"#4a4640",marginLeft:8}}>
+            <div style={{marginTop:16,padding:"12px 16px",background:"#f0fdf4",
+              borderRadius:8,border:"1px solid #b7deca",fontSize:12,
+              display:"flex",alignItems:"center",gap:12,flexWrap:"wrap" as const}}>
+              <strong style={{color:"#2d6a4f"}}>✅ {Object.keys(overrides).length} contratos clasificados</strong>
+              <span style={{color:"#4a4640"}}>
                 Las clasificaciones se guardan en este navegador y se aplican al dashboard.
               </span>
-              <button onClick={()=>{setOverrides({});localStorage.removeItem("pf_cat_overrides")}}
-                style={{marginLeft:12,fontSize:11,padding:"2px 8px",borderRadius:4,
+              <button onClick={()=>{setOverrides({});localStorage.removeItem("pf_cat_overrides_v2")}}
+                style={{fontSize:11,padding:"2px 8px",borderRadius:4,
                   border:"1px solid #dc2626",background:"none",color:"#dc2626",cursor:"pointer"}}>
                 Limpiar todo
               </button>
