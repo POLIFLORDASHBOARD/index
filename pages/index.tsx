@@ -10412,7 +10412,10 @@ function PlantillasSection({ token, vendedorActual, esAdmin }:
     }
     setGuardando(false)
     if(res.ok){ cerrar(); cargar() }
-    else alert("Error al guardar. Intenta de nuevo.")
+    else {
+      const errData = await res.json().catch(()=>({}))
+      alert("Error al guardar: " + (errData?.error || res.status))
+    }
   }
 
   const eliminar = async (p:any) => {
