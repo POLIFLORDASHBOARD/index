@@ -640,17 +640,37 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
           {/* Gráfica de barras */}
           <div style={{background:"#fff",borderRadius:12,padding:"20px 20px 12px",
             border:"1px solid #e8e5de"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,gap:12,flexWrap:"wrap" as const}}>
               <h3 style={{fontSize:14,fontWeight:700,margin:0}}>
-                {filtroCat?<span>Ingresos <span style={{color:CAT_COLORS[filtroCat]||"#1a1814"}}>{filtroCat}</span> por {vista}</span>:`Ingresos por ${vista} — ${anioSel}`}
+                {filtroCat
+                  ? <span>Ingresos <span style={{color:CAT_COLORS[filtroCat]||"#1a1814"}}>{filtroCat}</span> por {vista}</span>
+                  : `Ingresos por ${vista} — ${anioSel}`}
               </h3>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap" as const}}>
-                {(filtroCat?[filtroCat]:ALL_CATS).map(cat=>(
-                  <div key={cat} style={{display:"flex",alignItems:"center",gap:4}}>
-                    <div style={{width:10,height:10,borderRadius:2,background:CAT_COLORS[cat]||"#9a9590"}}/>
-                    <span style={{fontSize:10,color:"#4a4640"}}>{cat}</span>
-                  </div>
-                ))}
+              {/* Slicer de categorías */}
+              <div style={{display:"flex",gap:5,flexWrap:"wrap" as const,alignItems:"center"}}>
+                <button onClick={()=>setFiltroCat(null)}
+                  style={{padding:"3px 10px",borderRadius:20,border:"1px solid #0f172a",
+                    background:filtroCat===null?"#0f172a":"transparent",
+                    color:filtroCat===null?"#fff":"#0f172a",
+                    fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Epilogue,sans-serif"}}>
+                  Todos
+                </button>
+                {ALL_CATS.filter(c=>c!=="SIN CATEGORÍA").map(cat=>{
+                  const activo=filtroCat===cat
+                  const color=CAT_COLORS[cat]||"#9a9590"
+                  return(
+                    <button key={cat} onClick={()=>setFiltroCat(activo?null:cat)}
+                      style={{padding:"3px 10px",borderRadius:20,
+                        border:`1px solid ${color}`,
+                        background:activo?color:"transparent",
+                        color:activo?"#fff":color,
+                        fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Epilogue,sans-serif",
+                        display:"flex",alignItems:"center",gap:4}}>
+                      <span style={{width:6,height:6,borderRadius:"50%",background:activo?"#fff":color,display:"inline-block"}}/>
+                      {cat}
+                    </button>
+                  )
+                })}
               </div>
             </div>
             <div style={{overflowX:"auto" as const}}>
@@ -704,7 +724,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
               <div style={{background:CAT_COLORS[filtroCat]||"#1a3a5c",color:"#fff",
                 padding:"12px 14px"}}>
                 <div style={{fontSize:10,fontWeight:700,opacity:.8,textTransform:"uppercase" as const,letterSpacing:".06em"}}>
-                  Top contratos
+                  Top artículos
                 </div>
                 <div style={{fontSize:13,fontWeight:800,marginTop:2}}>{filtroCat}</div>
               </div>
