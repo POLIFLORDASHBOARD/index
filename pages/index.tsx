@@ -231,7 +231,7 @@ const CAT_COLORS:Record<string,string>={
   SERVICIOS:"#374151",
   "SIN CATEGORÍA":"#9a9590",
 }
-const ALL_CATS=["MOBILIARIO","FLORES","VAJILLA","MANTELERIA","CARPAS","SERVICIOS"]
+const ALL_CATS=["MOBILIARIO","FLORES","VAJILLA","MANTELERIA","CARPAS","SERVICIOS","SIN CATEGORÍA"]
 
 function AnalyticsGate({token,contratos}:{token:string,contratos:any[]}){
   const [ok,setOk]=useState(false)
@@ -683,7 +683,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
                     color:overrides[id]?(CAT_COLORS[overrides[id].toUpperCase()]||"#2d6a4f"):"#9a9590",
                     width:"100%"}}>
                   <option value="">— Categoría —</option>
-                  {ALL_CATS.map(c=><option key={c} value={c}>{c}</option>)}
+                  {ALL_CATS.filter(c=>c!=="SIN CATEGORÍA").map(c=><option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             ))}
