@@ -279,8 +279,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
   const [filtroRubro,setFiltroRubro]=useState<string|null>(null)
   const [expandidos,setExpandidos]=useState<Record<string,boolean>>({})
   const scrollRef=useRef<HTMLDivElement>(null)
-  // Snapshot de la lista al entrar al tab para no hacer jumps mientras clasificas
-  const [listaFija,setListaFija]=useState<[string,{total:number,contratos:number,cliente:string,fecha:string,folio:string}][]|null>(null)
+  const [listaFija,setListaFija]=useState<null>(null) // kept for compat, unused
 
   const saveOverride=(id:string,cat:string)=>{
     const scrollTop=scrollRef.current?.scrollTop??0
@@ -461,21 +460,19 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
     return r
   },[contratoRubros])
 
-  // Usar snapshot fijo mientras el usuario está clasificando (evita jumps al re-render)
-  const listaBase=listaFija||sinClasifArr
-
-  // Lista final según filtro activo
+  // Lista final — TODOS los contratos, filtrados por rubro si hay selección
   const listaParaMostrar=useMemo(()=>{
-    if(!filtroRubro||filtroRubro==="SIN CATEGORÍA"){
-      // Sin filtro o filtro SIN CATEGORÍA → usa snapshot/sinClasif normal
-      return listaBase.map(([id,info])=>({id,info,catEfectiva:"SIN CATEGORÍA" as string}))
-    }
-    // Filtro por rubro → muestra contratos que tienen AL MENOS UN artículo de ese rubro
-    return contratoRubros
-      .filter(c=>c.rubros.has(filtroRubro))
-      .map(c=>({id:c.id,info:{total:c.total,contratos:1,cliente:c.cliente,fecha:c.fecha,folio:c.folio},catEfectiva:c.catEfectiva}))
+    const base=filtroRubro
+      ? contratoRubros.filter(c=>c.rubros.has(filtroRubro))
+      : contratoRubros
+    return base
+      .map(c=>({
+        id:c.id,
+        info:{total:c.total,contratos:1,cliente:c.cliente,fecha:c.fecha,folio:c.folio},
+        catEfectiva:c.catEfectiva
+      }))
       .sort((a,b)=>b.info.total-a.info.total)
-  },[filtroRubro,listaBase,contratoRubros])
+  },[filtroRubro,contratoRubros])
 
   const listaFiltradaBusq=busqClasif
     ? listaParaMostrar.filter(({id,info})=>
@@ -527,7 +524,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
       {/* ── Tabs ── */}
       <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"2px solid #e8e5de"}}>
         {([["dashboard","📈 Dashboard"],["clasificar","🏷️ Clasificar contratos"]] as const).map(([id,label])=>(
-          <button key={id} onClick={()=>{setTabActiva(id);if(id==="clasificar")setListaFija(sinClasifArr)}}
+          <button key={id} onClick={()=>setTabActiva(id)}
             style={{padding:"8px 18px",border:"none",cursor:"pointer",fontWeight:700,
               fontSize:13,background:"none",
               borderBottom:tabActiva===id?"3px solid #0f172a":"3px solid transparent",
@@ -747,7 +744,6 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
               return(
                 <button key={rubro||"todos"} onClick={()=>{
                   setFiltroRubro(rubro)
-                  setListaFija(rubro===null||rubro==="SIN CATEGORÍA"?sinClasifArr:null)
                 }}
                   style={{padding:"5px 12px",borderRadius:20,border:`2px solid ${isNulo?"#0f172a":color}`,
                     background:activo?(isNulo?"#0f172a":color):"transparent",
