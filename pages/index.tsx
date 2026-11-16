@@ -10313,12 +10313,12 @@ function ModalSeleccionarPlantilla({ token, vendedorActual, esAdmin, onSeleccion
 
   return (
     <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:520,boxShadow:"0 24px 60px rgba(0,0,0,.2)",overflow:"hidden"}}>
-        <div style={{background:"#1a3a5c",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{fontFamily:"Playfair Display,serif",fontSize:16,fontWeight:700,color:"#fff"}}>📌 Seleccionar plantilla</div>
-          <button onClick={onCerrar} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer",lineHeight:1}}>×</button>
+      <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:680,boxShadow:"0 24px 60px rgba(0,0,0,.2)",overflow:"hidden"}}>
+        <div style={{background:"#1a3a5c",padding:"20px 28px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:18,fontWeight:700,color:"#fff"}}>📌 Seleccionar plantilla</div>
+          <button onClick={onCerrar} style={{background:"none",border:"none",color:"#fff",fontSize:24,cursor:"pointer",lineHeight:1}}>×</button>
         </div>
-        <div style={{padding:20,maxHeight:420,overflowY:"auto" as const}}>
+        <div style={{padding:24,maxHeight:520,overflowY:"auto" as const}}>
           {cargando ? (
             <div style={{textAlign:"center" as const,padding:40,color:"#9a9590"}}>Cargando...</div>
           ) : plantillas.length===0 ? (
@@ -10330,7 +10330,7 @@ function ModalSeleccionarPlantilla({ token, vendedorActual, esAdmin, onSeleccion
           ) : (
             plantillas.map((p:any)=>(
               <div key={p.id} onClick={()=>onSeleccionar(p.partidas||[])}
-                style={{border:"1px solid #e8e5de",borderRadius:10,padding:"12px 16px",marginBottom:8,cursor:"pointer",background:"#fafaf8",transition:"all .15s"}}
+                style={{border:"1px solid #e8e5de",borderRadius:10,padding:"16px 20px",marginBottom:10,cursor:"pointer",background:"#fafaf8",transition:"all .15s"}}
                 onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="#eff6ff"}
                 onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background="#fafaf8"}>
                 <div style={{fontWeight:700,fontSize:13,color:"#1a1814",marginBottom:3}}>📌 {p.nombre}</div>
@@ -10447,9 +10447,9 @@ function PlantillasSection({ token, vendedorActual, esAdmin }:
           <button onClick={abrirNueva} style={{padding:"10px 24px",background:"#1a3a5c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>+ Nueva plantilla</button>
         </div>
       ) : (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:16}}>
           {plantillas.map((p:any)=>(
-            <div key={p.id} style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"16px 18px",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+            <div key={p.id} style={{background:"#fff",border:"1px solid #e8e5de",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
                 <div>
                   <div style={{fontFamily:"Playfair Display,serif",fontSize:15,fontWeight:700,color:"#1a1814"}}>{p.nombre}</div>
@@ -10477,14 +10477,14 @@ function PlantillasSection({ token, vendedorActual, esAdmin }:
       {/* Modal crear/editar plantilla */}
       {modalAbierto&&(
         <div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-          <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:680,maxHeight:"90vh",display:"flex",flexDirection:"column" as const,boxShadow:"0 24px 60px rgba(0,0,0,.2)"}}>
+          <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:860,maxHeight:"92vh",display:"flex",flexDirection:"column" as const,boxShadow:"0 24px 60px rgba(0,0,0,.2)"}}>
             {/* Header */}
-            <div style={{background:"#1a3a5c",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-              <div style={{fontFamily:"Playfair Display,serif",fontSize:16,fontWeight:700,color:"#fff"}}>{editando?"✏️ Editar plantilla":"+ Nueva plantilla"}</div>
-              <button onClick={cerrar} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",lineHeight:1}}>×</button>
+            <div style={{background:"#1a3a5c",padding:"20px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+              <div style={{fontFamily:"Playfair Display,serif",fontSize:18,fontWeight:700,color:"#fff"}}>{editando?"✏️ Editar plantilla":"+ Nueva plantilla"}</div>
+              <button onClick={cerrar} style={{background:"none",border:"none",color:"#fff",fontSize:24,cursor:"pointer",lineHeight:1}}>×</button>
             </div>
             {/* Body */}
-            <div style={{padding:20,overflowY:"auto" as const,flex:1}}>
+            <div style={{padding:28,overflowY:"auto" as const,flex:1}}>
               {/* Nombre */}
               <div style={{marginBottom:14}}>
                 <label style={{fontSize:11,fontWeight:700,color:"#4a4640",textTransform:"uppercase" as const,letterSpacing:".05em",display:"block",marginBottom:4}}>Nombre de la plantilla</label>
@@ -10569,7 +10569,7 @@ function PlantillasSection({ token, vendedorActual, esAdmin }:
               </div>
             </div>
             {/* Footer */}
-            <div style={{padding:"14px 20px",borderTop:"1px solid #e8e5de",display:"flex",justifyContent:"flex-end",gap:8,flexShrink:0}}>
+            <div style={{padding:"16px 28px",borderTop:"1px solid #e8e5de",display:"flex",justifyContent:"flex-end",gap:10,flexShrink:0}}>
               <button onClick={cerrar} style={{padding:"10px 20px",border:"1px solid #e8e5de",borderRadius:8,background:"#fff",fontSize:13,cursor:"pointer",color:"#4a4640",fontWeight:600}}>Cancelar</button>
               <button onClick={guardar} disabled={guardando}
                 style={{padding:"10px 24px",background:"#1a3a5c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:guardando?"wait":"pointer",opacity:guardando?.6:1}}>
