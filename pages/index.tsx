@@ -1,4 +1,4 @@
-// BUILD: 1785892035
+// BUILD: 1785892036
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import Head from "next/head"
 import * as XLSX from "xlsx"
@@ -276,6 +276,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
     try{ return JSON.parse(localStorage.getItem("pf_cat_overrides_v2")||"{}") }catch{return{}}
   })
   const [busqClasif,setBusqClasif]=useState("")
+  const [filtroRubro,setFiltroRubro]=useState<string|null>(null)
   const [expandidos,setExpandidos]=useState<Record<string,boolean>>({})
   const scrollRef=useRef<HTMLDivElement>(null)
   // Snapshot de la lista al entrar al tab para no hacer jumps mientras clasificas
@@ -409,15 +410,62 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
   const fmt=(n:number)=>"$"+Math.round(n).toLocaleString("es-MX")
   const fmtK=(n:number)=>n>=1000000?"$"+(n/1000000).toFixed(1)+"M":n>=1000?"$"+Math.round(n/1000)+"k":fmt(n)
 
-  // Artículos sin clasificar ordenados por impacto
+  // Lista sin clasificar (para badge y default)
   const sinClasifArr=Object.entries(sinClasif).sort((a,b)=>b[1].total-a[1].total)
+
+  // Lista completa de contratos con su categoría efectiva (para filtro por rubro)
+  const todosContratos=useMemo(()=>
+    contratosFiltrados.map((c:any)=>{
+      const arts:any[]=c.articulos||[]
+      // Categoría efectiva del contrato: override contrato, o mayoría de artículos, o SIN CATEGORÍA
+      let catEfectiva="SIN CATEGORÍA"
+      if(overrides[c.id]) catEfectiva=overrides[c.id].toUpperCase()
+      else if(arts.length>0){
+        const catCount:Record<string,number>={}
+        arts.forEach((a:any,ai:number)=>{
+          const k=`${c.id}::${ai}`
+          const cat=overrides[k]?overrides[k].toUpperCase():normalizarCat(a.seccion||a.categoria||"")
+          catCount[cat]=(catCount[cat]||0)+1
+        })
+        const mayoria=Object.entries(catCount).sort((a,b)=>b[1]-a[1])[0]
+        if(mayoria&&mayoria[0]!=="SIN CATEGORÍA") catEfectiva=mayoria[0]
+      }
+      return {id:c.id,folio:c.folio||"",cliente:c.cliente||"",fecha:c.fecha_evento||"",total:Number(c.total)||0,catEfectiva,articulos:arts}
+    })
+  ,[contratosFiltrados,overrides])
+
+  // Chips: conteo por rubro
+  const conteoRubros=useMemo(()=>{
+    const r:Record<string,number>={"SIN CATEGORÍA":0}
+    ALL_CATS.filter(c=>c!=="SIN CATEGORÍA").forEach(c=>r[c]=0)
+    todosContratos.forEach(c=>{ r[c.catEfectiva]=(r[c.catEfectiva]||0)+1 })
+    return r
+  },[todosContratos])
+
   // Usar snapshot fijo mientras el usuario está clasificando (evita jumps al re-render)
   const listaBase=listaFija||sinClasifArr
-  const sinClasifFiltrado=busqClasif
-    ? listaBase.filter(([id,info])=>
+
+  // Lista final según filtro activo
+  const listaParaMostrar=useMemo(()=>{
+    if(!filtroRubro||filtroRubro==="SIN CATEGORÍA"){
+      // Sin filtro o filtro SIN CATEGORÍA → usa snapshot/sinClasif normal
+      return listaBase.map(([id,info])=>({id,info,catEfectiva:"SIN CATEGORÍA" as string}))
+    }
+    // Filtro por rubro específico → muestra contratos de ese rubro
+    return todosContratos
+      .filter(c=>c.catEfectiva===filtroRubro)
+      .map(c=>({id:c.id,info:{total:c.total,contratos:1,cliente:c.cliente,fecha:c.fecha,folio:c.folio},catEfectiva:c.catEfectiva}))
+      .sort((a,b)=>b.info.total-a.info.total)
+  },[filtroRubro,listaBase,todosContratos])
+
+  const listaFiltradaBusq=busqClasif
+    ? listaParaMostrar.filter(({id,info})=>
         (info.cliente||"").toLowerCase().includes(busqClasif.toLowerCase())||
         (info.folio||"").toLowerCase().includes(busqClasif.toLowerCase()))
-    : listaBase
+    : listaParaMostrar
+
+  // Alias para compatibilidad con render existente
+  const sinClasifFiltrado=listaFiltradaBusq
 
   const totalSinClasif=sinClasifArr.reduce((s,[,v])=>s+v.total,0)
   const pctSinClasif=granTotal>0?Math.round(totalSinClasif/granTotal*100):0
@@ -658,11 +706,11 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
       {tabActiva==="clasificar"&&(
         <div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-            marginBottom:16,flexWrap:"wrap" as const,gap:10}}>
+            marginBottom:12,flexWrap:"wrap" as const,gap:10}}>
             <div>
               <h3 style={{fontSize:16,fontWeight:800,margin:0}}>🏷️ Clasificar contratos</h3>
               <p style={{fontSize:12,color:"#9a9590",margin:"4px 0 0"}}>
-                {sinClasifArr.length} contratos sin categoría · {fmtK(totalSinClasif)} sin clasificar ({pctSinClasif}%)
+                {sinClasifArr.length} sin categoría · {fmtK(totalSinClasif)} pendiente ({pctSinClasif}%)
               </p>
             </div>
             <input value={busqClasif} onChange={e=>setBusqClasif(e.target.value)}
@@ -670,10 +718,32 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
               style={{padding:"8px 12px",borderRadius:8,border:"1px solid #e8e5de",
                 fontSize:12,width:220,outline:"none"}}/>
           </div>
+          {/* ── Chips de rubros ── */}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap" as const,marginBottom:14}}>
+            {[null,...ALL_CATS].map(rubro=>{
+              const activo=filtroRubro===rubro
+              const count=rubro===null?todosContratos.length:(conteoRubros[rubro]||0)
+              const color=rubro&&rubro!=="SIN CATEGORÍA"?(CAT_COLORS[rubro]||"#374151"):"#dc2626"
+              const isNulo=rubro===null
+              return(
+                <button key={rubro||"todos"} onClick={()=>{
+                  setFiltroRubro(rubro)
+                  setListaFija(rubro===null||rubro==="SIN CATEGORÍA"?sinClasifArr:null)
+                }}
+                  style={{padding:"5px 12px",borderRadius:20,border:`2px solid ${isNulo?"#0f172a":color}`,
+                    background:activo?(isNulo?"#0f172a":color):"transparent",
+                    color:activo?"#fff":(isNulo?"#0f172a":color),
+                    fontSize:11,fontWeight:700,cursor:"pointer",
+                    opacity:count===0?0.4:1}}>
+                  {isNulo?"Todos":rubro} <span style={{opacity:.7}}>{count}</span>
+                </button>
+              )
+            })}
+          </div>
 
           {sinClasifFiltrado.length===0&&(
             <div style={{textAlign:"center" as const,padding:"40px",color:"#9a9590",fontSize:13}}>
-              {busqClasif?"No hay coincidencias":"✅ Todos los contratos están clasificados"}
+              {busqClasif?"No hay coincidencias":filtroRubro&&filtroRubro!=="SIN CATEGORÍA"?`Sin contratos en ${filtroRubro}`:"✅ Todos los contratos están clasificados"}
             </div>
           )}
 
@@ -691,10 +761,11 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
           <div ref={scrollRef} style={{display:"flex",flexDirection:"column" as const,gap:0,
             maxHeight:600,overflowY:"auto" as const,border:"1px solid #e8e5de",
             borderTop:"none",borderRadius:"0 0 8px 8px"}}>
-            {sinClasifFiltrado.map(([id,info],i)=>{
+            {sinClasifFiltrado.map(({id,info,catEfectiva},i)=>{
               const contrato=contratosFiltrados.find((c:any)=>c.id===id)
               const arts:any[]=contrato?.articulos||[]
               const expandido=expandidos[id]||false
+              const colorRubro=CAT_COLORS[catEfectiva]||"#9a9590"
               return(
                 <div key={id}>
                   {/* Fila principal del contrato */}
@@ -702,7 +773,8 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
                     gap:8,alignItems:"center",padding:"8px 16px",
                     background:i%2===0?"#fff":"#fafaf8",
                     borderBottom:expandido?"none":"1px solid #f0ece4",
-                    borderTop:i>0&&expandido?"1px solid #e8e5de":"none"}}>
+                    borderTop:i>0&&expandido?"1px solid #e8e5de":"none",
+                    borderLeft:`4px solid ${catEfectiva!=="SIN CATEGORÍA"?colorRubro:"transparent"}`}}>
                     {/* botón expandir */}
                     <button onClick={()=>setExpandidos(p=>({...p,[id]:!p[id]}))}
                       style={{border:"none",background:"none",cursor:"pointer",
