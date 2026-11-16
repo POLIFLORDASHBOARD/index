@@ -1,4 +1,4 @@
-// BUILD: 1785892032
+// BUILD: 1785892033
 import { useState, useEffect, useCallback, useMemo } from "react"
 import Head from "next/head"
 import * as XLSX from "xlsx"
@@ -276,6 +276,7 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
     try{ return JSON.parse(localStorage.getItem("pf_cat_overrides_v2")||"{}") }catch{return{}}
   })
   const [busqClasif,setBusqClasif]=useState("")
+  const [expandidos,setExpandidos]=useState<Record<string,boolean>>({})
 
   const saveOverride=(id:string,cat:string)=>{
     const next={...overrides,[id]:cat}
@@ -676,37 +677,105 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
           </div>
 
           <div style={{display:"flex",flexDirection:"column" as const,gap:0,
-            maxHeight:500,overflowY:"auto" as const,border:"1px solid #e8e5de",
+            maxHeight:600,overflowY:"auto" as const,border:"1px solid #e8e5de",
             borderTop:"none",borderRadius:"0 0 8px 8px"}}>
-            {sinClasifFiltrado.map(([id,info],i)=>(
-              <div key={id} style={{display:"grid",gridTemplateColumns:"120px 1fr 100px 90px 160px",
-                gap:8,alignItems:"center",padding:"8px 16px",
-                background:i%2===0?"#fff":"#fafaf8",
-                borderBottom:"1px solid #f0ece4"}}>
-                <div style={{fontSize:11,fontWeight:700,color:"#1a3a5c"}}>{info.folio||"—"}</div>
-                <div style={{fontSize:12,fontWeight:600,color:"#1a1814",
-                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
-                  {info.cliente}
+            {sinClasifFiltrado.map(([id,info],i)=>{
+              const contrato=contratosFiltrados.find((c:any)=>c.id===id)
+              const arts:any[]=contrato?.articulos||[]
+              const expandido=expandidos[id]||false
+              return(
+                <div key={id}>
+                  {/* Fila principal del contrato */}
+                  <div style={{display:"grid",gridTemplateColumns:"32px 100px 1fr 90px 90px 160px",
+                    gap:8,alignItems:"center",padding:"8px 16px",
+                    background:i%2===0?"#fff":"#fafaf8",
+                    borderBottom:expandido?"none":"1px solid #f0ece4",
+                    borderTop:i>0&&expandido?"1px solid #e8e5de":"none"}}>
+                    {/* botón expandir */}
+                    <button onClick={()=>setExpandidos(p=>({...p,[id]:!p[id]}))}
+                      style={{border:"none",background:"none",cursor:"pointer",
+                        fontSize:14,padding:0,color:"#9a9590",lineHeight:1}}>
+                      {expandido?"▼":"▶"}
+                    </button>
+                    <div style={{fontSize:11,fontWeight:700,color:"#1a3a5c"}}>{info.folio||"—"}</div>
+                    <div style={{fontSize:12,fontWeight:600,color:"#1a1814",
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
+                      {info.cliente}
+                    </div>
+                    <div style={{fontSize:11,color:"#9a9590"}}>
+                      {info.fecha?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(info.fecha.slice(5,7))]+" "+info.fecha.slice(8,10):"—"}
+                    </div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#dc2626",textAlign:"right" as const}}>
+                      {fmtK(info.total)}
+                    </div>
+                    <select
+                      value={overrides[id]||""}
+                      onChange={e=>saveOverride(id,e.target.value)}
+                      style={{padding:"5px 8px",borderRadius:6,
+                        border:`2px solid ${overrides[id]?(CAT_COLORS[overrides[id].toUpperCase()]||"#2d6a4f"):"#e8e5de"}`,
+                        fontSize:11,fontWeight:700,background:"#fff",cursor:"pointer",
+                        color:overrides[id]?(CAT_COLORS[overrides[id].toUpperCase()]||"#2d6a4f"):"#9a9590",
+                        width:"100%"}}>
+                      <option value="">— Categoría —</option>
+                      {ALL_CATS.filter(c=>c!=="SIN CATEGORÍA").map(c=><option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  {/* Panel de artículos expandido */}
+                  {expandido&&(
+                    <div style={{background:"#f8f7f4",borderBottom:"1px solid #e8e5de",
+                      padding:"4px 16px 10px 56px"}}>
+                      {arts.length===0?(
+                        <div style={{fontSize:11,color:"#9a9590",padding:"6px 0",fontStyle:"italic"}}>
+                          Sin artículos registrados — se clasifica el contrato completo
+                        </div>
+                      ):(
+                        <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+                          <thead>
+                            <tr style={{color:"#9a9590",textAlign:"left" as const}}>
+                              <th style={{padding:"4px 8px 4px 0",fontWeight:600,width:"40%"}}>Artículo</th>
+                              <th style={{padding:"4px 8px",fontWeight:600,width:"80px",textAlign:"right" as const}}>Cant.</th>
+                              <th style={{padding:"4px 8px",fontWeight:600,width:"90px",textAlign:"right" as const}}>Importe</th>
+                              <th style={{padding:"4px 8px",fontWeight:600,width:"120px"}}>Sección raw</th>
+                              <th style={{padding:"4px 8px",fontWeight:600,width:"110px"}}>Categoría</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {arts.map((a:any,ai:number)=>{
+                              const catArt=normalizarCat(a.seccion||a.categoria||"")
+                              const neto=Number(a.importe)||Number(a.subtotal)||(Number(a.pu)||0)*(Number(a.cantidad)||1)
+                              const colorCat=CAT_COLORS[catArt]||"#9a9590"
+                              return(
+                                <tr key={ai} style={{borderTop:"1px solid #ede9e0"}}>
+                                  <td style={{padding:"4px 8px 4px 0",color:"#1a1814",fontWeight:500}}>
+                                    {a.nombre||"—"}
+                                  </td>
+                                  <td style={{padding:"4px 8px",color:"#4a4640",textAlign:"right" as const}}>
+                                    {a.cantidad||1}
+                                  </td>
+                                  <td style={{padding:"4px 8px",color:"#4a4640",textAlign:"right" as const,fontWeight:600}}>
+                                    {neto>0?fmtK(neto):"—"}
+                                  </td>
+                                  <td style={{padding:"4px 8px",color:"#9a9590",fontStyle:"italic",
+                                    maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
+                                    {a.seccion||a.categoria||"—"}
+                                  </td>
+                                  <td style={{padding:"4px 8px"}}>
+                                    <span style={{background:colorCat+"22",color:colorCat,
+                                      borderRadius:4,padding:"1px 6px",fontWeight:700,fontSize:10}}>
+                                      {catArt}
+                                    </span>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div style={{fontSize:11,color:"#9a9590"}}>
-                  {info.fecha?["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][Number(info.fecha.slice(5,7))]+" "+info.fecha.slice(8,10)+" "+info.fecha.slice(0,4):"—"}
-                </div>
-                <div style={{fontSize:11,fontWeight:700,color:"#dc2626",textAlign:"right" as const}}>
-                  {fmtK(info.total)}
-                </div>
-                <select
-                  value={overrides[id]||""}
-                  onChange={e=>saveOverride(id,e.target.value)}
-                  style={{padding:"5px 8px",borderRadius:6,
-                    border:`2px solid ${overrides[id]?(CAT_COLORS[overrides[id].toUpperCase()]||"#2d6a4f"):"#e8e5de"}`,
-                    fontSize:11,fontWeight:700,background:"#fff",cursor:"pointer",
-                    color:overrides[id]?(CAT_COLORS[overrides[id].toUpperCase()]||"#2d6a4f"):"#9a9590",
-                    width:"100%"}}>
-                  <option value="">— Categoría —</option>
-                  {ALL_CATS.filter(c=>c!=="SIN CATEGORÍA").map(c=><option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {Object.keys(overrides).length>0&&(
