@@ -1,4 +1,4 @@
-// BUILD: 1785892033
+// BUILD: 1785892034
 import { useState, useEffect, useCallback, useMemo } from "react"
 import Head from "next/head"
 import * as XLSX from "xlsx"
@@ -305,8 +305,13 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
     return "SIN CATEGORÍA"
   }
 
-  const getCat=(a:any,contratoId?:string)=>{
-    // Override por contrato tiene prioridad
+  const getCat=(a:any,contratoId?:string,artIdx?:number)=>{
+    // Override por artículo específico (contratoId::idx) tiene máxima prioridad
+    if(contratoId!=null&&artIdx!=null){
+      const keyArt=`${contratoId}::${artIdx}`
+      if(overrides[keyArt]) return overrides[keyArt].toUpperCase()
+    }
+    // Override por contrato completo
     if(contratoId&&overrides[contratoId]) return overrides[contratoId].toUpperCase()
     const nombre=(a.nombre||"").trim()
     if(overrides[nombre]) return overrides[nombre].toUpperCase()
@@ -373,8 +378,8 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
       // Distribuir el totalContrato proporcionalmente según importe de cada artículo
       // Esto garantiza que la suma de categorías siempre == totalContrato
       const factor=sumaArts>0?totalContrato/sumaArts:1
-      artConNeto.forEach((a:any)=>{
-        const cat=getCat(a,c.id)
+      artConNeto.forEach((a:any,ai:number)=>{
+        const cat=getCat(a,c.id,ai)
         const neto=a._neto*factor  // ajustado para que sume == totalContrato
         periodos[periodo][cat]=(periodos[periodo][cat]||0)+neto
         totCat[cat]=(totCat[cat]||0)+neto
@@ -741,12 +746,15 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
                           </thead>
                           <tbody>
                             {arts.map((a:any,ai:number)=>{
-                              const catArt=normalizarCat(a.seccion||a.categoria||"")
+                              const keyArt=`${id}::${ai}`
+                              const catArt=overrides[keyArt]?overrides[keyArt].toUpperCase():normalizarCat(a.seccion||a.categoria||"")
                               const neto=Number(a.importe)||Number(a.subtotal)||(Number(a.pu)||0)*(Number(a.cantidad)||1)
                               const colorCat=CAT_COLORS[catArt]||"#9a9590"
                               return(
                                 <tr key={ai} style={{borderTop:"1px solid #ede9e0"}}>
-                                  <td style={{padding:"4px 8px 4px 0",color:"#1a1814",fontWeight:500}}>
+                                  <td style={{padding:"4px 8px 4px 0",color:"#1a1814",fontWeight:500,
+                                    maxWidth:260,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}
+                                    title={a.nombre||""}>
                                     {a.nombre||"—"}
                                   </td>
                                   <td style={{padding:"4px 8px",color:"#4a4640",textAlign:"right" as const}}>
@@ -756,14 +764,30 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
                                     {neto>0?fmtK(neto):"—"}
                                   </td>
                                   <td style={{padding:"4px 8px",color:"#9a9590",fontStyle:"italic",
-                                    maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
+                                    maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}
+                                    title={a.seccion||a.categoria||""}>
                                     {a.seccion||a.categoria||"—"}
                                   </td>
-                                  <td style={{padding:"4px 8px"}}>
-                                    <span style={{background:colorCat+"22",color:colorCat,
-                                      borderRadius:4,padding:"1px 6px",fontWeight:700,fontSize:10}}>
-                                      {catArt}
-                                    </span>
+                                  <td style={{padding:"2px 8px"}}>
+                                    <select
+                                      value={overrides[keyArt]||""}
+                                      onChange={e=>{
+                                        if(e.target.value) saveOverride(keyArt,e.target.value)
+                                        else{
+                                          const next={...overrides}
+                                          delete next[keyArt]
+                                          setOverrides(next)
+                                          localStorage.setItem("pf_cat_overrides_v2",JSON.stringify(next))
+                                        }
+                                      }}
+                                      style={{padding:"2px 6px",borderRadius:4,
+                                        border:`2px solid ${overrides[keyArt]?(CAT_COLORS[overrides[keyArt].toUpperCase()]||colorCat):colorCat}`,
+                                        fontSize:10,fontWeight:700,background:"#fff",cursor:"pointer",
+                                        color:overrides[keyArt]?(CAT_COLORS[overrides[keyArt].toUpperCase()]||colorCat):colorCat,
+                                        width:"100%",minWidth:100}}>
+                                      <option value="">{catArt}</option>
+                                      {ALL_CATS.filter(c=>c!=="SIN CATEGORÍA"&&c!==catArt).map(c=><option key={c} value={c}>{c}</option>)}
+                                    </select>
                                   </td>
                                 </tr>
                               )
