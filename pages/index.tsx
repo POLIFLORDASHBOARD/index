@@ -487,27 +487,27 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
   const totalSinClasif=sinClasifArr.reduce((s,[,v])=>s+v.total,0)
   const pctSinClasif=granTotal>0?Math.round(totalSinClasif/granTotal*100):0
 
-  // Top contratos para ranking lateral (filtrado por filtroCat)
-  const topContratosCat=useMemo(()=>{
-    if(!filtroCat) return contratosFiltrados
-      .map((c:any)=>({folio:c.folio||"",cliente:c.cliente||"",total:Number(c.total)||0,catEfectiva:""}))
-      .sort((a:any,b:any)=>b.total-a.total).slice(0,15)
-    return contratosFiltrados
-      .filter((c:any)=>{
-        const arts:any[]=c.articulos||[]
-        if(overrides[c.id]) return overrides[c.id].toUpperCase()===filtroCat
-        if(arts.length===0) return filtroCat==="SIN CATEGORÍA"
-        const catCount:Record<string,number>={}
-        arts.forEach((a:any,ai:number)=>{
-          const k=`${c.id}::${ai}`
-          const cat=overrides[k]?overrides[k].toUpperCase():normalizarCat(a.seccion||a.categoria||"")
-          catCount[cat]=(catCount[cat]||0)+1
-        })
-        // Incluir si tiene al menos un artículo de esa categoría
-        return (catCount[filtroCat]||0)>0
+  // Top ARTÍCULOS por nombre para ranking lateral (filtrado por filtroCat)
+  const topItemsCat=useMemo(()=>{
+    if(!filtroCat) return []
+    const acum:Record<string,{nombre:string,cantidad:number,importe:number}>= {}
+    contratosFiltrados.forEach((c:any)=>{
+      const arts:any[]=c.articulos||[]
+      const sumaArts=arts.reduce((s:number,a:any)=>s+(Number(a.importe)||0),0)
+      const factor=(sumaArts>0&&Number(c.total)>0)?Number(c.total)/sumaArts:1
+      arts.forEach((a:any,ai:number)=>{
+        const k=`${c.id}::${ai}`
+        const cat=overrides[k]?overrides[k].toUpperCase()
+          :overrides[c.id]?overrides[c.id].toUpperCase()
+          :normalizarCat(a.seccion||a.categoria||"")
+        if(cat!==filtroCat) return
+        const nombre=(a.nombre||"Sin nombre").trim()
+        if(!acum[nombre]) acum[nombre]={nombre,cantidad:0,importe:0}
+        acum[nombre].cantidad+=Number(a.cantidad)||1
+        acum[nombre].importe+=(Number(a.importe)||0)*factor
       })
-      .map((c:any)=>({folio:c.folio||"",cliente:c.cliente||"",total:Number(c.total)||0,catEfectiva:filtroCat}))
-      .sort((a:any,b:any)=>b.total-a.total).slice(0,15)
+    })
+    return Object.values(acum).sort((a,b)=>b.importe-a.importe).slice(0,20)
   },[filtroCat,contratosFiltrados,overrides])
 
   return(
@@ -708,24 +708,37 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
                 </div>
                 <div style={{fontSize:13,fontWeight:800,marginTop:2}}>{filtroCat}</div>
               </div>
-              <div style={{overflowY:"auto" as const,flex:1,maxHeight:280}}>
-                {topContratosCat.length===0
-                  ? <div style={{padding:20,color:"#9a9590",fontSize:12,textAlign:"center" as const}}>Sin contratos</div>
-                  : topContratosCat.map((c:any,i:number)=>(
-                    <div key={c.folio||i} style={{display:"flex",alignItems:"center",gap:10,
-                      padding:"8px 14px",borderBottom:"1px solid #f0ece4",
+              {/* cabecera columnas */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 48px 72px",
+                padding:"5px 14px",borderBottom:"1px solid #e8e5de",
+                background:"#f8f7f5"}}>
+                <div style={{fontSize:9,fontWeight:700,color:"#9a9590",textTransform:"uppercase" as const}}>Artículo</div>
+                <div style={{fontSize:9,fontWeight:700,color:"#9a9590",textAlign:"right" as const,textTransform:"uppercase" as const}}>Cant</div>
+                <div style={{fontSize:9,fontWeight:700,color:"#9a9590",textAlign:"right" as const,textTransform:"uppercase" as const}}>Importe</div>
+              </div>
+              <div style={{overflowY:"auto" as const,flex:1,maxHeight:320}}>
+                {topItemsCat.length===0
+                  ? <div style={{padding:20,color:"#9a9590",fontSize:12,textAlign:"center" as const}}>Sin artículos</div>
+                  : topItemsCat.map((item,i)=>(
+                    <div key={item.nombre} style={{display:"grid",gridTemplateColumns:"1fr 48px 72px",
+                      alignItems:"center",gap:4,
+                      padding:"6px 14px",borderBottom:"1px solid #f0ece4",
                       background:i%2===0?"#fff":"#fafaf8"}}>
-                      <div style={{fontSize:11,fontWeight:800,color:CAT_COLORS[filtroCat]||"#1a3a5c",
-                        minWidth:18,textAlign:"right" as const}}>{i+1}</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:11,fontWeight:700,color:"#1a1814",
+                      <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+                        <span style={{fontSize:10,fontWeight:800,color:CAT_COLORS[filtroCat]||"#1a3a5c",
+                          minWidth:16,textAlign:"right" as const,flexShrink:0}}>{i+1}</span>
+                        <span style={{fontSize:11,color:"#1a1814",fontWeight:600,
                           whiteSpace:"nowrap" as const,overflow:"hidden",textOverflow:"ellipsis"}}>
-                          {c.cliente||"Sin cliente"}
-                        </div>
-                        <div style={{fontSize:9,color:"#9a9590"}}>{c.folio}</div>
+                          {item.nombre}
+                        </span>
                       </div>
-                      <div style={{fontSize:11,fontWeight:800,fontFamily:"monospace",
-                        color:"#1a1814",flexShrink:0}}>{fmtK(c.total)}</div>
+                      <div style={{fontSize:10,color:"#4a4640",textAlign:"right" as const,fontFamily:"monospace"}}>
+                        {item.cantidad.toLocaleString("es-MX")}
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,fontFamily:"monospace",
+                        color:CAT_COLORS[filtroCat]||"#1a3a5c",textAlign:"right" as const}}>
+                        {fmtK(item.importe)}
+                      </div>
                     </div>
                   ))
                 }
@@ -733,10 +746,10 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
               <div style={{padding:"8px 14px",background:"#f0ece4",borderTop:"1px solid #e8e5de",
                 display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span style={{fontSize:10,color:"#4a4640",fontWeight:700}}>
-                  {topContratosCat.length} contratos
+                  {topItemsCat.length} artículos únicos
                 </span>
                 <span style={{fontSize:11,fontWeight:800,fontFamily:"monospace",color:"#1a1814"}}>
-                  {fmtK(topContratosCat.reduce((s:number,c:any)=>s+c.total,0))}
+                  {fmtK(topItemsCat.reduce((s,it)=>s+it.importe,0))}
                 </span>
               </div>
             </div>
