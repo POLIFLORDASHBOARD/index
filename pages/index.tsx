@@ -6458,7 +6458,7 @@ document.getElementById("btn-pdf").onclick=function(){
 
 
 // ─── CONTRATOS CONFIRMADOS ─────────────────────────────────────────
-function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vendedorActual}:{token:string,contratos:Contrato[],onActualizar?:(id:string,updates:any)=>void,isMobile?:boolean,vendedorActual?:string,esAdmin?:boolean}){
+function ContratosConfirmadosSection({token,contratos,onActualizar,isMobile,vendedorActual,esAdmin}:{token:string,contratos:Contrato[],onActualizar?:(id:string,updates:any)=>void,isMobile?:boolean,vendedorActual?:string,esAdmin?:boolean}){
   const [busq,setBusq]=useState("")
   const [filtroVendedor,setFiltroVendedor]=useState("todos")
   const [filtroMes,setFiltroMes]=useState("")
