@@ -4820,11 +4820,18 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
   const [cots, setCots] = useState<Cotizacion[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqCot, setBusqCot] = useState("")
+  const [busqCotDebounced, setBusqCotDebounced] = useState("")
   const [filtroAno, setFiltroAno] = useState("")
   const [filtroMes, setFiltroMes] = useState("")
   const [filtroSem, setFiltroSem] = useState("")
   const [filtroEst, setFiltroEst] = useState("todos")
   const [filtroVendCot, setFiltroVendCot] = useState(esAdmin ? "todos" : (vendedorActual||"todos"))
+
+  // Debounce búsqueda 250ms para no filtrar en cada keystroke
+  useEffect(()=>{
+    const t = setTimeout(()=>setBusqCotDebounced(busqCot), 250)
+    return ()=>clearTimeout(t)
+  },[busqCot])
   const [vista, setVista] = useState<"lista"|"form"|"detalle"|"calendario">("lista")
   const [vistaCalCot, setVistaCalCot] = useState<"semana"|"mes">("semana")
   const [semOffCot, setSemOffCot] = useState(0)
@@ -4846,6 +4853,31 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
   const [mostrarSug, setMostrarSug] = useState(false)
   const [formGuardado, setFormGuardado] = useState(false)
   const [modalPlantilla, setModalPlantilla] = useState(false)
+
+  // Lista filtrada memoizada — evita re-filtrar 900+ items en cada render
+  const cotsFiltradas = useMemo(()=>{
+    return cots.filter((cot:any)=>{
+      const _q = (busqCotDebounced||"").toLowerCase().trim()
+      if(_q){
+        return (cot.cliente_nombre||"").toLowerCase().includes(_q)
+          || (cot.folio||"").toLowerCase().includes(_q)
+          || (cot.lugar_evento||"").toLowerCase().includes(_q)
+          || (cot.cliente_tel||"").includes(_q)
+      }
+      const _vend = filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot
+      const _ano = !filtroAno||((cot.fecha_evento||"").startsWith(filtroAno))
+      const _mes = !filtroMes||((cot.fecha_evento||"").startsWith(filtroAno+"-"+filtroMes))
+      const _sem = !filtroSem||(()=>{
+        if(!cot.fecha_evento) return false
+        const d=new Date(cot.fecha_evento+"T12:00:00")
+        const dow=d.getDay()===0?6:d.getDay()-1
+        const lun=new Date(d); lun.setDate(d.getDate()-dow)
+        return lun.toISOString().slice(0,10)===filtroSem
+      })()
+      const _est = filtroEst==="todos"||(cot.estado||"enviada")===filtroEst
+      return _vend&&_ano&&_mes&&_sem&&_est
+    })
+  },[cots, busqCotDebounced, filtroVendCot, filtroAno, filtroMes, filtroSem, filtroEst])
 
   // Dirty = tiene cliente o artículos y no se ha guardado
   const formTieneDatos = !!(
@@ -5672,7 +5704,7 @@ document.getElementById("btn-pdf").onclick=function(){
             <div style={{fontSize:32,opacity:.2,marginBottom:8}}>📋</div>
             <div>No hay cotizaciones</div>
           </div>}
-          {cots.filter((cot:any)=>{const _q=(busqCot||"").toLowerCase().trim();if(_q){return(cot.cliente_nombre||"").toLowerCase().includes(_q)||(cot.folio||"").toLowerCase().includes(_q)||(cot.lugar_evento||"").toLowerCase().includes(_q)||(cot.cliente_tel||"").includes(_q)}const _vend=filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot;const _ano=!filtroAno||((cot.fecha_evento||"").startsWith(filtroAno));const _mes=!filtroMes||((cot.fecha_evento||"").startsWith(filtroAno+"-"+filtroMes));const _sem=!filtroSem||(()=>{if(!cot.fecha_evento)return false;const d=new Date(cot.fecha_evento+"T12:00:00");const dow=d.getDay()===0?6:d.getDay()-1;const lun=new Date(d);lun.setDate(d.getDate()-dow);return lun.toISOString().slice(0,10)===filtroSem})();return _vend&&_ano&&_mes&&_sem}).map(cot=>{
+          {cotsFiltradas.map(cot=>{
             const dias = diasVigencia(cot.fecha_vigencia)
             const porVencer = dias !== null && dias >= 0 && dias <= 7 && (cot.estado==="enviada"||cot.estado==="pendiente")
             const vencida = dias !== null && dias < 0 && (cot.estado==="enviada"||cot.estado==="pendiente")
