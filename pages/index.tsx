@@ -1,4 +1,4 @@
-// BUILD: 1785892036
+// BUILD: 1785892037
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import Head from "next/head"
 import * as XLSX from "xlsx"
@@ -434,13 +434,32 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
     })
   ,[contratosFiltrados,overrides])
 
-  // Chips: conteo por rubro
+  // Para cada contrato, calcula el set de rubros que tiene (puede tener varios)
+  const contratoRubros=useMemo(()=>
+    todosContratos.map(c=>{
+      const rubros=new Set<string>()
+      if(overrides[c.id]){
+        rubros.add(overrides[c.id].toUpperCase())
+      } else if(c.articulos.length===0){
+        rubros.add("SIN CATEGORÍA")
+      } else {
+        c.articulos.forEach((a:any,ai:number)=>{
+          const k=`${c.id}::${ai}`
+          const cat=overrides[k]?overrides[k].toUpperCase():normalizarCat(a.seccion||a.categoria||"")
+          rubros.add(cat)
+        })
+      }
+      return {...c,rubros}
+    })
+  ,[todosContratos,overrides])
+
+  // Chips: conteo de contratos que tienen al menos un artículo en ese rubro
   const conteoRubros=useMemo(()=>{
-    const r:Record<string,number>={"SIN CATEGORÍA":0}
-    ALL_CATS.filter(c=>c!=="SIN CATEGORÍA").forEach(c=>r[c]=0)
-    todosContratos.forEach(c=>{ r[c.catEfectiva]=(r[c.catEfectiva]||0)+1 })
+    const r:Record<string,number>={}
+    ALL_CATS.forEach(c=>r[c]=0)
+    contratoRubros.forEach(c=>c.rubros.forEach(rubro=>{ r[rubro]=(r[rubro]||0)+1 }))
     return r
-  },[todosContratos])
+  },[contratoRubros])
 
   // Usar snapshot fijo mientras el usuario está clasificando (evita jumps al re-render)
   const listaBase=listaFija||sinClasifArr
@@ -451,12 +470,12 @@ function AnalyticsSection({token,contratos:contratosRaw}:{token:string,contratos
       // Sin filtro o filtro SIN CATEGORÍA → usa snapshot/sinClasif normal
       return listaBase.map(([id,info])=>({id,info,catEfectiva:"SIN CATEGORÍA" as string}))
     }
-    // Filtro por rubro específico → muestra contratos de ese rubro
-    return todosContratos
-      .filter(c=>c.catEfectiva===filtroRubro)
+    // Filtro por rubro → muestra contratos que tienen AL MENOS UN artículo de ese rubro
+    return contratoRubros
+      .filter(c=>c.rubros.has(filtroRubro))
       .map(c=>({id:c.id,info:{total:c.total,contratos:1,cliente:c.cliente,fecha:c.fecha,folio:c.folio},catEfectiva:c.catEfectiva}))
       .sort((a,b)=>b.info.total-a.info.total)
-  },[filtroRubro,listaBase,todosContratos])
+  },[filtroRubro,listaBase,contratoRubros])
 
   const listaFiltradaBusq=busqClasif
     ? listaParaMostrar.filter(({id,info})=>
