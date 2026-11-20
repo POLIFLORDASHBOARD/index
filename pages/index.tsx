@@ -2854,8 +2854,93 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
           rechazada:"#fdf0f0",expirada:"#fffbeb",convertida:"#f0f0f0"
         }
 
+        // ── COBROS PENDIENTES con alerta por proximidad ──
+        const cobrosPendientes=contratos
+          .filter((c:any)=>(c.total||0)>0&&(c.cobrado||0)<(c.total||0)&&c.fecha_evento)
+          .map((c:any)=>{
+            const saldo=(c.total||0)-(c.cobrado||0)
+            const diasEvento=Math.ceil((new Date(c.fecha_evento+"T12:00:00").getTime()-hoy.getTime())/86400000)
+            let urgencia:"vencido"|"hoy"|"urgente"|"proximo"|"normal"="normal"
+            if(diasEvento<0) urgencia="vencido"
+            else if(diasEvento===0) urgencia="hoy"
+            else if(diasEvento<=3) urgencia="urgente"
+            else if(diasEvento<=7) urgencia="proximo"
+            return{...c,saldo,diasEvento,urgencia}
+          })
+          .sort((a:any,b:any)=>a.diasEvento-b.diasEvento)
+        const urgenciaCfg:{[k:string]:{bg:string,border:string,color:string,label:string,dot:string}}={
+          vencido:{bg:"#1a0505",border:"#8b2e2e",color:"#ff6b6b",label:"VENCIDO",dot:"#ff6b6b"},
+          hoy:    {bg:"#1a0505",border:"#dc2626",color:"#ef4444",label:"HOY",dot:"#ef4444"},
+          urgente:{bg:"#1a0d00",border:"#92580a",color:"#f59e0b",label:"URGENTE",dot:"#f59e0b"},
+          proximo:{bg:"#0a1a0a",border:"#2d6a4f",color:"#4ade80",label:"PRÓXIMO",dot:"#4ade80"},
+          normal: {bg:"#fff",   border:"#e8e5de",color:"#4a4640",label:"",dot:"#9a9590"},
+        }
+
         return(
           <div style={{display:"flex",flexDirection:"column" as const,gap:16}}>
+
+            {/* ── COBROS PENDIENTES ── */}
+            {cobrosPendientes.length>0&&(
+              <div style={{background:"#0f172a",borderRadius:12,overflow:"hidden",border:"1px solid #1e293b"}}>
+                <div style={{padding:"12px 16px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:16}}>💰</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:"Playfair Display,serif",fontSize:14,fontWeight:800,color:"#f8fafc"}}>Cobros pendientes</div>
+                    <div style={{fontSize:10,color:"#64748b",marginTop:1}}>
+                      {cobrosPendientes.length} contratos · {fmt(cobrosPendientes.reduce((s:number,c:any)=>s+c.saldo,0))} por cobrar
+                    </div>
+                  </div>
+                </div>
+                <div style={{maxHeight:320,overflowY:"auto" as const}}>
+                  {cobrosPendientes.map((c:any,i:number)=>{
+                    const cfg=urgenciaCfg[c.urgencia]
+                    const pct=c.total>0?Math.round((c.cobrado||0)/c.total*100):0
+                    return(
+                      <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,
+                        padding:"10px 16px",borderBottom:"1px solid #1e293b",
+                        background:c.urgencia!=="normal"?cfg.bg:"transparent"}}>
+                        {/* Dot urgencia */}
+                        <div style={{width:8,height:8,borderRadius:"50%",background:cfg.dot,flexShrink:0,
+                          boxShadow:c.urgencia!=="normal"&&c.urgencia!=="proximo"?`0 0 6px ${cfg.dot}`:"none"}}/>
+                        {/* Info cliente */}
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                            <span style={{fontWeight:700,fontSize:12,color:"#f1f5f9",
+                              overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
+                              {c.cliente||"Sin cliente"}
+                            </span>
+                            {c.urgencia!=="normal"&&(
+                              <span style={{fontSize:8,fontWeight:800,padding:"1px 5px",borderRadius:3,
+                                background:cfg.border,color:"#fff",flexShrink:0}}>
+                                {cfg.label}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                            <span style={{fontSize:9,color:"#64748b",fontFamily:"monospace"}}>{c.folio}</span>
+                            <span style={{fontSize:9,color:cfg.color,fontWeight:600}}>
+                              📅 {c.fecha_evento}
+                              {c.diasEvento<0?` (hace ${Math.abs(c.diasEvento)}d)`:c.diasEvento===0?" (hoy)":` (en ${c.diasEvento}d)`}
+                            </span>
+                          </div>
+                          {/* Barra de pago */}
+                          <div style={{marginTop:4,height:3,borderRadius:2,background:"#1e293b",width:"100%"}}>
+                            <div style={{height:3,borderRadius:2,background:pct>=100?"#4ade80":pct>50?"#f59e0b":"#ef4444",width:`${pct}%`}}/>
+                          </div>
+                        </div>
+                        {/* Montos */}
+                        <div style={{textAlign:"right" as const,flexShrink:0}}>
+                          <div style={{fontSize:13,fontWeight:800,fontFamily:"monospace",color:cfg.color}}>
+                            {fmt(c.saldo)}
+                          </div>
+                          <div style={{fontSize:9,color:"#64748b"}}>{pct}% cobrado</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* ── KPIs principales ── */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
