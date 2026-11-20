@@ -2868,12 +2868,12 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
             return{...c,saldo,diasEvento,urgencia}
           })
           .sort((a:any,b:any)=>a.diasEvento-b.diasEvento)
-        const urgenciaCfg:{[k:string]:{bg:string,border:string,color:string,label:string,dot:string}}={
-          vencido:{bg:"#1a0505",border:"#8b2e2e",color:"#ff6b6b",label:"VENCIDO",dot:"#ff6b6b"},
-          hoy:    {bg:"#1a0505",border:"#dc2626",color:"#ef4444",label:"HOY",dot:"#ef4444"},
-          urgente:{bg:"#1a0d00",border:"#92580a",color:"#f59e0b",label:"URGENTE",dot:"#f59e0b"},
-          proximo:{bg:"#0a1a0a",border:"#2d6a4f",color:"#4ade80",label:"PRÓXIMO",dot:"#4ade80"},
-          normal: {bg:"#fff",   border:"#e8e5de",color:"#4a4640",label:"",dot:"#9a9590"},
+        const urgenciaCfg:{[k:string]:{bg:string,border:string,color:string,label:string,dot:string,icon:string}}={
+          vencido:{bg:"#fff5f5",border:"#fca5a5",color:"#dc2626",label:"Evento pasado",dot:"#dc2626",icon:"🚨"},
+          hoy:    {bg:"#fff7ed",border:"#fdba74",color:"#ea580c",label:"Evento HOY",dot:"#ea580c",icon:"⚡"},
+          urgente:{bg:"#fffbeb",border:"#fcd34d",color:"#d97706",label:"Faltan 1-3 días",dot:"#f59e0b",icon:"⚠️"},
+          proximo:{bg:"#f0fdf4",border:"#86efac",color:"#16a34a",label:"Esta semana",dot:"#22c55e",icon:"📅"},
+          normal: {bg:"#fff",   border:"#e8e5de",color:"#6b7280",label:"",dot:"#d1d5db",icon:"📋"},
         }
 
         return(
@@ -2881,59 +2881,81 @@ function FinanzasSection({contratos,token,pwd,pwdInput,setPwdInput,pwdError,onUn
 
             {/* ── COBROS PENDIENTES ── */}
             {cobrosPendientes.length>0&&(
-              <div style={{background:"#0f172a",borderRadius:12,overflow:"hidden",border:"1px solid #1e293b"}}>
-                <div style={{padding:"12px 16px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:16}}>💰</span>
+              <div style={{background:"#fff",borderRadius:14,overflow:"hidden",
+                border:"1px solid #e8e5de",boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+                {/* Header */}
+                <div style={{padding:"14px 20px",borderBottom:"1px solid #f0ece4",
+                  display:"flex",alignItems:"center",gap:10,background:"#fafaf8"}}>
+                  <span style={{fontSize:20}}>💰</span>
                   <div style={{flex:1}}>
-                    <div style={{fontFamily:"Playfair Display,serif",fontSize:14,fontWeight:800,color:"#f8fafc"}}>Cobros pendientes</div>
-                    <div style={{fontSize:10,color:"#64748b",marginTop:1}}>
-                      {cobrosPendientes.length} contratos · {fmt(cobrosPendientes.reduce((s:number,c:any)=>s+c.saldo,0))} por cobrar
+                    <div style={{fontSize:15,fontWeight:800,color:"#1a1814"}}>Cobros pendientes</div>
+                    <div style={{fontSize:11,color:"#9a9590",marginTop:1}}>
+                      {cobrosPendientes.length} contratos · <strong style={{color:"#dc2626"}}>{fmt(cobrosPendientes.reduce((s:number,c:any)=>s+c.saldo,0))}</strong> por cobrar
                     </div>
                   </div>
+                  {/* Resumen rápido */}
+                  <div style={{display:"flex",gap:6}}>
+                    {(["vencido","hoy","urgente","proximo"] as const).map(u=>{
+                      const n=cobrosPendientes.filter((c:any)=>c.urgencia===u).length
+                      if(!n) return null
+                      const cfg=urgenciaCfg[u]
+                      return(
+                        <div key={u} style={{background:cfg.bg,border:`1px solid ${cfg.border}`,
+                          borderRadius:8,padding:"4px 10px",textAlign:"center" as const}}>
+                          <div style={{fontSize:16,fontWeight:800,color:cfg.color,lineHeight:1}}>{n}</div>
+                          <div style={{fontSize:8,color:cfg.color,fontWeight:600,marginTop:1}}>{cfg.icon}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-                <div style={{maxHeight:320,overflowY:"auto" as const}}>
+                {/* Lista */}
+                <div style={{maxHeight:400,overflowY:"auto" as const}}>
                   {cobrosPendientes.map((c:any,i:number)=>{
                     const cfg=urgenciaCfg[c.urgencia]
                     const pct=c.total>0?Math.round((c.cobrado||0)/c.total*100):0
+                    const diasTexto=c.diasEvento<0?`Hace ${Math.abs(c.diasEvento)} día${Math.abs(c.diasEvento)!==1?"s":""}`:
+                      c.diasEvento===0?"Hoy":c.diasEvento===1?"Mañana":`En ${c.diasEvento} días`
                     return(
-                      <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,
-                        padding:"10px 16px",borderBottom:"1px solid #1e293b",
-                        background:c.urgencia!=="normal"?cfg.bg:"transparent"}}>
-                        {/* Dot urgencia */}
-                        <div style={{width:8,height:8,borderRadius:"50%",background:cfg.dot,flexShrink:0,
-                          boxShadow:c.urgencia!=="normal"&&c.urgencia!=="proximo"?`0 0 6px ${cfg.dot}`:"none"}}/>
-                        {/* Info cliente */}
+                      <div key={c.id} style={{display:"flex",alignItems:"center",gap:14,
+                        padding:"12px 20px",borderBottom:"1px solid #f5f4f0",
+                        background:cfg.bg,
+                        borderLeft:`4px solid ${cfg.border}`}}>
+                        {/* Icono */}
+                        <div style={{fontSize:18,flexShrink:0}}>{cfg.icon}</div>
+                        {/* Info */}
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                            <span style={{fontWeight:700,fontSize:12,color:"#f1f5f9",
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                            <span style={{fontWeight:700,fontSize:13,color:"#1a1814",
                               overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
                               {c.cliente||"Sin cliente"}
                             </span>
-                            {c.urgencia!=="normal"&&(
-                              <span style={{fontSize:8,fontWeight:800,padding:"1px 5px",borderRadius:3,
-                                background:cfg.border,color:"#fff",flexShrink:0}}>
-                                {cfg.label}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                            <span style={{fontSize:9,color:"#64748b",fontFamily:"monospace"}}>{c.folio}</span>
-                            <span style={{fontSize:9,color:cfg.color,fontWeight:600}}>
-                              📅 {c.fecha_evento}
-                              {c.diasEvento<0?` (hace ${Math.abs(c.diasEvento)}d)`:c.diasEvento===0?" (hoy)":` (en ${c.diasEvento}d)`}
+                            <span style={{fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:10,
+                              background:cfg.border,color:c.urgencia==="normal"?"#4a4640":"#fff",flexShrink:0}}>
+                              {diasTexto}
                             </span>
                           </div>
-                          {/* Barra de pago */}
-                          <div style={{marginTop:4,height:3,borderRadius:2,background:"#1e293b",width:"100%"}}>
-                            <div style={{height:3,borderRadius:2,background:pct>=100?"#4ade80":pct>50?"#f59e0b":"#ef4444",width:`${pct}%`}}/>
+                          <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:5}}>
+                            <span style={{fontSize:10,color:"#9a9590",fontFamily:"monospace"}}>{c.folio}</span>
+                            <span style={{fontSize:10,color:"#9a9590"}}>📅 {c.fecha_evento}</span>
+                            <span style={{fontSize:10,color:"#9a9590"}}>Total: {fmt(c.total)}</span>
+                          </div>
+                          {/* Barra progreso cobro */}
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{flex:1,height:6,borderRadius:3,background:"#e8e5de",overflow:"hidden"}}>
+                              <div style={{height:"100%",borderRadius:3,
+                                background:pct>=100?"#22c55e":pct>50?"#f59e0b":"#ef4444",
+                                width:`${pct}%`,transition:"width .3s"}}/>
+                            </div>
+                            <span style={{fontSize:9,color:"#9a9590",fontWeight:600,flexShrink:0}}>{pct}% cobrado</span>
                           </div>
                         </div>
-                        {/* Montos */}
-                        <div style={{textAlign:"right" as const,flexShrink:0}}>
-                          <div style={{fontSize:13,fontWeight:800,fontFamily:"monospace",color:cfg.color}}>
+                        {/* Saldo */}
+                        <div style={{textAlign:"right" as const,flexShrink:0,minWidth:80}}>
+                          <div style={{fontSize:15,fontWeight:800,fontFamily:"monospace",color:cfg.color}}>
                             {fmt(c.saldo)}
                           </div>
-                          <div style={{fontSize:9,color:"#64748b"}}>{pct}% cobrado</div>
+                          <div style={{fontSize:9,color:"#9a9590",marginTop:2}}>pendiente</div>
                         </div>
                       </div>
                     )
