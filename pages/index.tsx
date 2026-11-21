@@ -5340,10 +5340,9 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
         const lun=new Date(d); lun.setDate(d.getDate()-dow)
         return lun.toISOString().slice(0,10)===filtroSem
       })()
-      const _est = filtroEst==="todos"||(cot.estado||"enviada")===filtroEst
-      return _vend&&_ano&&_mes&&_sem&&_est
+      return _vend&&_ano&&_mes&&_sem
     })
-  },[cots, busqCotDebounced, filtroVendCot, filtroAno, filtroMes, filtroSem, filtroEst])
+  },[cots, busqCotDebounced, filtroVendCot, filtroAno, filtroMes, filtroSem])
 
   // Dirty = tiene cliente o artículos y no se ha guardado
   const formTieneDatos = !!(
@@ -5392,7 +5391,7 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
   const cargar = async () => {
     setCargando(true)
     // Load from cotizaciones table
-    const url = filtroEst !== "todos" ? `/api/cotizaciones?estado=${filtroEst}` : "/api/cotizaciones"
+    const url = "/api/cotizaciones"
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     const fromDB = await res.json()
     // Also load contratos tipo=cotizacion from Excel system
@@ -5444,7 +5443,6 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
         return x
       })
     const allCots = [...dbCots, ...cotFromExcel]
-      .filter(c => filtroEst === "todos" || (c as any).estado === filtroEst)
       .sort((a,b) => (b.creado_en||"").localeCompare(a.creado_en||""))
     setCots(allCots)
     setCargando(false)
@@ -5929,18 +5927,6 @@ document.getElementById("btn-pdf").onclick=function(){
               📅 {vista==="calendario"?"Lista":"Calendario"}
             </button>
           </div>
-        </div>
-        {/* Filtros estado */}
-        <div style={{display:"flex",gap:6,marginTop:12,flexWrap:"wrap" as const}}>
-          {["todos",...ESTADOS_COT].map(e=>{
-            const n = e==="todos" ? cots.length : cots.filter(c=>c.estado===e).length
-            return(
-              <button key={e} onClick={()=>{setFiltroEst(e);setTimeout(cargar,0)}}
-                style={{padding:"3px 10px",borderRadius:14,border:`1.5px solid ${filtroEst===e?(ESTADO_COL[e]||"#1a1814"):"#e8e5de"}`,background:filtroEst===e?(ESTADO_BG[e]||"#f5f4f0"):"#fff",color:filtroEst===e?(ESTADO_COL[e]||"#1a1814"):"#4a4640",fontSize:10,fontWeight:filtroEst===e?700:400,cursor:"pointer",fontFamily:"Epilogue,sans-serif"}}>
-                {e==="todos"?"Todos":ESTADO_LABEL[e]} ({n})
-              </button>
-            )
-          })}
         </div>
         {/* Filtro por vendedor */}
         <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap" as const,alignItems:"center"}}>
