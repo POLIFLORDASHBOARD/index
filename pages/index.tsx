@@ -5428,7 +5428,7 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
         actualizado_en: x.fecha_evento || "",
         _fromExcel: true
       } as any))
-    // Cotizaciones: mostrar todas sin filtrar por estado
+    // Cotizaciones: mostrar todas excepto las ya convertidas a contrato
     const hoyMs = Date.now()
     const dbCots = (Array.isArray(fromDB) ? fromDB : [])
       .map((x:any) => {
@@ -5441,6 +5441,7 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
         if(!x.estado) return {...x, estado:"enviada"}
         return x
       })
+      .filter((x:any) => x.estado !== "convertida")
     const allCots = [...dbCots, ...cotFromExcel]
       .sort((a,b) => (b.creado_en||"").localeCompare(a.creado_en||""))
     setCots(allCots)
