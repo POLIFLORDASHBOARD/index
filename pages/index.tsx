@@ -5441,7 +5441,6 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
         if(!x.estado) return {...x, estado:"enviada"}
         return x
       })
-      .filter((x:any) => x.estado !== "convertida")
     const allCots = [...dbCots, ...cotFromExcel]
       .sort((a,b) => (b.creado_en||"").localeCompare(a.creado_en||""))
     setCots(allCots)
