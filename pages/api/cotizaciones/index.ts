@@ -26,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     let q = supabase.from("cotizaciones").select("*").order("creado_en", { ascending: false })
     if (estado && estado !== "todos") q = q.eq("estado", String(estado))
-    const { data, error } = await q.limit(500)
+    const { data, error } = await q.limit(2000)
     if (error) return res.status(500).json({ error: error.message })
     return res.status(200).json(data || [])
   }
