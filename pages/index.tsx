@@ -5323,6 +5323,8 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
   // Lista filtrada memoizada — evita re-filtrar 900+ items en cada render
   const cotsFiltradas = useMemo(()=>{
     return cots.filter((cot:any)=>{
+      // Ocultar convertidas — ya viven en Contratos
+      if(cot.estado==="convertida") return false
       const _q = (busqCotDebounced||"").toLowerCase().trim()
       if(_q){
         return (cot.cliente_nombre||"").toLowerCase().includes(_q)
@@ -5330,12 +5332,15 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
           || (cot.lugar_evento||"").toLowerCase().includes(_q)
           || (cot.cliente_tel||"").includes(_q)
       }
-      const _vend = filtroVendCot==="todos"||(cot.vendedor||vendedorDesdeFolio(cot.folio||""))===filtroVendCot
-      const _ano = !filtroAno||((cot.fecha_evento||"").startsWith(filtroAno))
-      const _mes = !filtroMes||((cot.fecha_evento||"").startsWith(filtroAno+"-"+filtroMes))
-      const _sem = !filtroSem||(()=>{
-        if(!cot.fecha_evento) return false
-        const d=new Date(cot.fecha_evento+"T12:00:00")
+      // Filtro vendedor: si la cot no tiene vendedor asignado, siempre se muestra
+      const vendCot = cot.vendedor||vendedorDesdeFolio(cot.folio||"")||""
+      const _vend = filtroVendCot==="todos"||!vendCot||vendCot===filtroVendCot
+      // Filtros de fecha: si la cot no tiene fecha_evento, pasa todos los filtros de fecha
+      const fecha = cot.fecha_evento||""
+      const _ano = !filtroAno||!fecha||fecha.startsWith(filtroAno)
+      const _mes = !filtroMes||!fecha||fecha.startsWith((filtroAno||fecha.slice(0,4))+"-"+filtroMes)
+      const _sem = !filtroSem||!fecha||(()=>{
+        const d=new Date(fecha+"T12:00:00")
         const dow=d.getDay()===0?6:d.getDay()-1
         const lun=new Date(d); lun.setDate(d.getDate()-dow)
         return lun.toISOString().slice(0,10)===filtroSem
