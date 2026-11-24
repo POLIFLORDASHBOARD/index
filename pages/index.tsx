@@ -5428,10 +5428,9 @@ function CotizacionesSection({ token, personal, logoUrl, vendedorActual, esAdmin
         actualizado_en: x.fecha_evento || "",
         _fromExcel: true
       } as any))
-    // Cotizaciones: exclude converted ones (they become contratos)
+    // Cotizaciones: mostrar todas sin filtrar por estado
     const hoyMs = Date.now()
     const dbCots = (Array.isArray(fromDB) ? fromDB : [])
-      .filter((x:any) => x.estado !== "convertida")
       .map((x:any) => {
         // Auto-marcar expirada si fecha_vigencia pasó y estado sigue activo
         if(x.fecha_vigencia && ["enviada","vista","pendiente","por_vencer"].includes(x.estado)) {
