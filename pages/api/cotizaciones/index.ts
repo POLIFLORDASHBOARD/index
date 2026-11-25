@@ -24,11 +24,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!data) return res.status(404).json({ error: "No encontrado" })
       return res.status(200).json(data)
     }
-    let q = supabase.from("cotizaciones").select("*").order("creado_en", { ascending: false })
-    if (estado && estado !== "todos") q = q.eq("estado", String(estado))
-    const { data, error } = await q.limit(5000)
-    if (error) return res.status(500).json({ error: error.message })
-    return res.status(200).json(data || [])
+    // Paginar para traer TODOS los registros (Supabase limita a 1000 por request)
+    const PAGE = 1000
+    let all: any[] = []
+    let from = 0
+    while (true) {
+      let q = supabase.from("cotizaciones").select("*").order("creado_en", { ascending: false }).range(from, from + PAGE - 1)
+      if (estado && estado !== "todos") q = q.eq("estado", String(estado))
+      const { data, error } = await q
+      if (error) return res.status(500).json({ error: error.message })
+      if (!data || data.length === 0) break
+      all = all.concat(data)
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    return res.status(200).json(all)
   }
 
   // POST — crear cotización con folio automático + prefijo vendedor
